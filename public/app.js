@@ -166,8 +166,8 @@ function renderHeader() {
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
-        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0;">
-          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 40px; width: auto; object-fit: contain;" />
+        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;">
+          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
         </a>
 
         <!-- Hamburger Icon for Mobile -->
