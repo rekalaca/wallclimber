@@ -273,7 +273,7 @@ async function initPublicLanding() {
           video.classList.remove('video-ended');
           video.play().catch(err => console.log("Video autoplay loop error:", err));
         }, 1200);
-      }, 3000);
+      }, 4500);
     });
   }
   try {
