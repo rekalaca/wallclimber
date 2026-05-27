@@ -235,6 +235,10 @@ function isActive(page) {
 
 // ---------------- PUBLIC LANDING PAGE (INDEX) ----------------
 async function initPublicLanding() {
+  const video = document.querySelector('.hero-video-bg');
+  if (video) {
+    video.playbackRate = 0.65;
+  }
   try {
     const res = await fetch('/api/locations');
     if (!res.ok) throw new Error('Hiba a helyszínek betöltésekor');
