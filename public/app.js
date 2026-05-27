@@ -668,6 +668,15 @@ async function initScanner() {
     return;
   }
 
+  // Auto-check if uuid exists in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlUuid = urlParams.get('uuid');
+  if (urlUuid) {
+    setTimeout(() => {
+      validateScannedQR(urlUuid);
+    }, 100);
+  }
+
   // Populate locations select in the scanner view
   const locSelect = document.getElementById('scanner-location-select');
   if (locSelect) {
@@ -710,29 +719,32 @@ async function initScanner() {
     }
   }
 
-  // Camera Reader setup
-  if (typeof Html5QrcodeScanner !== 'undefined') {
-    html5QrcodeScanner = new Html5QrcodeScanner(
-      "qr-reader-viewport", 
-      { 
-        fps: 10, 
-        qrbox: 250,
-        aspectRatio: 1.0,
-        supportedScanTypes: [Html5QrcodeSupportedScanTypes.CAMERA]
+  // Only setup camera scanner if there is NO uuid in the URL
+  if (!urlUuid) {
+    try {
+      if (typeof Html5QrcodeScanner !== 'undefined') {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+          "qr-reader-viewport", 
+          { 
+            fps: 10, 
+            qrbox: 250,
+            aspectRatio: 1.0,
+            supportedScanTypes: [Html5QrcodeSupportedScanTypes.CAMERA]
+          }
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanError);
+      } else {
+        showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
       }
-    );
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
+    } catch (cameraErr) {
+      console.warn('Nem sikerült elindítani a kamerát (lehet, hogy nincs engedély vagy eszköz):', cameraErr);
+    }
   } else {
-    showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
-  }
-
-  // Auto-check if uuid exists in URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlUuid = urlParams.get('uuid');
-  if (urlUuid) {
-    setTimeout(() => {
-      validateScannedQR(urlUuid);
-    }, 500);
+    // If scanning via URL, hide camera scanner viewport or show a helpful message
+    const readerViewport = document.getElementById('qr-reader-viewport');
+    if (readerViewport) {
+      readerViewport.innerHTML = '<p style="text-align:center; padding:15px; color:var(--text-secondary); font-size: 14px;">Kód beolvasva a külső kamerából. Jegy adatok lekérdezése folyamatban...</p>';
+    }
   }
 }
 
