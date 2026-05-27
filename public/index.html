@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HawkStone Városi Mászóklub | Nyíregyháza</title>
-  <link rel="stylesheet" href="style.css?v=20260527_v6">
+  <link rel="stylesheet" href="style.css?v=20260527_v7">
 </head>
 <body>
 
@@ -15,12 +15,19 @@
   <header></header>
 
   <!-- Hero Section -->
-  <section class="hero container">
-    <h1>Nyíregyháza Legújabb<br>Városi Mászóklubja</h1>
-    <p>Próbáld ki magad az Eötvös, Kossuth vagy Zrínyi falainkon! Három különböző helyszín, professzionális utak, online órarend és egyszerű QR-kódos beléptetés.</p>
-    <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
-      <a href="auth.html" class="btn btn-primary">Regisztráció foglaláshoz</a>
-      <a href="#prices" class="btn btn-secondary">Jegyárak megtekintése</a>
+  <section class="hero">
+    <video autoplay loop muted playsinline class="hero-video-bg">
+      <source src="video/hero.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+    <div class="hero-video-overlay"></div>
+    <div class="hero-content container">
+      <h1>Nyíregyháza Legújabb<br>Városi Mászóklubja</h1>
+      <p>Próbáld ki magad az Eötvös, Kossuth vagy Zrínyi falainkon! Három különböző helyszín, professzionális utak, online órarend és egyszerű QR-kódos beléptetés.</p>
+      <div style="display:none; justify-content:center; gap:15px; flex-wrap:wrap;">
+        <a href="auth.html" class="btn btn-primary">Regisztráció foglaláshoz</a>
+        <a href="#prices" class="btn btn-secondary">Jegyárak megtekintése</a>
+      </div>
     </div>
   </section>
 
@@ -188,6 +195,6 @@
   <script>
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
   </script>
-  <script src="app.js?v=20260527_v6"></script>
+  <script src="app.js?v=20260527_v7"></script>
 </body>
 </html>
