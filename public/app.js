@@ -236,8 +236,35 @@ function isActive(page) {
 // ---------------- PUBLIC LANDING PAGE (INDEX) ----------------
 async function initPublicLanding() {
   const video = document.querySelector('.hero-video-bg');
+  const heroContent = document.querySelector('.hero-content');
   if (video) {
     video.playbackRate = 0.65;
+    video.loop = false;
+    
+    video.addEventListener('ended', () => {
+      // 1. Fade out video to black
+      video.classList.add('video-ended');
+      
+      // 2. Fade in text content
+      if (heroContent) {
+        heroContent.classList.add('visible');
+      }
+      
+      // 3. Wait 3 seconds
+      setTimeout(() => {
+        // 4. Fade out text
+        if (heroContent) {
+          heroContent.classList.remove('visible');
+        }
+        
+        // 5. Once text fades out, restart video
+        setTimeout(() => {
+          video.currentTime = 0;
+          video.classList.remove('video-ended');
+          video.play().catch(err => console.log("Video autoplay loop error:", err));
+        }, 1200);
+      }, 3000);
+    });
   }
   try {
     const res = await fetch('/api/locations');
