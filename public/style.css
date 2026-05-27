@@ -309,8 +309,8 @@ header {
 
 .hero-content p {
   opacity: 0;
-  transform: translateY(45px);
-  transition: opacity 0.5s ease-in-out, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(80px);
+  transition: opacity 0.3s ease-in, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .hero-content.visible p {
