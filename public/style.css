@@ -1,5 +1,5 @@
 /* Google Fonts Import */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   /* Color Palette */
@@ -39,7 +39,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   background-color: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.6;
@@ -54,7 +54,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -106,7 +106,7 @@ header {
 
 .logo-text {
   font-size: 24px;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-weight: 800;
 }
 
@@ -186,7 +186,7 @@ header {
   transition: var(--transition);
   text-decoration: none;
   border: none;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   gap: 8px;
 }
 
@@ -329,7 +329,7 @@ header {
 
 .price-amount {
   font-size: 40px;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   color: var(--text-primary);
   margin-bottom: 25px;
   font-weight: 800;
@@ -384,7 +384,7 @@ header {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-size: 15px;
   transition: var(--transition);
 }
@@ -417,7 +417,7 @@ select.form-control option {
   padding: 15px;
   text-align: center;
   cursor: pointer;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-size: 18px;
   font-weight: 600;
   color: var(--text-muted);
@@ -677,7 +677,7 @@ select.form-control option {
 
 .schedule-time {
   font-size: 20px;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -912,7 +912,7 @@ select.form-control option {
 }
 
 .admin-table th {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   color: var(--text-secondary);
   font-weight: 600;
   background: rgba(255, 255, 255, 0.02);
@@ -1153,6 +1153,7 @@ header.admin-header {
     left: 0;
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     background: rgba(15, 17, 26, 0.98);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
@@ -1160,12 +1161,13 @@ header.admin-header {
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
-    padding: 90px 30px 40px 30px;
+    padding: 90px 30px calc(100px + env(safe-area-inset-bottom)) 30px;
     gap: 20px;
     transform: translateX(-100%);
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 999;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
   }
 
   header .nav-menu.open {
@@ -1202,6 +1204,7 @@ header.admin-header {
     width: 100%;
     padding-top: 20px;
     border-top: 1px solid var(--border-color);
+    padding-bottom: 20px;
   }
 }
 
@@ -1212,7 +1215,7 @@ header.admin-header {
   right: 20px;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1220,19 +1223,19 @@ header.admin-header {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   transition: var(--transition);
 }
 
 .menu-close-btn:hover {
-  color: var(--text-primary);
+  color: var(--primary);
   background: rgba(255, 107, 0, 0.2);
   border-color: var(--primary);
 }
 
 .nav-menu.open .menu-close-btn svg {
-  animation: spinAndStop 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: spinAndStop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes spinAndStop {
@@ -1241,7 +1244,7 @@ header.admin-header {
     opacity: 0;
   }
   100% {
-    transform: rotate(180deg) scale(1);
+    transform: rotate(720deg) scale(1);
     opacity: 1;
   }
 }
@@ -1553,4 +1556,45 @@ header.admin-header {
     padding-top: 20px !important;
     padding-bottom: 40px !important;
   }
+  .glass-card {
+    padding: 15px !important;
+  }
+  .news-card {
+    padding: 10px !important;
+  }
+}
+
+/* Custom layout for News Board column display */
+.news-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+}
+
+.news-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 15px;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.news-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--primary);
+}
+
+/* Typography alignment and hyphenation */
+.text-justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
 }

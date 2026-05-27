@@ -310,7 +310,7 @@ async function loadPublicSchedules(locations, date) {
           
           slotsHtml += `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; padding: 8px 12px; background: rgba(255,255,255,0.01); border-radius: 8px; border: 1px solid rgba(255,255,255,0.02)">
-              <span style="font-weight:600; font-family:'Outfit'; font-size:14px;">${slot.start_time} - ${slot.end_time}</span>
+              <span style="font-weight:600; font-family:'Montserrat'; font-size:14px;">${slot.start_time} - ${slot.end_time}</span>
               <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
                 <span class="occupancy-text" style="font-size:11px;">${slot.booked_count}/${slot.max_capacity} fő (${occupancyText})</span>
                 <div class="progress-bar-bg" style="width: 80px; height: 4px;">
@@ -1199,41 +1199,67 @@ async function loadAdminUsers() {
     if (!res.ok) throw new Error();
     const users = await res.json();
 
-    container.innerHTML = '';
-    window.adminUsers = users; // Store globally for details modal lookup
-    
-    if (users.length === 0) {
-      container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Nem található regisztrált tag.</p>';
-      return;
-    }
-
-    users.forEach(u => {
-      const card = document.createElement('div');
-      card.className = 'user-card';
-      card.setAttribute('onclick', `openUserDetailsModal(${u.id})`);
-      
-      const badgeClass = u.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red';
-      const roleBadge = u.role === 'ADMIN' ? 'badge-primary' : (u.role === 'STAFF' ? 'badge-secondary' : '');
-      const roleLabel = u.role === 'ADMIN' ? 'Admin' : (u.role === 'STAFF' ? 'Staff' : 'Mászó');
-
-      card.innerHTML = `
-        <div class="user-card-header">
-          <div>
-            <div class="user-card-name">${u.name}</div>
-            <div class="user-card-email" style="font-size:12px; color:var(--text-secondary); margin-top:3px; word-break:break-all;">${u.email}</div>
-            <div class="user-card-phone" style="font-size:12px; color:var(--text-muted); margin-top:2px;">${u.phone || '-'}</div>
-          </div>
-        </div>
-        <div class="user-card-badges" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
-          <span class="badge ${badgeClass}">${u.card_type} KÁRTYA</span>
-          ${roleBadge ? `<span class="badge" style="background:#4f46e5;">${roleLabel}</span>` : ''}
-        </div>
-      `;
-      container.appendChild(card);
-    });
+    window.adminUsers = users; // Store globally for details modal lookup and sorting
+    renderAdminUsers();
   } catch (err) {
     container.innerHTML = '<p style="text-align:center; color:var(--danger); width: 100%; grid-column: 1/-1;">Nem sikerült a felhasználók betöltése.</p>';
   }
+}
+
+function renderAdminUsers() {
+  const container = document.getElementById('admin-users-list');
+  if (!container || !window.adminUsers) return;
+
+  const sortSelect = document.getElementById('admin-users-sort');
+  const sortBy = sortSelect ? sortSelect.value : 'name-asc';
+
+  let sortedUsers = [...window.adminUsers];
+
+  if (sortBy === 'name-asc') {
+    sortedUsers.sort((a, b) => a.name.localeCompare(b.name, 'hu'));
+  } else if (sortBy === 'name-desc') {
+    sortedUsers.sort((a, b) => b.name.localeCompare(a.name, 'hu'));
+  } else if (sortBy === 'reg-desc') {
+    sortedUsers.sort((a, b) => b.id - a.id); // Newest first
+  } else if (sortBy === 'reg-asc') {
+    sortedUsers.sort((a, b) => a.id - b.id); // Oldest first
+  }
+
+  container.innerHTML = '';
+  
+  if (sortedUsers.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Nem található regisztrált tag.</p>';
+    return;
+  }
+
+  sortedUsers.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+    card.setAttribute('onclick', `openUserDetailsModal(${u.id})`);
+    
+    const badgeClass = u.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red';
+    const roleBadge = u.role === 'ADMIN' ? 'badge-primary' : (u.role === 'STAFF' ? 'badge-secondary' : '');
+    const roleLabel = u.role === 'ADMIN' ? 'Admin' : (u.role === 'STAFF' ? 'Staff' : 'Mászó');
+
+    card.innerHTML = `
+      <div class="user-card-header">
+        <div>
+          <div class="user-card-name">${u.name}</div>
+          <div class="user-card-email" style="font-size:12px; color:var(--text-secondary); margin-top:3px; word-break:break-all;">${u.email}</div>
+          <div class="user-card-phone" style="font-size:12px; color:var(--text-muted); margin-top:2px;">${u.phone || '-'}</div>
+        </div>
+      </div>
+      <div class="user-card-badges" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
+        <span class="badge ${badgeClass}">${u.card_type} KÁRTYA</span>
+        ${roleBadge ? `<span class="badge" style="background:#4f46e5;">${roleLabel}</span>` : ''}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function sortAdminUsers() {
+  renderAdminUsers();
 }
 
 function openUserDetailsModal(userId) {
@@ -1529,11 +1555,11 @@ async function loadNewsAnnouncements() {
     window.adminAnnouncements = list; // Save globally for editing lookup
 
     const grid = document.createElement('div');
-    grid.className = 'user-cards-grid';
+    grid.className = 'news-cards-grid';
 
     list.forEach(item => {
       const card = document.createElement('div');
-      card.className = 'user-card';
+      card.className = 'news-card';
       card.style.cursor = 'default';
 
       const activeBadge = item.is_active ? '<span class="badge badge-green">Aktív</span>' : '<span class="badge badge-red">Inaktív</span>';
@@ -1558,7 +1584,7 @@ async function loadNewsAnnouncements() {
             ${item.created_at ? item.created_at.substring(0, 16).replace('T', ' ') : '-'}
           </div>
           ${imagePreviewHtml}
-          <div style="font-size:13px; color:var(--text-secondary); margin-top:8px; line-height:1.4;">
+          <div class="text-justify" style="font-size:13px; color:var(--text-secondary); margin-top:8px; line-height:1.4;">
             ${preview}
           </div>
         </div>
@@ -1696,7 +1722,7 @@ async function checkActiveAnnouncement() {
     titleEl.style.fontSize = '24px';
     titleEl.style.color = 'var(--primary)';
     titleEl.style.marginBottom = '15px';
-    titleEl.style.fontFamily = "'Outfit', sans-serif";
+    titleEl.style.fontFamily = "'Montserrat', sans-serif";
     titleEl.textContent = active.title;
 
     const contentEl = document.createElement('div');
@@ -1784,3 +1810,4 @@ window.formatEditorText = formatEditorText;
 window.editNewsAnnouncement = editNewsAnnouncement;
 window.deleteNewsAnnouncement = deleteNewsAnnouncement;
 window.cancelNewsEdit = cancelNewsEdit;
+window.sortAdminUsers = sortAdminUsers;

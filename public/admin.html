@@ -31,9 +31,9 @@
       <div class="glass-card" style="margin-bottom: 40px;">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Heti Órarend Menedzsment (Eötvös, Kossuth, Zrínyi)</h3>
         
-        <div class="grid-2" style="margin-bottom: 30px; align-items: start;">
+        <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
           <!-- Add Weekly Slot Form -->
-          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding:25px; border-radius: 12px;">
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 10px; border-radius: 12px; width: 100%;">
             <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új heti idősáv hozzáadása</h4>
             <form id="admin-slot-form">
               <div class="form-group">
@@ -78,7 +78,7 @@
           </div>
 
           <!-- Explanatory note -->
-          <div style="padding: 10px;">
+          <div class="text-justify" style="padding: 10px;">
             <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--text-primary);">Tudnivalók az órarendről</h4>
             <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az itt megadott idősávok a heti alap órarendet alkotják. A felhasználók ezekre az ismétlődő heti idősávokra tudnak bejelentkezni az adott dátum kiválasztásával.</p>
             <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az idősávok törlése a mellette lévő "×" gombra kattintva történik meg, ami azonnal eltávolítja a heti sémából.</p>
@@ -99,7 +99,20 @@
       <!-- User Qualifications (Zöld/Piros Kártya management) -->
       <div class="glass-card">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Tagok & Biztonsági Jogosultságok</h3>
-        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).</p>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
+          <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 0; flex: 1; min-width: 280px;">
+            Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).
+          </p>
+          <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+            <label for="admin-users-sort" style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; margin-bottom: 0;">Rendezés:</label>
+            <select id="admin-users-sort" class="form-control" style="width: auto; padding: 4px 10px; font-size: 13px; height: auto; margin-bottom: 0;" onchange="sortAdminUsers()">
+              <option value="name-asc">Név szerint (A-Z)</option>
+              <option value="reg-desc">Regisztráció szerint (Új elől)</option>
+              <option value="reg-asc">Regisztráció szerint (Régi elől)</option>
+            </select>
+          </div>
+        </div>
         
         <div id="admin-users-list" class="user-cards-grid">
           <p style="text-align:center; color: var(--text-muted); width: 100%;">Tagok betöltése...</p>
@@ -114,7 +127,7 @@
         
         <!-- View Mode Content -->
         <div id="user-details-view-mode">
-          <h3 id="view-user-name-title" style="color: var(--primary); margin-bottom: 20px; text-align: center; font-size: 24px; font-family: 'Outfit', sans-serif;"></h3>
+          <h3 id="view-user-name-title" style="color: var(--primary); margin-bottom: 20px; text-align: center; font-size: 24px; font-family: 'Montserrat', sans-serif;"></h3>
           
           <div class="user-details-list" style="margin-bottom: 25px;">
             <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
@@ -191,24 +204,18 @@
             
             <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 20px;">
               <button type="button" class="btn btn-secondary" onclick="switchUserModalToView()" style="flex: 1;">Vissza</button>
-              <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tab News Content -->
+          <!-- Tab News Content -->
     <div id="admin-news-content" style="display: none;">
       <div class="glass-card" style="margin-bottom: 40px;">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Üzenőfal (Hírek & Közlemények)</h3>
         
-        <div class="grid-2" style="margin-bottom: 30px; align-items: start;">
+        <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
           <!-- Add/Edit News Form -->
-          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding:25px; border-radius: 12px;">
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 10px; border-radius: 12px; width: 100%;">
             <h4 id="news-form-title" style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új közlemény közzététele</h4>
             <form id="admin-news-form">
               <input type="hidden" id="admin-news-id" value="">
+              <input type="hidden" id="admin-news-image" value="">
               
               <div class="form-group">
                 <label class="form-label" for="admin-news-title">Közlemény Címe</label>
@@ -227,11 +234,6 @@
                 </div>
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="admin-news-image">Kép URL (Opcionális)</label>
-                <input type="url" id="admin-news-image" class="form-control" placeholder="https://pelda.hu/kep.jpg">
-              </div>
-
               <div class="form-group" style="display:flex; align-items:center; gap:15px; margin-top: 15px;">
                 <label class="form-label" style="margin-bottom:0; cursor:pointer;" for="admin-news-active">Aktív közlemény (Azonnali felugrás a kezdőlapon):</label>
                 <label class="toggle-switch">
@@ -248,12 +250,12 @@
           </div>
 
           <!-- Explanatory note -->
-          <div style="padding: 10px;">
+          <div class="text-justify" style="padding: 10px;">
             <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--text-primary);">Hogyan működik az Üzenőfal?</h4>
             <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az üzenőfal segítségével fontos információkat, nyitvatartási változásokat vagy versenyhíreket oszthatsz meg a mászókkal.</p>
             <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Ha egy közleményt <strong>Aktív</strong> állapotba helyezel, az automatikusan megnyílik egy felugró ablakban (Modal) minden látogatónak, aki betölti a főoldalt vagy a mászói fiókját.</p>
             <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;"><strong>Egyszerre csak egy aktív hír lehet.</strong> Ha bekapcsolod az aktív státuszt egy hírnél, a rendszer az összes többi korábbi hírt automatikusan inaktívvá teszi.</p>
-            <p style="font-size: 14px; color: var(--text-secondary);">A formázó gombok HTML jelölőket (pl. <code>&lt;b&gt;</code>) illesztenek be a kijelölt szöveg köré. Ezek helyesen fognak megjelenni a tagok képernyőjén.</p>
+            <p style="font-size: 14px; color: var(--text-secondary);">A formázó gombok HTML jelölők (pl. <code>&lt;b&gt;</code>) illesztenek be a kijelölt szöveg köré. Ezek helyesen fognak megjelenni a tagok képernyőjén.</p>
           </div>
         </div>
 
