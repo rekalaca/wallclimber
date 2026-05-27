@@ -13,9 +13,9 @@
 
   <main class="container" style="padding: 40px 20px 80px 20px;">
     
-    <div style="margin-bottom: 40px;">
-      <h2 style="font-size: 32px; color: var(--primary); margin-bottom: 10px;">Adminisztrációs Panel</h2>
-      <p style="color: var(--text-secondary);">Itt végezheted a heti órarendek és a regisztrált felhasználók biztonsági minősítésének (Zöld/Piros kártya) adminisztrálását.</p>
+    <div style="margin-bottom: 40px; text-align: center;">
+      <h2 style="font-size: 24px; color: var(--primary); margin-bottom: 10px;">Adminisztrációs Panel</h2>
+      <p style="color: var(--text-secondary); font-size: 13px; max-width: 600px; margin: 0 auto;">Itt végezheted a heti órarendek és a regisztrált felhasználók biztonsági minősítésének (Zöld/Piros kártya) adminisztrálását.</p>
     </div>
 
     <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
@@ -98,7 +98,7 @@
     <div id="admin-users-content" style="display: none;">
       <!-- User Qualifications (Zöld/Piros Kártya management) -->
       <div class="glass-card">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Tagok & Biztonsági Jogosultságok</h3>
+        <h3 style="font-size: 18px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Felhasználók kezelése</h3>
         
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
           <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 0; flex: 1; min-width: 280px;">
@@ -204,7 +204,14 @@
             
             <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 20px;">
               <button type="button" class="btn btn-secondary" onclick="switchUserModalToView()" style="flex: 1;">Vissza</button>
-          <!-- Tab News Content -->
+              <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+          
+    <!-- Tab News Content -->
     <div id="admin-news-content" style="display: none;">
       <div class="glass-card" style="margin-bottom: 40px;">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Üzenőfal (Hírek & Közlemények)</h3>

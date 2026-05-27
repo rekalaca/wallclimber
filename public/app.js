@@ -166,11 +166,8 @@ function renderHeader() {
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
-        <a href="index.html" class="logo">
-          <div class="logo-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ffffff;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
-          </div>
-          <div class="logo-text">Hawk<span>Stone</span></div>
+        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0;">
+          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 40px; width: auto; object-fit: contain;" />
         </a>
 
         <!-- Hamburger Icon for Mobile -->
