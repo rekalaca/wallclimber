@@ -478,7 +478,36 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
       ORDER BY s.start_time ASC
     `, [date, date, req.user.id, locationId, dayOfWeek]);
 
-    res.json(slots);
+    // Get current Budapest date and time to filter out past slots
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const timeStr = `${getPart('hour')}:${getPart('minute')}`;
+
+    const slotsWithPastInfo = slots.map(slot => {
+      let isPast = false;
+      if (date < dateStr) {
+        isPast = true;
+      } else if (date === dateStr) {
+        // If the slot's start_time has already passed
+        if (slot.start_time < timeStr) {
+          isPast = true;
+        }
+      }
+      return { ...slot, is_past: isPast };
+    });
+
+    res.json(slotsWithPastInfo);
   } catch (error) {
     res.status(500).json({ error: 'Hiba az órarend betöltésekor: ' + error.message });
   }
@@ -496,6 +525,35 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
     const slot = await dbGet('SELECT * FROM slots WHERE id = ?', [slotId]);
     if (!slot) return res.status(404).json({ error: 'A választott időpont nem létezik!' });
 
+    // Validate if the slot is in the past
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const timeStr = `${getPart('hour')}:${getPart('minute')}`;
+
+    let isPast = false;
+    if (date < dateStr) {
+      isPast = true;
+    } else if (date === dateStr) {
+      if (slot.start_time < timeStr) {
+        isPast = true;
+      }
+    }
+
+    if (isPast) {
+      return res.status(400).json({ error: 'Múltbeli időpontra nem lehet foglalni!' });
+    }
+
     const bookedCountRow = await dbGet('SELECT COUNT(*) as count FROM bookings WHERE slot_id = ? AND booking_date = ?', [slotId, date]);
     if (bookedCountRow.count >= slot.max_capacity) {
       return res.status(400).json({ error: 'Ez az időpont már betelt (telt ház)!' });
@@ -506,12 +564,13 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
       await dbRun('INSERT INTO bookings (user_id, slot_id, booking_date) VALUES (?, ?, ?)', [req.user.id, slotId, date]);
       res.status(201).json({ message: 'Sikeres foglalás!' });
     } catch (dbErr) {
-      if (dbErr.message.includes('UNIQUE')) {
+      if (dbErr.message && dbErr.message.includes('UNIQUE')) {
         return res.status(400).json({ error: 'Erre az időpontra már van foglalásod!' });
       }
       throw dbErr;
     }
   } catch (error) {
+    console.error('[BOOKING ERROR] Details:', error);
     res.status(500).json({ error: 'Hiba a foglalás során: ' + error.message });
   }
 });
@@ -574,13 +633,17 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
       qr_code_uuid: qrUuid
     };
 
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+
     // Send confirmation email with PDF attached asynchronously in the background
     (async () => {
       try {
         const climber = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
         if (!climber) return;
 
-        const { pdfData } = await generatePDFBuffer(ticketObj, climber);
+        const { pdfData } = await generatePDFBuffer(ticketObj, climber, domain);
 
         let HungarianType = '';
         let sessionsText = '';
@@ -654,10 +717,11 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
 });
 
 // Helper to generate PDF buffer with solid background QR code
-function generatePDFBuffer(ticket, climber) {
+function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel.app') {
   return new Promise(async (resolve, reject) => {
     try {
-      const qrBuffer = await qrcode.toBuffer(ticket.qr_code_uuid, {
+      const qrUrl = `${domain}/scanner.html?uuid=${ticket.qr_code_uuid}`;
+      const qrBuffer = await qrcode.toBuffer(qrUrl, {
         type: 'png',
         width: 200,
         margin: 1,
@@ -806,7 +870,10 @@ app.get('/api/tickets/:id/rules-pdf', authenticateToken, async (req, res) => {
 
     const climber = await dbGet('SELECT * FROM users WHERE id = ?', [ticket.user_id]);
 
-    const { pdfData } = await generatePDFBuffer(ticket, climber);
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+    const { pdfData } = await generatePDFBuffer(ticket, climber, domain);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="HawkStone-Szabalyzat-${ticket.ticket_type}.pdf"`);

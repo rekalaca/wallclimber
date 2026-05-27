@@ -362,7 +362,8 @@ async function loadProfileAndDashboard() {
               const largeDiv = document.getElementById(`large-qr-${t.id}`);
               if (largeDiv) {
                 if (typeof qrcode !== 'undefined' && qrcode && typeof qrcode.toDataURL === 'function') {
-                  qrcode.toDataURL(t.qr_code_uuid, { width: 100, margin: 1 }, (err, url) => {
+                  const qrUrl = window.location.origin + '/scanner.html?uuid=' + t.qr_code_uuid;
+                  qrcode.toDataURL(qrUrl, { width: 100, margin: 1 }, (err, url) => {
                     if (!err) largeDiv.innerHTML = `<img src="${url}" alt="QR" />`;
                   });
                 } else {
@@ -469,7 +470,8 @@ function openQRModal(uuid, title) {
   qrContainer.innerHTML = 'QR kód generálása...';
   
   if (typeof qrcode !== 'undefined' && qrcode && typeof qrcode.toDataURL === 'function') {
-    qrcode.toDataURL(uuid, { width: 250, margin: 1 }, (err, url) => {
+    const qrUrl = window.location.origin + '/scanner.html?uuid=' + uuid;
+    qrcode.toDataURL(qrUrl, { width: 250, margin: 1 }, (err, url) => {
       if (!err) {
         qrContainer.innerHTML = `<img src="${url}" alt="QR Code" />`;
       } else {
@@ -564,6 +566,9 @@ async function loadBookingSchedules() {
     slots.forEach(slot => {
       const item = document.createElement('div');
       item.className = 'schedule-item';
+      if (slot.is_past) {
+        item.style.opacity = '0.5';
+      }
       
       const ratio = slot.booked_count / slot.max_capacity;
       const isFull = ratio >= 1.0;
@@ -579,7 +584,9 @@ async function loadBookingSchedules() {
       }
 
       let btnHtml = '';
-      if (slot.user_booked) {
+      if (slot.is_past) {
+        btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Elmúlt</button>`;
+      } else if (slot.user_booked) {
         btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Foglaltad</button>`;
       } else if (isFull) {
         btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Betelt</button>`;
@@ -718,6 +725,15 @@ async function initScanner() {
   } else {
     showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
   }
+
+  // Auto-check if uuid exists in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlUuid = urlParams.get('uuid');
+  if (urlUuid) {
+    setTimeout(() => {
+      validateScannedQR(urlUuid);
+    }, 500);
+  }
 }
 
 async function onScanSuccess(decodedText, decodedResult) {
@@ -736,6 +752,16 @@ function onScanError(errorMessage) {
 }
 
 async function validateScannedQR(uuid) {
+  let finalUuid = uuid;
+  if (uuid && typeof uuid === 'string') {
+    if (uuid.includes('uuid=')) {
+      const urlParams = new URLSearchParams(uuid.split('?')[1]);
+      finalUuid = urlParams.get('uuid') || uuid;
+    } else if (uuid.includes('/')) {
+      finalUuid = uuid.split('/').pop();
+    }
+  }
+
   const resultCard = document.getElementById('scan-result-container');
   if (!resultCard) return;
 
@@ -743,7 +769,7 @@ async function validateScannedQR(uuid) {
   resultCard.innerHTML = '<p style="text-align:center; padding:20px;">Jegy adatok lekérdezése az adatbázisból...</p>';
 
   try {
-    const res = await fetch(`/api/tickets/scan-info?qrCodeUuid=${uuid}`, {
+    const res = await fetch(`/api/tickets/scan-info?qrCodeUuid=${finalUuid}`, {
       headers: getAuthHeaders()
     });
     
