@@ -34,6 +34,7 @@
 /* Reset & Global Styles */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 90px;
 }
 
 * {
@@ -1019,6 +1020,10 @@ footer p {
 
 /* Mobile responsive styles */
 @media (max-width: 768px) {
+  html {
+    scroll-padding-top: 80px;
+  }
+
   .navbar {
     flex-direction: row;
     justify-content: space-between;
@@ -1028,8 +1033,8 @@ footer p {
   }
   
   .hero {
-    padding-top: 145px !important;
-    padding-bottom: 90px !important;
+    padding-top: 170px !important;
+    padding-bottom: 100px !important;
   }
   
   .hero h1 {
