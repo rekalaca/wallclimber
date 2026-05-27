@@ -128,30 +128,21 @@ header {
 .nav-link {
   color: var(--text-secondary);
   text-decoration: none;
-  font-weight: 500;
-  font-size: 15px;
-  transition: var(--transition);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s ease;
   position: relative;
   padding: 5px 0;
+  display: inline-block;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
 .nav-link:hover, .nav-link.active {
-  color: var(--text-primary);
-}
-
-.nav-link::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background-color: var(--primary);
-  transition: var(--transition);
-}
-
-.nav-link:hover::after, .nav-link.active::after {
-  width: 100%;
+  color: var(--primary);
+  transform: scale(1.1) translateZ(5px);
 }
 
 .nav-auth {
@@ -1037,8 +1028,8 @@ footer p {
   }
   
   .hero {
-    padding-top: 115px !important;
-    padding-bottom: 40px !important;
+    padding-top: 145px !important;
+    padding-bottom: 90px !important;
   }
   
   .hero h1 {
@@ -1170,6 +1161,14 @@ header.admin-header {
     display: flex;
   }
 
+  .menu-close-btn {
+    display: flex; /* Show only on mobile menu */
+  }
+
+  header .nav-link:hover {
+    transform: none; /* Disable 3D scale on mobile menu lists */
+  }
+
   /* Oldalsó bekúszó menü mobilra (balról jobbra, teljes szélességben) */
   header .nav-menu {
     position: fixed;
@@ -1234,6 +1233,7 @@ header.admin-header {
 
 /* Close button style & spin animation */
 .menu-close-btn {
+  display: none; /* Hide on desktop */
   position: absolute;
   top: 20px;
   right: 20px;
