@@ -259,21 +259,25 @@ async function initPublicLanding() {
       // 1. Fade out video to black
       video.classList.add('video-ended');
       
-      // 2. Wait 3 seconds
+      // 2. Wait 3 seconds in the black screen state
       setTimeout(() => {
-        // 3. Fade out text
-        if (heroContent) {
-          heroContent.classList.remove('visible');
-        }
+        // 3. Restart the video immediately
+        video.currentTime = 0;
+        video.classList.remove('video-ended');
+        video.play().catch(err => console.log("Video autoplay loop error:", err));
         
-        // 4. Once text fades out, restart video and reset state
+        // 4. Wait 1 second after restart, then fade out the text
         setTimeout(() => {
-          hasFadedInText = false;
-          video.currentTime = 0;
-          video.classList.remove('video-ended');
-          video.play().catch(err => console.log("Video autoplay loop error:", err));
-        }, 1200);
-      }, 4500);
+          if (heroContent) {
+            heroContent.classList.remove('visible');
+          }
+          
+          // 5. Once text fades out (1.2s transition), reset state for the next loop
+          setTimeout(() => {
+            hasFadedInText = false;
+          }, 1200);
+        }, 1000);
+      }, 3000);
     });
   }
   try {
