@@ -7,12 +7,12 @@
   --bg-card: rgba(22, 25, 41, 0.75);
   --bg-card-solid: #161929;
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(255, 107, 0, 0.15);
+  --border-glow: rgba(242, 118, 32, 0.15);
   
-  --primary: #ff6b00;
-  --primary-hover: #ff8522;
-  --primary-glow: rgba(255, 107, 0, 0.4);
-  --primary-gradient: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%);
+  --primary: #f27620;
+  --primary-hover: #f48c3e;
+  --primary-glow: rgba(242, 118, 32, 0.4);
+  --primary-gradient: linear-gradient(135deg, #f27620 0%, #f48b3d 100%);
   
   --text-primary: #ffffff;
   --text-secondary: #94a3b8;
@@ -32,6 +32,10 @@
 }
 
 /* Reset & Global Styles */
+html {
+  scroll-behavior: smooth;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -47,7 +51,7 @@ body {
   display: flex;
   flex-direction: column;
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(255, 107, 0, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 10% 20%, rgba(242, 118, 32, 0.05) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
   background-attachment: fixed;
   overflow-x: hidden;
@@ -156,6 +160,10 @@ header {
   gap: 15px;
 }
 
+.nav-auth-mobile {
+  display: none;
+}
+
 /* Glass Card Component */
 .glass-card {
   background: var(--bg-card);
@@ -169,8 +177,8 @@ header {
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 107, 0, 0.2);
-  box-shadow: 0 12px 40px 0 rgba(255, 107, 0, 0.06);
+  border-color: rgba(242, 118, 32, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(242, 118, 32, 0.06);
 }
 
 /* Buttons */
@@ -198,7 +206,7 @@ header {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 0, 0.6);
+  box-shadow: 0 6px 20px rgba(242, 118, 32, 0.6);
   background: var(--primary-hover);
 }
 
@@ -248,7 +256,7 @@ header {
 .hero h1 {
   font-size: 56px;
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #ffffff 30%, #ff8c00 100%);
+  background: linear-gradient(135deg, #ffffff 30%, #f27620 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   line-height: 1.1;
@@ -398,7 +406,7 @@ select.form-control option {
   outline: none;
   border-color: var(--primary);
   background-color: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 10px rgba(255, 107, 0, 0.1);
+  box-shadow: 0 0 10px rgba(242, 118, 32, 0.1);
 }
 
 .form-control::placeholder {
@@ -592,7 +600,7 @@ select.form-control option {
 
 .qr-large-trigger:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(255, 107, 0, 0.2);
+  box-shadow: 0 6px 20px rgba(242, 118, 32, 0.2);
 }
 
 .qr-large-trigger img {
@@ -1000,6 +1008,17 @@ footer p {
   color: var(--text-primary);
 }
 
+.footer-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: var(--transition);
+  margin: 0 5px;
+}
+
+.footer-link:hover {
+  color: var(--primary);
+}
+
 .password-hint {
   font-size: 12px;
   color: var(--text-muted);
@@ -1015,6 +1034,11 @@ footer p {
     align-items: center;
     height: 70px;
     padding: 0 10px;
+  }
+  
+  .hero {
+    padding-top: 115px !important;
+    padding-bottom: 40px !important;
   }
   
   .hero h1 {
@@ -1127,7 +1151,7 @@ header.admin-header {
   display: none;
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: var(--primary);
   cursor: pointer;
   padding: 5px;
   align-items: center;
@@ -1189,7 +1213,7 @@ header.admin-header {
 
   header .nav-link.active {
     border-left-color: var(--primary);
-    background: rgba(255, 107, 0, 0.08);
+    background: rgba(242, 118, 32, 0.08);
   }
 
   header .nav-auth {
@@ -1215,7 +1239,7 @@ header.admin-header {
   right: 20px;
   background: none;
   border: none;
-  color: #ffffff;
+  color: var(--primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1223,14 +1247,14 @@ header.admin-header {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(242, 118, 32, 0.08);
+  border: 1px solid rgba(242, 118, 32, 0.2);
   transition: var(--transition);
 }
 
 .menu-close-btn:hover {
   color: var(--primary);
-  background: rgba(255, 107, 0, 0.2);
+  background: rgba(242, 118, 32, 0.2);
   border-color: var(--primary);
 }
 

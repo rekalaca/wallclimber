@@ -104,9 +104,18 @@ function renderHeader() {
       <li><a href="index.html" target="_blank" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
-    // Public / User Menu
+    // Public / User Menu (Rólunk, Helyszínek, Áraink, Szabályzatunk, Kapcsolat)
+    const indexLink = (hash) => {
+      const isIndex = path.endsWith('index.html') || path === '/' || path.endsWith('/');
+      return isIndex ? hash : `index.html${hash}`;
+    };
+
     navItems = `
-      <li><a href="index.html" class="nav-link ${isActive('index.html')}">Főoldal</a></li>
+      <li><a href="${indexLink('#about')}" class="nav-link">Rólunk</a></li>
+      <li><a href="${indexLink('#locations')}" class="nav-link">Helyszínek</a></li>
+      <li><a href="${indexLink('#prices')}" class="nav-link">Áraink</a></li>
+      <li><a href="${indexLink('#rules')}" class="nav-link">Szabályzatunk</a></li>
+      <li><a href="${indexLink('#contact')}" class="nav-link">Kapcsolat</a></li>
     `;
     if (token) {
       if (user.role === 'USER') {
@@ -166,7 +175,7 @@ function renderHeader() {
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
-        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;">
+        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
           <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
         </a>
 
