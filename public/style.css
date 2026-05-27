@@ -49,6 +49,7 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  padding-top: 80px; /* Reserve space for desktop header */
   display: flex;
   flex-direction: column;
   background-image: 
@@ -78,8 +79,10 @@ header {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   z-index: 100;
 }
 
@@ -1024,6 +1027,10 @@ footer p {
     scroll-padding-top: 80px;
   }
 
+  body {
+    padding-top: 70px; /* Reserve space for mobile header */
+  }
+
   .navbar {
     flex-direction: row;
     justify-content: space-between;
@@ -1033,8 +1040,8 @@ footer p {
   }
   
   .hero {
-    padding-top: 170px !important;
-    padding-bottom: 100px !important;
+    padding-top: 100px !important;
+    padding-bottom: 80px !important;
   }
   
   .hero h1 {
@@ -1576,7 +1583,8 @@ header.admin-header {
     padding: 0 5px;
   }
   .container {
-    padding: 0 10px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
   }
   main.container {
     padding-left: 10px !important;
