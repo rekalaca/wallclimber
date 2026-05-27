@@ -22,6 +22,7 @@
     <div class="auth-tabs" style="margin-bottom: 30px;">
       <div id="tab-slots" class="auth-tab active" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
+      <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
     </div>
 
     <!-- Tab Slots Content -->
@@ -172,6 +173,72 @@
       </div>
     </div>
 
+    <!-- Tab News Content -->
+    <div id="admin-news-content" style="display: none;">
+      <div class="glass-card" style="margin-bottom: 40px;">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Üzenőfal (Hírek & Közlemények)</h3>
+        
+        <div class="grid-2" style="margin-bottom: 30px; align-items: start;">
+          <!-- Add/Edit News Form -->
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding:25px; border-radius: 12px;">
+            <h4 id="news-form-title" style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új közlemény közzététele</h4>
+            <form id="admin-news-form">
+              <input type="hidden" id="admin-news-id" value="">
+              
+              <div class="form-group">
+                <label class="form-label" for="admin-news-title">Közlemény Címe</label>
+                <input type="text" id="admin-news-title" class="form-control" placeholder="Például: Ünnepi nyitvatartás" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Közlemény Szövege</label>
+                <div class="rich-editor">
+                  <div class="rich-editor-toolbar">
+                    <button type="button" class="editor-btn" onclick="formatEditorText('b')" title="Félkövér"><b>B</b></button>
+                    <button type="button" class="editor-btn" onclick="formatEditorText('i')" title="Dőlt"><i>I</i></button>
+                    <button type="button" class="editor-btn" onclick="formatEditorText('u')" title="Aláhúzott"><u>U</u></button>
+                  </div>
+                  <textarea id="admin-news-content-text" class="editor-textarea" placeholder="Írd ide a hír szövegét... Formázáshoz jelöld ki a szöveget és kattints a fenti gombokra!" required></textarea>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="admin-news-image">Kép URL (Opcionális)</label>
+                <input type="url" id="admin-news-image" class="form-control" placeholder="https://pelda.hu/kep.jpg">
+              </div>
+
+              <div class="form-group" style="display:flex; align-items:center; gap:15px; margin-top: 15px;">
+                <label class="form-label" style="margin-bottom:0; cursor:pointer;" for="admin-news-active">Aktív közlemény (Azonnali felugrás a kezdőlapon):</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="admin-news-active">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="submit" id="news-submit-btn" class="btn btn-primary" style="flex:1;">Közzététel</button>
+                <button type="button" id="news-cancel-btn" onclick="cancelNewsEdit()" class="btn btn-secondary" style="display:none;">Mégse</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Explanatory note -->
+          <div style="padding: 10px;">
+            <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--text-primary);">Hogyan működik az Üzenőfal?</h4>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az üzenőfal segítségével fontos információkat, nyitvatartási változásokat vagy versenyhíreket oszthatsz meg a mászókkal.</p>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Ha egy közleményt <strong>Aktív</strong> állapotba helyezel, az automatikusan megnyílik egy felugró ablakban (Modal) minden látogatónak, aki betölti a főoldalt vagy a mászói fiókját.</p>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;"><strong>Egyszerre csak egy aktív hír lehet.</strong> Ha bekapcsolod az aktív státuszt egy hírnél, a rendszer az összes többi korábbi hírt automatikusan inaktívvá teszi.</p>
+            <p style="font-size: 14px; color: var(--text-secondary);">A formázó gombok HTML jelölőket (pl. <code>&lt;b&gt;</code>) illesztenek be a kijelölt szöveg köré. Ezek helyesen fognak megjelenni a tagok képernyőjén.</p>
+          </div>
+        </div>
+
+        <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Eddigi közlemények</h4>
+        <div id="admin-news-list" class="news-list">
+          <p style="color:var(--text-muted);">Közlemények betöltése...</p>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <footer>
@@ -189,20 +256,40 @@
     function switchAdminTab(tab) {
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
+      const tabNews = document.getElementById('tab-news');
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
-      if (!tabSlots || !tabUsers || !contentSlots || !contentUsers) return;
+      const contentNews = document.getElementById('admin-news-content');
+      if (!tabSlots || !tabUsers || !tabNews || !contentSlots || !contentUsers || !contentNews) return;
+
+      // Update URL hash without reload
+      if (history.pushState) {
+        history.pushState(null, null, '#' + tab);
+      } else {
+        window.location.hash = tab;
+      }
 
       if (tab === 'slots') {
         tabSlots.classList.add('active');
         tabUsers.classList.remove('active');
+        tabNews.classList.remove('active');
         contentSlots.style.display = 'block';
         contentUsers.style.display = 'none';
-      } else {
+        contentNews.style.display = 'none';
+      } else if (tab === 'users') {
         tabSlots.classList.remove('active');
         tabUsers.classList.add('active');
+        tabNews.classList.remove('active');
         contentSlots.style.display = 'none';
         contentUsers.style.display = 'block';
+        contentNews.style.display = 'none';
+      } else if (tab === 'news') {
+        tabSlots.classList.remove('active');
+        tabUsers.classList.remove('active');
+        tabNews.classList.add('active');
+        contentSlots.style.display = 'none';
+        contentUsers.style.display = 'none';
+        contentNews.style.display = 'block';
       }
     }
     window.switchAdminTab = switchAdminTab;

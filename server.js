@@ -185,6 +185,17 @@ async function initDB() {
     )
   `);
 
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS announcements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      image_url TEXT,
+      is_active INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Seed Locations
   const locationsCount = await dbGet('SELECT COUNT(*) as count FROM locations');
   if (locationsCount.count === 0) {
@@ -919,10 +930,34 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
       reason = 'A 10 alkalmas bérlet minden alkalma elhasználásra került!';
     }
 
+    // Get current Budapest date to lookup bookings
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+
+    // Get today's bookings for the user
+    const bookings = await dbAll(`
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, s.location_id, l.name as location_name
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN locations l ON s.location_id = l.id
+      WHERE b.user_id = ? AND b.booking_date = ?
+      ORDER BY s.start_time ASC
+    `, [ticket.user_id, dateStr]);
+
     res.json({
       isValid,
       reason,
       user: climber,
+      bookings: bookings,
       ticket: {
         id: ticket.id,
         ticket_type: ticket.ticket_type,
@@ -1145,6 +1180,90 @@ app.delete('/api/admin/slots/:id', authenticateToken, requireRole(['ADMIN']), as
   try {
     await dbRun('DELETE FROM slots WHERE id = ?', [req.params.id]);
     res.json({ message: 'Idősáv sikeresen törölve!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- ANNOUNCEMENTS / ÜZENŐFAL ---
+
+// Get active announcement (Public)
+app.get('/api/announcements/active', async (req, res) => {
+  try {
+    const announcement = await dbGet('SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1');
+    res.json(announcement || null);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all announcements (Admin/Staff only)
+app.get('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const list = await dbAll('SELECT * FROM announcements ORDER BY created_at DESC');
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new announcement (Admin/Staff only)
+app.post('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { title, content, imageUrl, isActive } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ error: 'A cím és a tartalom megadása kötelező!' });
+    }
+
+    const activeVal = isActive ? 1 : 0;
+
+    if (activeVal === 1) {
+      await dbRun('UPDATE announcements SET is_active = 0');
+    }
+
+    const result = await dbRun(
+      'INSERT INTO announcements (title, content, image_url, is_active) VALUES (?, ?, ?, ?)',
+      [title, content, imageUrl || null, activeVal]
+    );
+
+    res.status(201).json({ message: 'Hír sikeresen létrehozva!', id: result.lastID });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update announcement (Admin/Staff only)
+app.put('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { title, content, imageUrl, isActive } = req.body;
+    const { id } = req.params;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'A cím és a tartalom megadása kötelező!' });
+    }
+
+    const activeVal = isActive ? 1 : 0;
+
+    if (activeVal === 1) {
+      await dbRun('UPDATE announcements SET is_active = 0');
+    }
+
+    await dbRun(
+      'UPDATE announcements SET title = ?, content = ?, image_url = ?, is_active = ? WHERE id = ?',
+      [title, content, imageUrl || null, activeVal, id]
+    );
+
+    res.json({ message: 'Hír sikeresen frissítve!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete announcement (Admin/Staff only)
+app.delete('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    await dbRun('DELETE FROM announcements WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Hír sikeresen törölve!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

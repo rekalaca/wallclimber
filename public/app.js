@@ -72,44 +72,93 @@ function renderHeader() {
     console.error('Error parsing user object', e);
   }
 
-  let navItems = `
-    <li><a href="index.html" class="nav-link ${isActive('index.html')}">Főoldal</a></li>
-  `;
+  const isConfiguredAdmin = token && (user.role === 'ADMIN' || user.role === 'STAFF');
+  const path = window.location.pathname;
+  const isAdminPage = path.endsWith('admin.html') || path.endsWith('scanner.html');
 
-  if (token) {
-    if (user.role === 'USER') {
-      navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Vezérlőpult</a></li>`;
-    } else if (user.role === 'STAFF') {
-      navItems += `
-        <li><a href="scanner.html" class="nav-link ${isActive('scanner.html')}">Beléptetés / Scanner</a></li>
-      `;
-    } else if (user.role === 'ADMIN') {
-      navItems += `
-        <li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Mászói fiók</a></li>
-        <li><a href="admin.html" class="nav-link ${isActive('admin.html')}">Admin Panel</a></li>
-        <li><a href="scanner.html" class="nav-link ${isActive('scanner.html')}">Beléptetés / Scanner</a></li>
-      `;
+  // Set admin classes for fix header layout
+  if (isAdminPage && isConfiguredAdmin) {
+    headerEl.className = 'admin-header';
+    document.body.className = 'admin-body';
+  } else {
+    headerEl.className = '';
+    document.body.className = '';
+  }
+
+  let navItems = '';
+
+  if (isAdminPage && isConfiguredAdmin) {
+    // Admin / Staff Specific Menu (Order requested by USER)
+    const activeClass = (page, hash = '') => {
+      const isPage = path.endsWith(page);
+      const isHash = hash ? window.location.hash === hash : !window.location.hash;
+      return isPage && isHash ? 'active' : '';
+    };
+
+    navItems = `
+      <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
+      <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
+      <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
+      <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
+      <li><a href="dashboard.html" class="nav-link">Mászói fiók</a></li>
+      <li><a href="index.html" target="_blank" class="nav-link">Weboldal ↗</a></li>
+    `;
+  } else {
+    // Public / User Menu
+    navItems = `
+      <li><a href="index.html" class="nav-link ${isActive('index.html')}">Főoldal</a></li>
+    `;
+    if (token) {
+      if (user.role === 'USER') {
+        navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Vezérlőpult</a></li>`;
+      } else if (user.role === 'STAFF' || user.role === 'ADMIN') {
+        navItems += `
+          <li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Mászói fiók</a></li>
+          <li><a href="admin.html" class="nav-link ${isActive('admin.html')}">Adminisztráció</a></li>
+          <li><a href="scanner.html" class="nav-link ${isActive('scanner.html')}">Scanner</a></li>
+        `;
+      }
     }
   }
 
   let authSection = '';
+  let authSectionMobile = '';
+
   if (token) {
     const tooltipText = user.card_type === 'ZÖLD' ? 
       'Sikeres mászóvizsgával rendelkezik, önállóan biztosíthatja társát a falon.' : 
       'Nem rendelkezik mászóvizsgával. Biztosítóként nem tevékenykedhet, kizárólag önbiztosítóval vagy zöld kártyás kísérővel mászhat.';
+    
     const cardBadge = user.role === 'USER' || user.role === 'ADMIN' ? 
       `<span class="badge ${user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red'}" data-tooltip="${tooltipText}" style="margin-right: 10px;">${user.card_type} KÁRTYA</span>` : '';
+    
     authSection = `
       <div class="nav-auth">
         ${cardBadge}
-        <span style="font-weight:600; font-size:14px; color:#ffffff;">${user.name}</span>
+        <span style="font-weight:600; font-size:14px; color:#ffffff; margin-right: 15px;">${user.name}</span>
         <button onclick="logout()" class="btn btn-secondary btn-sm">Kijelentkezés</button>
+      </div>
+    `;
+
+    authSectionMobile = `
+      <div class="nav-auth-mobile">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-weight:600; font-size:14px; color:#ffffff;">${user.name}</span>
+          ${cardBadge}
+        </div>
+        <button onclick="logout()" class="btn btn-secondary btn-sm" style="width:100%;">Kijelentkezés</button>
       </div>
     `;
   } else {
     authSection = `
       <div class="nav-auth">
         <a href="auth.html" class="btn btn-primary btn-sm">Bejelentkezés</a>
+      </div>
+    `;
+
+    authSectionMobile = `
+      <div class="nav-auth-mobile">
+        <a href="auth.html" class="btn btn-primary btn-sm" style="width:100%; text-align:center;">Bejelentkezés</a>
       </div>
     `;
   }
@@ -123,13 +172,53 @@ function renderHeader() {
           </div>
           <div class="logo-text">Hawk<span>Stone</span></div>
         </a>
-        <ul class="nav-menu">
+
+        <!-- Hamburger Icon for Mobile -->
+        <button class="hamburger-btn" id="hamburger-toggle" aria-label="Menü megnyitása">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+
+        <!-- Menu overlay background -->
+        <div class="menu-overlay" id="menu-overlay"></div>
+
+        <!-- Navigation Menu -->
+        <ul class="nav-menu" id="nav-menu">
+          <!-- Close Button in Menu (Mobile only) -->
+          <button class="menu-close-btn" id="menu-close" aria-label="Menü bezárása">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+          
           ${navItems}
+          ${authSectionMobile}
         </ul>
+
         ${authSection}
       </nav>
     </div>
   `;
+
+  // Hamburger Menu toggle events
+  const hamburger = document.getElementById('hamburger-toggle');
+  const closeBtn = document.getElementById('menu-close');
+  const navMenu = document.getElementById('nav-menu');
+  const overlay = document.getElementById('menu-overlay');
+
+  if (hamburger && closeBtn && navMenu && overlay) {
+    const toggleMenu = (open) => {
+      navMenu.classList.toggle('open', open);
+      overlay.classList.toggle('active', open);
+      document.body.style.overflow = open ? 'hidden' : ''; // Prevent scroll when menu open
+    };
+
+    hamburger.addEventListener('click', () => toggleMenu(true));
+    closeBtn.addEventListener('click', () => toggleMenu(false));
+    overlay.addEventListener('click', () => toggleMenu(false));
+
+    // Close menu when clicking on links
+    navMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => toggleMenu(false));
+    });
+  }
 }
 
 function isActive(page) {
@@ -660,6 +749,7 @@ async function cancelBooking(bookingId) {
 
 // ---------------- STAFF QR SCANNER (SCANNER) ----------------
 let html5QrcodeScanner = null;
+let lastScannedUuid = null;
 
 async function initScanner() {
   const role = getUserRole();
@@ -711,6 +801,9 @@ async function initScanner() {
             confirmBtn.disabled = true;
             if (locWarning) locWarning.style.display = 'block';
           }
+        }
+        if (lastScannedUuid) {
+          validateScannedQR(lastScannedUuid);
         }
       });
     } catch (e) {
@@ -774,6 +867,9 @@ async function validateScannedQR(uuid) {
     }
   }
 
+  // Set last scanned UUID for dynamic updates
+  lastScannedUuid = finalUuid;
+
   const resultCard = document.getElementById('scan-result-container');
   if (!resultCard) return;
 
@@ -833,8 +929,73 @@ async function validateScannedQR(uuid) {
       `;
     }
 
-    const selectedLocation = document.getElementById('scanner-location-select').value;
+    const locSelect = document.getElementById('scanner-location-select');
+    const selectedLocation = locSelect.value;
     const hasLocation = !!selectedLocation;
+
+    // Process bookings comparison
+    const bookings = data.bookings || [];
+    let bookingInfoHtml = '';
+
+    if (hasLocation) {
+      const selectedLocationName = locSelect.options[locSelect.selectedIndex].text;
+      const matchingBooking = bookings.find(b => String(b.location_id) === String(selectedLocation));
+
+      const formatTime = (t) => t ? t.substring(0, 5) : '';
+
+      if (matchingBooking) {
+        bookingInfoHtml = `
+          <div class="scan-booking-info">
+            <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+            <div class="scan-booking-match">
+              ✅ Foglalás ma: ${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})
+            </div>
+          </div>
+        `;
+      } else if (bookings.length > 0) {
+        const otherBooking = bookings[0];
+        bookingInfoHtml = `
+          <div class="scan-booking-info">
+            <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+            <div class="scan-booking-warning">
+              ⚠️ A mászó a ${otherBooking.location_name} mászófalra jelentkezett ma (${formatTime(otherBooking.start_time)} - ${formatTime(otherBooking.end_time)}), de te az ${selectedLocationName} helyszínen olvasod be!
+            </div>
+          </div>
+        `;
+      } else {
+        bookingInfoHtml = `
+          <div class="scan-booking-info">
+            <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+            <div class="scan-booking-error">
+              ❌ Nincs mára foglalása ezen a helyszínen!
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      // No location selected yet
+      const formatTime = (t) => t ? t.substring(0, 5) : '';
+      if (bookings.length > 0) {
+        const bookingList = bookings.map(b => `${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})`).join(', ');
+        bookingInfoHtml = `
+          <div class="scan-booking-info">
+            <div class="scan-booking-title">Mai foglalások</div>
+            <div style="font-size:13px; color:var(--text-secondary);">
+              Mára foglalva: ${bookingList} (Válassz helyszínt a fejlécben az ellenőrzéshez)
+            </div>
+          </div>
+        `;
+      } else {
+        bookingInfoHtml = `
+          <div class="scan-booking-info">
+            <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+            <div style="font-size:13px; color:var(--text-secondary);">
+              Nincs mára foglalása. (Válassz helyszínt a fejlécben az ellenőrzéshez)
+            </div>
+          </div>
+        `;
+      }
+    }
 
     let actionButtonHtml = '';
     if (isValid) {
@@ -886,6 +1047,8 @@ async function validateScannedQR(uuid) {
           <div class="scan-detail-value">${ticket.expires_date || '-'}</div>
         </div>
       </div>
+
+      ${bookingInfoHtml}
 
       ${actionButtonHtml}
       <button onclick="resetScannerUI()" class="btn btn-secondary btn-sm" style="margin-top: 15px; width: 100%;">Mégse / Új beolvasás</button>
@@ -978,6 +1141,7 @@ async function processCheckIn(uuid) {
 }
 
 function resetScannerUI() {
+  lastScannedUuid = null;
   const resultCard = document.getElementById('scan-result-container');
   if (resultCard) resultCard.style.display = 'none';
 }
@@ -992,6 +1156,35 @@ async function initAdminPanel() {
 
   await loadAdminUsers();
   await loadAdminSlots();
+  await loadNewsAnnouncements();
+
+  // News Form submission
+  const newsForm = document.getElementById('admin-news-form');
+  if (newsForm) {
+    newsForm.addEventListener('submit', saveNewsAnnouncement);
+  }
+
+  // Hash-based Tab activation on load
+  const hash = window.location.hash;
+  if (hash === '#users') {
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('users');
+  } else if (hash === '#news') {
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
+  } else if (hash === '#schedule') {
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
+  }
+
+  // Global hash change listener for admin page tabs
+  window.addEventListener('hashchange', () => {
+    const currentHash = window.location.hash;
+    if (currentHash === '#users') {
+      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('users');
+    } else if (currentHash === '#news') {
+      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
+    } else if (currentHash === '#schedule') {
+      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
+    }
+  });
 }
 
 async function loadAdminUsers() {
@@ -1250,9 +1443,248 @@ async function deleteAdminSlot(slotId) {
   }
 }
 
+// ---------------- ANNOUNCEMENTS BOARD (ÜZENŐFAL) ----------------
+
+// Text formatting for Rich Editor
+function formatEditorText(tag) {
+  const textarea = document.getElementById('admin-news-content-text');
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selectedText = text.substring(start, end);
+  
+  const formatted = `<${tag}>${selectedText}</${tag}>`;
+  textarea.value = text.substring(0, start) + formatted + text.substring(end);
+  
+  textarea.focus();
+  textarea.selectionStart = start;
+  textarea.selectionEnd = start + formatted.length;
+}
+
+// Load all announcements in Admin view
+async function loadNewsAnnouncements() {
+  const container = document.getElementById('admin-news-list');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted);">Hírek betöltése...</p>';
+
+  try {
+    const res = await fetch('/api/announcements', { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error();
+    const list = await res.json();
+
+    container.innerHTML = '';
+    if (list.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted); padding:15px;">Nincs még közzétett hír.</p>';
+      return;
+    }
+
+    window.adminAnnouncements = list; // Save globally for editing lookup
+
+    const table = document.createElement('table');
+    table.className = 'admin-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Cím</th>
+          <th>Tartalom</th>
+          <th>Státusz</th>
+          <th>Dátum</th>
+          <th style="width:120px; text-align:center;">Műveletek</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      const activeBadge = item.is_active ? '<span class="badge badge-green">Aktív</span>' : '<span class="badge badge-red">Inaktív</span>';
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = item.content;
+      const cleanContent = tempDiv.textContent || tempDiv.innerText || '';
+      const preview = cleanContent.length > 60 ? cleanContent.substring(0, 60) + '...' : cleanContent;
+
+      tr.innerHTML = `
+        <td style="font-weight:600; color:#fff;">${item.title}</td>
+        <td style="font-size:13px; color:var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          ${preview}
+        </td>
+        <td>${activeBadge}</td>
+        <td style="font-size:12px; color:var(--text-muted);">${item.created_at ? item.created_at.substring(0, 16) : '-'}</td>
+        <td style="text-align:center;">
+          <button onclick="editNewsAnnouncement(${item.id})" class="btn btn-secondary btn-sm" style="margin-right:5px; padding:4px 8px;">Szerkeszt</button>
+          <button onclick="deleteNewsAnnouncement(${item.id})" class="btn btn-danger btn-sm" style="padding:4px 8px; background:#ef4444; border-color:#ef4444;">Töröl</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    container.appendChild(table);
+  } catch (err) {
+    container.innerHTML = '<p style="color:var(--danger);">Nem sikerült betölteni az üzenőfalat.</p>';
+  }
+}
+
+// Create or Update Announcement
+async function saveNewsAnnouncement(e) {
+  if (e) e.preventDefault();
+
+  const id = document.getElementById('admin-news-id').value;
+  const title = document.getElementById('admin-news-title').value;
+  const content = document.getElementById('admin-news-content-text').value;
+  const imageUrl = document.getElementById('admin-news-image').value;
+  const isActive = document.getElementById('admin-news-active').checked;
+
+  if (!title || !content) {
+    showToast('Kérjük töltsd ki a címet és a tartalmat!', 'error');
+    return;
+  }
+
+  const payload = { title, content, imageUrl, isActive };
+  const method = id ? 'PUT' : 'POST';
+  const url = id ? `/api/announcements/${id}` : '/api/announcements';
+
+  try {
+    const res = await fetch(url, {
+      method: method,
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(id ? 'Hír sikeresen frissítve!' : 'Új hír sikeresen közzétéve!');
+    cancelNewsEdit();
+    loadNewsAnnouncements();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Load news details into editor form
+function editNewsAnnouncement(id) {
+  if (!window.adminAnnouncements) return;
+  const item = window.adminAnnouncements.find(ann => ann.id === id);
+  if (!item) return;
+
+  document.getElementById('admin-news-id').value = item.id;
+  document.getElementById('admin-news-title').value = item.title;
+  document.getElementById('admin-news-content-text').value = item.content;
+  document.getElementById('admin-news-image').value = item.image_url || '';
+  document.getElementById('admin-news-active').checked = !!item.is_active;
+
+  document.getElementById('news-form-title').textContent = 'Közlemény Szerkesztése';
+  document.getElementById('news-submit-btn').textContent = 'Módosítás Mentése';
+  document.getElementById('news-cancel-btn').style.display = 'block';
+
+  document.getElementById('admin-news-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Delete announcement
+async function deleteNewsAnnouncement(id) {
+  if (!confirm('Biztosan törlöd ezt a közleményt?')) return;
+
+  try {
+    const res = await fetch(`/api/announcements/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Közlemény törölve!');
+    loadNewsAnnouncements();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Cancel news editing and clear form
+function cancelNewsEdit() {
+  document.getElementById('admin-news-id').value = '';
+  document.getElementById('admin-news-form').reset();
+
+  document.getElementById('news-form-title').textContent = 'Új közlemény közzététele';
+  document.getElementById('news-submit-btn').textContent = 'Közzététel';
+  document.getElementById('news-cancel-btn').style.display = 'none';
+}
+
+// Check if there is an active announcement and display modal on landing/dashboard
+async function checkActiveAnnouncement() {
+  const path = window.location.pathname;
+  const isTargetPage = path.endsWith('index.html') || path === '/' || path.endsWith('webpage/') || path.endsWith('dashboard.html');
+  if (!isTargetPage) return;
+
+  try {
+    const res = await fetch('/api/announcements/active');
+    if (!res.ok) return;
+    const active = await res.json();
+
+    if (!active) return;
+
+    const isDismissed = sessionStorage.getItem('announcement_closed_' + active.id);
+    if (isDismissed) return;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'announcement-modal-backdrop';
+    backdrop.id = 'announcement-modal-backdrop';
+
+    const card = document.createElement('div');
+    card.className = 'announcement-modal-card';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'announcement-modal-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = () => {
+      backdrop.classList.remove('open');
+      sessionStorage.setItem('announcement_closed_' + active.id, 'true');
+      setTimeout(() => backdrop.remove(), 400);
+    };
+
+    const titleEl = document.createElement('h3');
+    titleEl.style.fontSize = '24px';
+    titleEl.style.color = 'var(--primary)';
+    titleEl.style.marginBottom = '15px';
+    titleEl.style.fontFamily = "'Outfit', sans-serif";
+    titleEl.textContent = active.title;
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'announcement-modal-content';
+    contentEl.innerHTML = active.content;
+
+    card.appendChild(closeBtn);
+    card.appendChild(titleEl);
+
+    if (active.image_url) {
+      const img = document.createElement('img');
+      img.className = 'announcement-modal-img';
+      img.src = active.image_url;
+      img.alt = active.title;
+      card.appendChild(img);
+    }
+
+    card.appendChild(contentEl);
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
+
+    setTimeout(() => {
+      backdrop.classList.add('open');
+    }, 100);
+
+  } catch (err) {
+    console.error('Failed to load active announcement modal', err);
+  }
+}
+
 // ---------------- INITIALIZATION CHECK ----------------
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
+  checkActiveAnnouncement();
 
   const path = window.location.pathname;
   if (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/')) {
@@ -1298,3 +1730,7 @@ window.handleEditUserSubmit = handleEditUserSubmit;
 window.deleteUser = deleteUser;
 window.processCheckIn = processCheckIn;
 window.resetScannerUI = resetScannerUI;
+window.formatEditorText = formatEditorText;
+window.editNewsAnnouncement = editNewsAnnouncement;
+window.deleteNewsAnnouncement = deleteNewsAnnouncement;
+window.cancelNewsEdit = cancelNewsEdit;

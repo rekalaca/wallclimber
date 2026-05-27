@@ -1111,3 +1111,397 @@ footer p {
 .password-toggle-eye:hover {
   color: var(--text-primary);
 }
+
+/* --- FIX HEADER FOR ADMIN & SCANNER --- */
+body.admin-body {
+  padding-top: 80px; /* Megakadályozza, hogy a tartalom a fix fejléc alá csússzon */
+}
+
+header.admin-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: rgba(12, 14, 23, 0.95);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* --- RESPONSIVE HAMBURGER MENU --- */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 5px;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition);
+}
+
+.hamburger-btn:hover {
+  color: var(--primary);
+  transform: scale(1.1);
+}
+
+/* Responsive navigation adjustments */
+@media (max-width: 991px) {
+  .hamburger-btn {
+    display: flex;
+  }
+
+  /* Oldalsó bekúszó menü mobilra */
+  header.admin-header .nav-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100vh;
+    background: rgba(15, 17, 26, 0.98);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-left: 1px solid var(--border-color);
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 90px 30px 40px 30px;
+    gap: 20px;
+    transform: translateX(100%);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 999;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  header.admin-header .nav-menu.open {
+    transform: translateX(0);
+  }
+
+  header.admin-header .nav-menu li {
+    width: 100%;
+  }
+
+  header.admin-header .nav-link {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+  }
+
+  header.admin-header .nav-link.active {
+    border-left-color: var(--primary);
+    background: rgba(255, 107, 0, 0.08);
+  }
+
+  header.admin-header .nav-auth {
+    display: none; /* Mobilon elrejtjük a header-ből */
+  }
+
+  header.admin-header .nav-auth-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: auto;
+    width: 100%;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+/* Close button style & spin animation */
+.menu-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.menu-close-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 107, 0, 0.2);
+  border-color: var(--primary);
+}
+
+.nav-menu.open .menu-close-btn svg {
+  animation: spinAndStop 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes spinAndStop {
+  0% {
+    transform: rotate(0deg) scale(0.3);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(180deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Overlay background behind mobile menu */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.menu-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* --- ANNOUNCEMENTS BOARD / ÜZENŐFAL STYLE --- */
+.rich-editor {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.rich-editor-toolbar {
+  display: flex;
+  gap: 5px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.editor-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: var(--transition);
+}
+
+.editor-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.editor-textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+}
+
+/* TOGGLE SWITCH */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-secondary);
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--primary-gradient);
+  border-color: var(--primary);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+  background-color: #fff;
+}
+
+/* ANNOUNCEMENT MODAL ON HOMEPAGE */
+.announcement-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.announcement-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.announcement-modal-card {
+  width: 90%;
+  max-width: 550px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px var(--primary-glow);
+  position: relative;
+  transform: scale(0.85);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.announcement-modal-backdrop.open .announcement-modal-card {
+  transform: scale(1);
+}
+
+.announcement-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  transition: var(--transition);
+}
+
+.announcement-modal-close:hover {
+  color: var(--primary);
+  transform: scale(1.1);
+}
+
+.announcement-modal-img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  margin-top: 15px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.announcement-modal-content {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.announcement-modal-content b, 
+.announcement-modal-content strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.announcement-modal-content i, 
+.announcement-modal-content em {
+  font-style: italic;
+}
+
+.announcement-modal-content u {
+  text-decoration: underline;
+}
+
+/* SCANNER BOOKINGS STYLING */
+.scan-booking-info {
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+}
+
+.scan-booking-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.scan-booking-match {
+  color: #10b981; /* Green */
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scan-booking-warning {
+  color: #f59e0b; /* Amber */
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scan-booking-error {
+  color: #ef4444; /* Red */
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
