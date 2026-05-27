@@ -1167,6 +1167,32 @@ header.admin-header {
   transform: scale(1.1);
 }
 
+/* Close button style & spin animation */
+.menu-close-btn {
+  display: none; /* Hide on desktop */
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(242, 118, 32, 0.08);
+  border: 1px solid rgba(242, 118, 32, 0.2);
+  transition: var(--transition);
+}
+
+.menu-close-btn:hover {
+  color: var(--primary);
+  background: rgba(242, 118, 32, 0.2);
+  border-color: var(--primary);
+}
+
 /* Responsive navigation adjustments */
 @media (max-width: 991px) {
   .hamburger-btn {
@@ -1220,6 +1246,7 @@ header.admin-header {
     background: rgba(255, 255, 255, 0.02);
     border-radius: 8px;
     border-left: 3px solid transparent;
+    box-shadow: rgba(242, 118, 32, 0.35) 0px 5px 15px;
   }
 
   header .nav-link.active {
@@ -1243,31 +1270,6 @@ header.admin-header {
   }
 }
 
-/* Close button style & spin animation */
-.menu-close-btn {
-  display: none; /* Hide on desktop */
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  color: var(--primary);
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(242, 118, 32, 0.08);
-  border: 1px solid rgba(242, 118, 32, 0.2);
-  transition: var(--transition);
-}
-
-.menu-close-btn:hover {
-  color: var(--primary);
-  background: rgba(242, 118, 32, 0.2);
-  border-color: var(--primary);
-}
 
 .nav-menu.open .menu-close-btn svg {
   animation: spinAndStop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
