@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Felhasználói Vezérlőpult | HawkStone</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="padding: 40px 20px 80px 20px;">
+    
+    <!-- User Profile Header Card -->
+    <div class="glass-card" id="user-profile-info" style="margin-bottom: 40px;">
+      <p style="color:var(--text-secondary); text-align:center;">Profil adatok betöltése...</p>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left Column: Tickets and Purchases -->
+      <div>
+        <!-- Buy Tickets -->
+        <div class="glass-card" style="margin-bottom: 30px;">
+          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Jegy- és Bérletvásárlás</h3>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Válassz egyet az alábbi jegytípusok közül. A vásárlás gombra kattintva a rendszer azonnal kiállítja a digitális jegyet és az egyedi QR kódot.</p>
+          
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+              <div>
+                <strong style="display:block;">Egyszeri Napijegy</strong>
+                <span style="font-size:12px; color:var(--text-secondary);">2 800 Ft | 30 napig érvényes</span>
+              </div>
+              <button onclick="buyTicket('NAPI')" class="btn btn-primary btn-sm">Vásárlás</button>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+              <div>
+                <strong style="display:block;">10 Alkalmas Bérlet</strong>
+                <span style="font-size:12px; color:var(--text-secondary);">22 000 Ft | 30 napig / 10 alkalomra érvényes</span>
+              </div>
+              <button onclick="buyTicket('TIZ_ALKALMAS')" class="btn btn-primary btn-sm">Vásárlás</button>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+              <div>
+                <strong style="display:block;">30 Napos Korlátlan Bérlet</strong>
+                <span style="font-size:12px; color:var(--text-secondary);">28 000 Ft | 30 napos korlátlan belépés</span>
+              </div>
+              <button onclick="buyTicket('HAVI')" class="btn btn-primary btn-sm">Vásárlás</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Passes list -->
+        <div class="glass-card">
+          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Megvásárolt Jegyek & Bérletek (Belépési QR kódok)</h3>
+          <div class="ticket-list" id="dashboard-tickets">
+            <p style="color:var(--text-muted);">Jegyek betöltése...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Booking and Appointments -->
+      <div>
+        <!-- Book slot form & calendar -->
+        <div class="glass-card" style="margin-bottom: 30px;">
+          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Időpont Bejelentkezés / Foglalás</h3>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="booking-location">Mászófal helyszín</label>
+              <select id="booking-location" class="form-control">
+                <option value="">Válassz helyszínt...</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="booking-date">Dátum</label>
+              <input type="date" id="booking-date" class="form-control">
+            </div>
+          </div>
+
+          <h4 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px; letter-spacing:0.05em;">Szabad idősávok a választott napon</h4>
+          <div class="schedule-list" id="booking-slots-container">
+            <p style="color:var(--text-muted);">Kérjük, válassz helyszínt és dátumot a szabad helyek listázásához.</p>
+          </div>
+        </div>
+
+        <!-- My upcoming bookings list -->
+        <div class="glass-card">
+          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Saját Aktív Helyfoglalásaim</h3>
+          <div class="schedule-list" id="dashboard-bookings">
+            <p style="color:var(--text-muted);">Foglalások betöltése...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- QR Overlay Zoom Modal -->
+  <div class="modal-backdrop" id="qr-modal-backdrop" onclick="closeQRModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeQRModal()">×</button>
+      <h3 id="modal-ticket-title">Digitális Belépő</h3>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Mutasd be ezt a QR kódot a mászófal bejáratánál az ellenőrző személyzetnek!</p>
+      
+      <div class="modal-qr-container">
+        <div id="modal-qr-code"></div>
+      </div>
+      
+      <div>
+        <button class="btn btn-secondary btn-sm" onclick="closeQRModal()">Bezárás</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Friendly Warning Modal for Booking Without Ticket -->
+  <div class="modal-backdrop" id="no-ticket-modal-backdrop" onclick="closeNoTicketModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeNoTicketModal()">×</button>
+      <h3 style="color: var(--primary); margin-bottom: 15px;">Kedves Mászónk! 🧗</h3>
+      <p style="font-size: 14px; line-height: 1.6; color: var(--text-primary); margin-bottom: 25px; text-align: center;">
+        Az időpontfoglaláshoz először válassz egyet a jegy vagy bérlet típusaink közül, és vásárold meg online!
+      </p>
+      <div>
+        <button class="btn btn-primary" onclick="closeNoTicketModal()">Rendben, választok jegyet</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.4.4/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bejelentkezés & Regisztráció | HawkStone</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <div class="container" style="max-width: 500px; margin: 60px auto 80px auto;">
+    <div class="glass-card">
+      <div class="auth-tabs">
+        <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">Bejelentkezés</div>
+        <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">Regisztráció</div>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="login-email">E-mail cím / Felhasználónév</label>
+          <input type="text" id="login-email" class="form-control" placeholder="pelda@hawkstone.hu vagy admin" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">Jelszó</label>
+          <div style="position: relative;">
+            <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('login-password')">👁️</span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Bejelentkezés</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" onsubmit="handleRegister(event)" style="display: none;">
+        <div class="form-group">
+          <label class="form-label" for="reg-name">Teljes név</label>
+          <input type="text" id="reg-name" class="form-control" placeholder="Kovács Péter" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-email">E-mail cím</label>
+          <input type="email" id="reg-email" class="form-control" placeholder="peter@domain.hu" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">Telefonszám</label>
+          <input type="tel" id="reg-phone" class="form-control" placeholder="06701112222" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-license">Sportmászó vizsga igazolvány szám (Opcionális)</label>
+          <input type="text" id="reg-license" class="form-control" placeholder="SMV-12345 (zöld kártyához)">
+          <small style="color: var(--text-muted); font-size:11px; display:block; margin-top:5px;">Ha rendelkezel vizsgával és beírod a számát, jogosult leszel mások biztosítására (Zöld Kártya).</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Jelszó</label>
+          <div style="position: relative;">
+            <input type="password" id="reg-password" class="form-control" placeholder="Min. 8 karakter, kis/nagybetű, spec. karakter" required minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}">
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('reg-password')">👁️</span>
+          </div>
+          <small class="password-hint">A jelszónak legalább 8 karakterből kell állnia, és tartalmaznia kell legalább egy kisbetűt, egy nagybetűt és egy speciális karaktert.</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-password-confirm">Jelszó újra</label>
+          <div style="position: relative;">
+            <input type="password" id="reg-password-confirm" class="form-control" placeholder="Jelszó ismétlése" required>
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('reg-password-confirm')">👁️</span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Regisztráció végrehajtása</button>
+      </form>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.4.4/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
+
+    function switchAuthTab(tab) {
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const formLogin = document.getElementById('login-form');
+      const formRegister = document.getElementById('register-form');
+
+      if (tab === 'login') {
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        formLogin.style.display = 'block';
+        formRegister.style.display = 'none';
+      } else {
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+        formLogin.style.display = 'none';
+        formRegister.style.display = 'block';
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Bejelentkezési hiba');
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        showToast('Sikeres bejelentkezés! Átirányítás...');
+        setTimeout(() => {
+          if (data.user.role === 'STAFF') {
+            window.location.href = 'scanner.html';
+          } else {
+            window.location.href = 'dashboard.html';
+          }
+        }, 800);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const phone = document.getElementById('reg-phone').value;
+      const licenseNumber = document.getElementById('reg-license').value;
+      const password = document.getElementById('reg-password').value;
+      const passwordConfirm = document.getElementById('reg-password-confirm').value;
+
+      // Check if passwords match
+      if (password !== passwordConfirm) {
+        showToast('A két jelszó nem egyezik meg!', 'error');
+        return;
+      }
+
+      // Regular Registration Password Strength Validation (Client-Side with simplified Regex)
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        showToast('A jelszó nem felel meg a biztonsági követelményeknek!', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone, licenseNumber, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Regisztrációs hiba');
+
+        // Note: For verification flow, we DO NOT log them in automatically
+        showToast('Regisztráció sikeres! Aktiváló e-mailt küldtünk.', 'success');
+        document.getElementById('register-form').reset();
+        
+        // Wait and switch to Login Tab
+        setTimeout(() => {
+          switchAuthTab('login');
+          showToast('Kérjük kattints az e-mailben küldött linkre a bejelentkezés előtt!', 'info');
+        }, 2000);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Check for verification redirect on load
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('verified') === 'true') {
+        setTimeout(() => {
+          showToast('A fiókod sikeresen aktiválva lett! Most már bejelentkezhetsz.', 'success');
+        }, 500);
+      }
+    });
+
+    function togglePasswordVisibility(inputId) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+      } else {
+        input.type = 'password';
+      }
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adminisztrációs Panel | HawkStone</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="padding: 40px 20px 80px 20px;">
+    
+    <div style="margin-bottom: 40px;">
+      <h2 style="font-size: 32px; color: var(--primary); margin-bottom: 10px;">Adminisztrációs Panel</h2>
+      <p style="color: var(--text-secondary);">Itt végezheted a heti órarendek és a regisztrált felhasználók biztonsági minősítésének (Zöld/Piros kártya) adminisztrálását.</p>
+    </div>
+
+    <!-- Tab Selector -->
+    <div class="auth-tabs" style="margin-bottom: 30px;">
+      <div id="tab-slots" class="auth-tab active" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
+      <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
+    </div>
+
+    <!-- Tab Slots Content -->
+    <div id="admin-slots-content">
+      <!-- Unified Schedule Slots Management -->
+      <div class="glass-card" style="margin-bottom: 40px;">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Heti Órarend Menedzsment (Eötvös, Kossuth, Zrínyi)</h3>
+        
+        <div class="grid-2" style="margin-bottom: 30px; align-items: start;">
+          <!-- Add Weekly Slot Form -->
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding:25px; border-radius: 12px;">
+            <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új heti idősáv hozzáadása</h4>
+            <form id="admin-slot-form">
+              <div class="form-group">
+                <label class="form-label" for="admin-slot-location">Helyszín</label>
+                <select id="admin-slot-location" class="form-control" required>
+                  <option value="">Válassz mászófalat...</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="admin-slot-day">Nap</label>
+                <select id="admin-slot-day" class="form-control" required>
+                  <option value="">Válassz napot...</option>
+                  <option value="1">Hétfő</option>
+                  <option value="2">Kedd</option>
+                  <option value="3">Szerda</option>
+                  <option value="4">Csütörtök</option>
+                  <option value="5">Péntek</option>
+                  <option value="6">Szombat</option>
+                  <option value="0">Vasárnap</option>
+                </select>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                  <label class="form-label" for="admin-slot-start">Kezdés (óra:perc)</label>
+                  <input type="text" id="admin-slot-start" class="form-control" placeholder="14:00" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="admin-slot-end">Befejezés (óra:perc)</label>
+                  <input type="text" id="admin-slot-end" class="form-control" placeholder="16:30" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="admin-slot-capacity">Maximális kapacitás (fő)</label>
+                <input type="number" id="admin-slot-capacity" class="form-control" value="15" min="1" required>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Idősáv hozzáadása</button>
+            </form>
+          </div>
+
+          <!-- Explanatory note -->
+          <div style="padding: 10px;">
+            <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--text-primary);">Tudnivalók az órarendről</h4>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az itt megadott idősávok a heti alap órarendet alkotják. A felhasználók ezekre az ismétlődő heti idősávokra tudnak bejelentkezni az adott dátum kiválasztásával.</p>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az idősávok törlése a mellette lévő "×" gombra kattintva történik meg, ami azonnal eltávolítja a heti sémából.</p>
+            <p style="font-size: 14px; color: var(--text-secondary);">A maximális kapacitás határozza meg a telt házas állapotot. Ha egy idősáv betelik, a rendszer lezárja a jelentkezést a tagok előtt az adott dátumra.</p>
+          </div>
+        </div>
+
+        <!-- Live slots view -->
+        <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Aktív heti órarendek falanként</h4>
+        <div id="admin-slots-list">
+          <p style="color:var(--text-muted);">Órarend lekérése...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Users Content -->
+    <div id="admin-users-content" style="display: none;">
+      <!-- User Qualifications (Zöld/Piros Kártya management) -->
+      <div class="glass-card">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Tagok & Biztonsági Jogosultságok</h3>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).</p>
+        
+        <div class="admin-table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Név</th>
+                <th>Elérhetőség</th>
+                <th>Vizsga Igazolványszám</th>
+                <th>Státusz & Jogkör</th>
+                <th>Művelet</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-list">
+              <tr>
+                <td colspan="5" style="text-align:center; color: var(--text-muted);">Tagok betöltése...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Edit Modal -->
+    <div class="modal-backdrop" id="edit-user-modal-backdrop" onclick="closeEditUserModal()">
+      <div class="modal" onclick="event.stopPropagation()" style="text-align: left; max-width: 500px;">
+        <button class="modal-close" onclick="closeEditUserModal()">×</button>
+        <h3 style="color: var(--primary); margin-bottom: 20px; text-align: center;">Felhasználó Szerkesztése</h3>
+        
+        <form id="edit-user-form" onsubmit="handleEditUserSubmit(event)">
+          <input type="hidden" id="edit-user-id">
+          <div class="form-group">
+            <label class="form-label" for="edit-user-name">Teljes név</label>
+            <input type="text" id="edit-user-name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-user-email">E-mail cím</label>
+            <input type="email" id="edit-user-email" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-user-phone">Telefonszám</label>
+            <input type="text" id="edit-user-phone" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-user-license">Vizsga igazolvány szám</label>
+            <input type="text" id="edit-user-license" class="form-control">
+          </div>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div class="form-group">
+              <label class="form-label" for="edit-user-card">Kártya típus</label>
+              <select id="edit-user-card" class="form-control" required>
+                <option value="PIROS">PIROS KÁRTYA</option>
+                <option value="ZÖLD">ZÖLD KÁRTYA</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-user-role">Szerepkör</label>
+              <select id="edit-user-role" class="form-control" required>
+                <option value="USER">User (Mászó)</option>
+                <option value="STAFF">Staff (Személyzet)</option>
+                <option value="ADMIN">Admin (Rendszergazda)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="display:flex; justify-content:space-between; gap:15px; margin-top:20px;">
+            <button type="button" class="btn btn-secondary" onclick="closeEditUserModal()" style="flex:1;">Mégse</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Mentés</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
+
+    function switchAdminTab(tab) {
+      const tabSlots = document.getElementById('tab-slots');
+      const tabUsers = document.getElementById('tab-users');
+      const contentSlots = document.getElementById('admin-slots-content');
+      const contentUsers = document.getElementById('admin-users-content');
+      if (!tabSlots || !tabUsers || !contentSlots || !contentUsers) return;
+
+      if (tab === 'slots') {
+        tabSlots.classList.add('active');
+        tabUsers.classList.remove('active');
+        contentSlots.style.display = 'block';
+        contentUsers.style.display = 'none';
+      } else {
+        tabSlots.classList.remove('active');
+        tabUsers.classList.add('active');
+        contentSlots.style.display = 'none';
+        contentUsers.style.display = 'block';
+      }
+    }
+    window.switchAdminTab = switchAdminTab;
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

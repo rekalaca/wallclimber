@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beléptető Terminál | HawkStone</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Special layout customization for HTML5 QR code scanning UI library to match our Obsidian/Magma theme */
+    #qr-reader-viewport {
+      border: 1px solid var(--border-color) !important;
+      background: var(--bg-card-solid) !important;
+      border-radius: var(--radius-lg);
+    }
+    #qr-reader-viewport button {
+      background: var(--primary-gradient) !important;
+      color: #fff !important;
+      border: none !important;
+      padding: 10px 20px !important;
+      border-radius: var(--radius) !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+      margin: 10px 0 !important;
+      font-family: 'Inter', sans-serif !important;
+      box-shadow: 0 4px 12px var(--primary-glow) !important;
+      transition: var(--transition) !important;
+    }
+    #qr-reader-viewport button:hover {
+      background: var(--primary-hover) !important;
+      transform: translateY(-1px) !important;
+    }
+    #qr-reader-viewport select {
+      padding: 8px 12px !important;
+      background: rgba(255,255,255,0.05) !important;
+      border: 1px solid var(--border-color) !important;
+      color: #fff !important;
+      border-radius: 8px !important;
+      margin: 5px 0 !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="padding: 40px 20px 80px 20px; max-width: 500px;">
+    
+    <div style="text-align: center; margin-bottom: 35px;">
+      <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 8px;">Kamerás QR Beléptetés</h2>
+      <p style="color: var(--text-secondary); font-size: 14px;">Okostelefonod kameráját a kódra irányítva ellenőrizheted a mászók jogosultságát és bérleteik érvényességét.</p>
+    </div>
+
+    <!-- Location Selector for Scanner -->
+    <div class="glass-card" style="padding: 20px; margin-bottom: 25px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="scanner-location-select" style="font-weight: 600;">Beléptetés Helyszíne:</label>
+        <select id="scanner-location-select" class="form-control">
+          <option value="">Kérjük, válassz helyszínt...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Scanner Camera Port -->
+    <div class="glass-card" style="padding: 25px; margin-bottom: 30px;">
+      <div id="qr-reader-viewport" style="width: 100%;"></div>
+    </div>
+
+    <!-- Real-time Scan Result Card -->
+    <div class="glass-card scan-result-card" id="scan-result-container">
+      <!-- Generated dynamically by app.js -->
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.4.4/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
+  </script>
+  <!-- Load Html5Qrcode Scanner library from unpkg CDN -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
+  <script src="app.js"></script>
+</body>
+</html>
