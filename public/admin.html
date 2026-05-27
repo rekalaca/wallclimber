@@ -18,8 +18,8 @@
       <p style="color: var(--text-secondary);">Itt végezheted a heti órarendek és a regisztrált felhasználók biztonsági minősítésének (Zöld/Piros kártya) adminisztrálását.</p>
     </div>
 
-    <!-- Tab Selector -->
-    <div class="auth-tabs" style="margin-bottom: 30px;">
+    <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
+    <div class="auth-tabs" style="display: none;">
       <div id="tab-slots" class="auth-tab active" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
       <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
@@ -101,75 +101,100 @@
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Tagok & Biztonsági Jogosultságok</h3>
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).</p>
         
-        <div class="admin-table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Név</th>
-                <th>Elérhetőség</th>
-                <th>Vizsga Igazolványszám</th>
-                <th>Státusz & Jogkör</th>
-                <th>Művelet</th>
-              </tr>
-            </thead>
-            <tbody id="admin-users-list">
-              <tr>
-                <td colspan="5" style="text-align:center; color: var(--text-muted);">Tagok betöltése...</td>
-              </tr>
-            </tbody>
-          </table>
+        <div id="admin-users-list" class="user-cards-grid">
+          <p style="text-align:center; color: var(--text-muted); width: 100%;">Tagok betöltése...</p>
         </div>
       </div>
     </div>
 
-    <!-- User Edit Modal -->
+    <!-- User Details & Edit Modal -->
     <div class="modal-backdrop" id="edit-user-modal-backdrop" onclick="closeEditUserModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="text-align: left; max-width: 500px;">
+      <div class="modal" onclick="event.stopPropagation()" style="text-align: left; max-width: 500px; width: 90%;">
         <button class="modal-close" onclick="closeEditUserModal()">×</button>
-        <h3 style="color: var(--primary); margin-bottom: 20px; text-align: center;">Felhasználó Szerkesztése</h3>
         
-        <form id="edit-user-form" onsubmit="handleEditUserSubmit(event)">
-          <input type="hidden" id="edit-user-id">
-          <div class="form-group">
-            <label class="form-label" for="edit-user-name">Teljes név</label>
-            <input type="text" id="edit-user-name" class="form-control" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-user-email">E-mail cím</label>
-            <input type="email" id="edit-user-email" class="form-control" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-user-phone">Telefonszám</label>
-            <input type="text" id="edit-user-phone" class="form-control" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-user-license">Vizsga igazolvány szám</label>
-            <input type="text" id="edit-user-license" class="form-control">
-          </div>
+        <!-- View Mode Content -->
+        <div id="user-details-view-mode">
+          <h3 id="view-user-name-title" style="color: var(--primary); margin-bottom: 20px; text-align: center; font-size: 24px; font-family: 'Outfit', sans-serif;"></h3>
           
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-            <div class="form-group">
-              <label class="form-label" for="edit-user-card">Kártya típus</label>
-              <select id="edit-user-card" class="form-control" required>
-                <option value="PIROS">PIROS KÁRTYA</option>
-                <option value="ZÖLD">ZÖLD KÁRTYA</option>
-              </select>
+          <div class="user-details-list" style="margin-bottom: 25px;">
+            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">E-mail cím</span>
+              <span id="view-user-email" style="font-size: 15px; color: #ffffff; word-break: break-all;"></span>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-user-role">Szerepkör</label>
-              <select id="edit-user-role" class="form-control" required>
-                <option value="USER">User (Mászó)</option>
-                <option value="STAFF">Staff (Személyzet)</option>
-                <option value="ADMIN">Admin (Rendszergazda)</option>
-              </select>
+            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Telefonszám</span>
+              <span id="view-user-phone" style="font-size: 15px; color: #ffffff;"></span>
+            </div>
+            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Sportmászó engedélyszám</span>
+              <span id="view-user-license" style="font-size: 15px; color: #ffffff;">-</span>
+            </div>
+            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Kártya státusz</span>
+                <span id="view-user-card" class="badge" style="margin-top: 4px; display: inline-block;"></span>
+              </div>
+              <div style="text-align: right;">
+                <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Szerepkör</span>
+                <span id="view-user-role" style="font-size: 15px; font-weight: 600; color: var(--primary); margin-top: 4px; display: inline-block;"></span>
+              </div>
             </div>
           </div>
           
-          <div style="display:flex; justify-content:space-between; gap:15px; margin-top:20px;">
-            <button type="button" class="btn btn-secondary" onclick="closeEditUserModal()" style="flex:1;">Mégse</button>
-            <button type="submit" class="btn btn-primary" style="flex:1;">Mentés</button>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="switchUserModalToEdit()" class="btn btn-primary" style="flex: 1;">Szerkesztés</button>
+            <button onclick="triggerUserDeleteFromDetails()" class="btn btn-danger" style="flex: 1; background: #ef4444; border-color: #ef4444;">Törlés</button>
           </div>
-        </form>
+          <button onclick="closeEditUserModal()" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Bezárás</button>
+        </div>
+        
+        <!-- Edit Mode Content (Form) -->
+        <div id="user-details-edit-mode" style="display: none;">
+          <h3 style="color: var(--primary); margin-bottom: 20px; text-align: center;">Felhasználó Szerkesztése</h3>
+          
+          <form id="edit-user-form" onsubmit="handleEditUserSubmit(event)">
+            <input type="hidden" id="edit-user-id">
+            <div class="form-group">
+              <label class="form-label" for="edit-user-name">Teljes név</label>
+              <input type="text" id="edit-user-name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-user-email">E-mail cím</label>
+              <input type="email" id="edit-user-email" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-user-phone">Telefonszám</label>
+              <input type="text" id="edit-user-phone" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-user-license">Vizsga igazolvány szám</label>
+              <input type="text" id="edit-user-license" class="form-control">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div class="form-group">
+                <label class="form-label" for="edit-user-card">Kártya típus</label>
+                <select id="edit-user-card" class="form-control" required>
+                  <option value="PIROS">PIROS KÁRTYA</option>
+                  <option value="ZÖLD">ZÖLD KÁRTYA</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-user-role">Szerepkör</label>
+                <select id="edit-user-role" class="form-control" required>
+                  <option value="USER">User (Mászó)</option>
+                  <option value="STAFF">Staff (Személyzet)</option>
+                  <option value="ADMIN">Admin (Rendszergazda)</option>
+                </select>
+              </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 20px;">
+              <button type="button" class="btn btn-secondary" onclick="switchUserModalToView()" style="flex: 1;">Vissza</button>
+              <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 

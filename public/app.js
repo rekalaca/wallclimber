@@ -1184,76 +1184,120 @@ async function initAdminPanel() {
     } else if (currentHash === '#schedule') {
       if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
     }
+    renderHeader();
   });
 }
 
 async function loadAdminUsers() {
-  const tbody = document.getElementById('admin-users-list');
-  if (!tbody) return;
+  const container = document.getElementById('admin-users-list');
+  if (!container) return;
 
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tagok betöltése...</td></tr>';
+  container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Tagok betöltése...</p>';
 
   try {
     const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error();
     const users = await res.json();
 
-    tbody.innerHTML = '';
-    window.adminUsers = users; // Store globally for edit form lookup
+    container.innerHTML = '';
+    window.adminUsers = users; // Store globally for details modal lookup
+    
+    if (users.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Nem található regisztrált tag.</p>';
+      return;
+    }
+
     users.forEach(u => {
-      const tr = document.createElement('tr');
+      const card = document.createElement('div');
+      card.className = 'user-card';
+      card.setAttribute('onclick', `openUserDetailsModal(${u.id})`);
       
       const badgeClass = u.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red';
       const roleBadge = u.role === 'ADMIN' ? 'badge-primary' : (u.role === 'STAFF' ? 'badge-secondary' : '');
       const roleLabel = u.role === 'ADMIN' ? 'Admin' : (u.role === 'STAFF' ? 'Staff' : 'Mászó');
 
-      tr.innerHTML = `
-        <td style="font-weight:600; color:#fff;">${u.name}</td>
-        <td>${u.email}<br><span style="font-size:12px; color:var(--text-muted);">${u.phone}</span></td>
-        <td>
-          <span style="font-size:12px; font-family:monospace; color:#fff;">${u.license_number || '-'}</span>
-        </td>
-        <td>
-          <span class="badge ${badgeClass}" data-tooltip="${u.card_type === 'ZÖLD' ? 'Sikeres mászóvizsgával rendelkezik, önállóan biztosíthatja társát a falon.' : 'Nem rendelkezik mászóvizsgával. Biztosítóként nem tevékenykedhet, kizárólag önbiztosítóval vagy zöld kártyás kísérővel mászhat.'}">${u.card_type}</span>
-          ${roleBadge ? `<span class="badge" style="background:#4f46e5; margin-left:5px;">${roleLabel}</span>` : ''}
-        </td>
-        <td>
-          <div style="display:flex; gap:8px;">
-            <button onclick="openEditUserModal(${u.id})" class="btn btn-secondary btn-sm" style="padding: 5px 10px;">
-              Szerkesztés
-            </button>
-            <button onclick="deleteUser(${u.id})" class="btn btn-danger btn-sm" style="padding: 5px 10px; background:#ef4444;">
-              Törlés
-            </button>
+      card.innerHTML = `
+        <div class="user-card-header">
+          <div>
+            <div class="user-card-name">${u.name}</div>
+            <div class="user-card-email" style="font-size:12px; color:var(--text-secondary); margin-top:3px; word-break:break-all;">${u.email}</div>
+            <div class="user-card-phone" style="font-size:12px; color:var(--text-muted); margin-top:2px;">${u.phone || '-'}</div>
           </div>
-        </td>
+        </div>
+        <div class="user-card-badges" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
+          <span class="badge ${badgeClass}">${u.card_type} KÁRTYA</span>
+          ${roleBadge ? `<span class="badge" style="background:#4f46e5;">${roleLabel}</span>` : ''}
+        </div>
       `;
-      tbody.appendChild(tr);
+      container.appendChild(card);
     });
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Nem sikerült a felhasználók betöltése.</td></tr>';
+    container.innerHTML = '<p style="text-align:center; color:var(--danger); width: 100%; grid-column: 1/-1;">Nem sikerült a felhasználók betöltése.</p>';
   }
 }
 
-function openEditUserModal(userId) {
+function openUserDetailsModal(userId) {
   const user = (window.adminUsers || []).find(u => u.id === userId);
   if (!user) return;
   
   document.getElementById('edit-user-id').value = user.id;
+  
+  // Populate View Mode
+  document.getElementById('view-user-name-title').textContent = user.name;
+  document.getElementById('view-user-email').textContent = user.email;
+  document.getElementById('view-user-phone').textContent = user.phone || '-';
+  document.getElementById('view-user-license').textContent = user.license_number || 'Nincs megadva';
+  
+  const cardBadge = document.getElementById('view-user-card');
+  cardBadge.textContent = user.card_type + ' KÁRTYA';
+  cardBadge.className = 'badge ' + (user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red');
+  
+  const roleLabel = user.role === 'ADMIN' ? 'Admin' : (user.role === 'STAFF' ? 'Staff' : 'Mászó');
+  document.getElementById('view-user-role').textContent = roleLabel;
+  
+  // Populate Edit Mode
   document.getElementById('edit-user-name').value = user.name;
   document.getElementById('edit-user-email').value = user.email;
-  document.getElementById('edit-user-phone').value = user.phone;
+  document.getElementById('edit-user-phone').value = user.phone || '';
   document.getElementById('edit-user-license').value = user.license_number || '';
   document.getElementById('edit-user-card').value = user.card_type;
   document.getElementById('edit-user-role').value = user.role;
+  
+  switchUserModalToView();
   
   const backdrop = document.getElementById('edit-user-modal-backdrop');
   if (backdrop) backdrop.classList.add('open');
 }
 
+function openEditUserModal(userId) {
+  openUserDetailsModal(userId);
+  switchUserModalToEdit();
+}
+
 function closeEditUserModal() {
   const backdrop = document.getElementById('edit-user-modal-backdrop');
   if (backdrop) backdrop.classList.remove('open');
+}
+
+function switchUserModalToView() {
+  const viewEl = document.getElementById('user-details-view-mode');
+  const editEl = document.getElementById('user-details-edit-mode');
+  if (viewEl) viewEl.style.display = 'block';
+  if (editEl) editEl.style.display = 'none';
+}
+
+function switchUserModalToEdit() {
+  const viewEl = document.getElementById('user-details-view-mode');
+  const editEl = document.getElementById('user-details-edit-mode');
+  if (viewEl) viewEl.style.display = 'none';
+  if (editEl) editEl.style.display = 'block';
+}
+
+function triggerUserDeleteFromDetails() {
+  const userIdVal = document.getElementById('edit-user-id').value;
+  if (userIdVal) {
+    deleteUser(parseInt(userIdVal));
+  }
 }
 
 async function handleEditUserSubmit(e) {
@@ -1315,6 +1359,7 @@ async function deleteUser(userId) {
     if (!res.ok) throw new Error(data.error || 'Törlési hiba');
     
     showToast('Felhasználó sikeresen törölve!');
+    closeEditUserModal();
     loadAdminUsers();
   } catch (err) {
     showToast(err.message, 'error');
@@ -1468,7 +1513,7 @@ async function loadNewsAnnouncements() {
   const container = document.getElementById('admin-news-list');
   if (!container) return;
 
-  container.innerHTML = '<p style="color:var(--text-muted);">Hírek betöltése...</p>';
+  container.innerHTML = '<p style="color:var(--text-muted); text-align:center; width:100%;">Hírek betöltése...</p>';
 
   try {
     const res = await fetch('/api/announcements', { headers: getAuthHeaders() });
@@ -1477,56 +1522,57 @@ async function loadNewsAnnouncements() {
 
     container.innerHTML = '';
     if (list.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted); padding:15px;">Nincs még közzétett hír.</p>';
+      container.innerHTML = '<p style="color:var(--text-muted); padding:15px; text-align:center; width:100%;">Nincs még közzétett hír.</p>';
       return;
     }
 
     window.adminAnnouncements = list; // Save globally for editing lookup
 
-    const table = document.createElement('table');
-    table.className = 'admin-table';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>Cím</th>
-          <th>Tartalom</th>
-          <th>Státusz</th>
-          <th>Dátum</th>
-          <th style="width:120px; text-align:center;">Műveletek</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    `;
-
-    const tbody = table.querySelector('tbody');
+    const grid = document.createElement('div');
+    grid.className = 'user-cards-grid';
 
     list.forEach(item => {
-      const tr = document.createElement('tr');
+      const card = document.createElement('div');
+      card.className = 'user-card';
+      card.style.cursor = 'default';
+
       const activeBadge = item.is_active ? '<span class="badge badge-green">Aktív</span>' : '<span class="badge badge-red">Inaktív</span>';
       
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = item.content;
       const cleanContent = tempDiv.textContent || tempDiv.innerText || '';
-      const preview = cleanContent.length > 60 ? cleanContent.substring(0, 60) + '...' : cleanContent;
+      const preview = cleanContent.length > 120 ? cleanContent.substring(0, 120) + '...' : cleanContent;
 
-      tr.innerHTML = `
-        <td style="font-weight:600; color:#fff;">${item.title}</td>
-        <td style="font-size:13px; color:var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          ${preview}
-        </td>
-        <td>${activeBadge}</td>
-        <td style="font-size:12px; color:var(--text-muted);">${item.created_at ? item.created_at.substring(0, 16) : '-'}</td>
-        <td style="text-align:center;">
-          <button onclick="editNewsAnnouncement(${item.id})" class="btn btn-secondary btn-sm" style="margin-right:5px; padding:4px 8px;">Szerkeszt</button>
-          <button onclick="deleteNewsAnnouncement(${item.id})" class="btn btn-danger btn-sm" style="padding:4px 8px; background:#ef4444; border-color:#ef4444;">Töröl</button>
-        </td>
+      let imagePreviewHtml = '';
+      if (item.image_url) {
+        imagePreviewHtml = `<div style="margin-top: 8px; max-height: 100px; overflow: hidden; border-radius: 6px;"><img src="${item.image_url}" style="width: 100%; height: auto; object-fit: cover; opacity: 0.8;" /></div>`;
+      }
+
+      card.innerHTML = `
+        <div style="flex-grow: 1;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 10px;">
+            <div style="font-weight:700; color:#fff; font-size:16px;">${item.title}</div>
+            ${activeBadge}
+          </div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+            ${item.created_at ? item.created_at.substring(0, 16).replace('T', ' ') : '-'}
+          </div>
+          ${imagePreviewHtml}
+          <div style="font-size:13px; color:var(--text-secondary); margin-top:8px; line-height:1.4;">
+            ${preview}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top:12px;">
+          <button onclick="editNewsAnnouncement(${item.id})" class="btn btn-secondary btn-sm" style="flex:1; padding:6px;">Szerkesztés</button>
+          <button onclick="deleteNewsAnnouncement(${item.id})" class="btn btn-danger btn-sm" style="flex:1; padding:6px; background:#ef4444; border-color:#ef4444;">Törlés</button>
+        </div>
       `;
-      tbody.appendChild(tr);
+      grid.appendChild(card);
     });
 
-    container.appendChild(table);
+    container.appendChild(grid);
   } catch (err) {
-    container.innerHTML = '<p style="color:var(--danger);">Nem sikerült betölteni az üzenőfalat.</p>';
+    container.innerHTML = '<p style="color:var(--danger); text-align:center; width:100%;">Nem sikerült betölteni az üzenőfalat.</p>';
   }
 }
 
@@ -1724,8 +1770,12 @@ window.bookSlot = bookSlot;
 window.cancelBooking = cancelBooking;
 window.downloadRulesPDF = downloadRulesPDF;
 window.loadBookingSchedules = loadBookingSchedules;
+window.openUserDetailsModal = openUserDetailsModal;
 window.openEditUserModal = openEditUserModal;
 window.closeEditUserModal = closeEditUserModal;
+window.switchUserModalToView = switchUserModalToView;
+window.switchUserModalToEdit = switchUserModalToEdit;
+window.triggerUserDeleteFromDetails = triggerUserDeleteFromDetails;
 window.handleEditUserSubmit = handleEditUserSubmit;
 window.deleteUser = deleteUser;
 window.processCheckIn = processCheckIn;

@@ -1010,18 +1010,11 @@ footer p {
 /* Mobile responsive styles */
 @media (max-width: 768px) {
   .navbar {
-    flex-direction: column;
-    height: auto;
-    padding: 20px 0;
-    gap: 15px;
-  }
-  
-  .nav-menu {
-    flex-direction: column;
-    width: 100%;
-    text-align: center;
-    gap: 15px;
-    margin-top: 10px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 70px;
+    padding: 0 10px;
   }
   
   .hero h1 {
@@ -1153,37 +1146,37 @@ header.admin-header {
     display: flex;
   }
 
-  /* Oldalsó bekúszó menü mobilra */
-  header.admin-header .nav-menu {
+  /* Oldalsó bekúszó menü mobilra (balról jobbra, teljes szélességben) */
+  header .nav-menu {
     position: fixed;
     top: 0;
-    right: 0;
-    width: 300px;
+    left: 0;
+    width: 100%;
     height: 100vh;
     background: rgba(15, 17, 26, 0.98);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
-    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
     padding: 90px 30px 40px 30px;
     gap: 20px;
-    transform: translateX(100%);
+    transform: translateX(-100%);
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 999;
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
   }
 
-  header.admin-header .nav-menu.open {
+  header .nav-menu.open {
     transform: translateX(0);
   }
 
-  header.admin-header .nav-menu li {
+  header .nav-menu li {
     width: 100%;
   }
 
-  header.admin-header .nav-link {
+  header .nav-link {
     display: block;
     width: 100%;
     padding: 12px 15px;
@@ -1192,16 +1185,16 @@ header.admin-header {
     border-left: 3px solid transparent;
   }
 
-  header.admin-header .nav-link.active {
+  header .nav-link.active {
     border-left-color: var(--primary);
     background: rgba(255, 107, 0, 0.08);
   }
 
-  header.admin-header .nav-auth {
+  header .nav-auth {
     display: none; /* Mobilon elrejtjük a header-ből */
   }
 
-  header.admin-header .nav-auth-mobile {
+  header .nav-auth-mobile {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -1504,4 +1497,60 @@ header.admin-header {
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
+}
+
+/* USER & ANNOUNCEMENT CARD LAYOUT */
+.user-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  width: 100%;
+}
+
+.user-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 15px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.user-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.user-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.user-details-list div {
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .user-cards-grid {
+    grid-template-columns: 1fr;
+    padding: 0 5px;
+  }
+  .container {
+    padding: 0 10px !important;
+  }
+  main.container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-top: 20px !important;
+    padding-bottom: 40px !important;
+  }
 }
