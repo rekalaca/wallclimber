@@ -100,7 +100,7 @@ function renderHeader() {
       <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
       <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
       <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
-      <li><a href="dashboard.html" class="nav-link">Mászói fiók</a></li>
+      <li><a href="dashboard.html" class="nav-link">Profilom</a></li>
       <li><a href="index.html" target="_blank" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
@@ -119,10 +119,10 @@ function renderHeader() {
     `;
     if (token) {
       if (user.role === 'USER') {
-        navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Vezérlőpult</a></li>`;
+        navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>`;
       } else if (user.role === 'STAFF' || user.role === 'ADMIN') {
         navItems += `
-          <li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Mászói fiók</a></li>
+          <li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>
           <li><a href="admin.html" class="nav-link ${isActive('admin.html')}">Adminisztráció</a></li>
           <li><a href="scanner.html" class="nav-link ${isActive('scanner.html')}">Scanner</a></li>
         `;
@@ -132,28 +132,42 @@ function renderHeader() {
 
   let authSection = '';
   let authSectionMobile = '';
+  const userName = user.name || 'Fiókom';
 
   if (token) {
-    const tooltipText = user.card_type === 'ZÖLD' ? 
-      'Sikeres mászóvizsgával rendelkezik, önállóan biztosíthatja társát a falon.' : 
-      'Nem rendelkezik mászóvizsgával. Biztosítóként nem tevékenykedhet, kizárólag önbiztosítóval vagy zöld kártyás kísérővel mászhat.';
-    
-    const cardBadge = user.role === 'USER' || user.role === 'ADMIN' ? 
-      `<span class="badge ${user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red'}" data-tooltip="${tooltipText}" style="margin-right: 10px;">${user.card_type} KÁRTYA</span>` : '';
-    
     authSection = `
       <div class="nav-auth">
-        ${cardBadge}
-        <span style="font-weight:600; font-size:14px; color:#ffffff; margin-right: 15px;">${user.name}</span>
-        <button onclick="logout()" class="btn btn-secondary btn-sm">Kijelentkezés</button>
+        <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <div class="profile-header-widget">
+          <a href="dashboard.html" class="profile-trigger-link">
+            <div class="profile-avatar-circle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <span class="profile-subtext" title="${userName}">${userName}</span>
+          </a>
+          <button class="logout-icon-btn" onclick="logout()" title="Kijelentkezés" aria-label="Kijelentkezés">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
 
     authSectionMobile = `
       <div class="nav-auth-mobile">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-          <span style="font-weight:600; font-size:14px; color:#ffffff;">${user.name}</span>
-          ${cardBadge}
+          <span style="font-weight:600; font-size:14px; color:#ffffff;">${userName}</span>
         </div>
         <button onclick="logout()" class="btn btn-secondary btn-sm" style="width:100%;">Kijelentkezés</button>
       </div>
@@ -161,7 +175,23 @@ function renderHeader() {
   } else {
     authSection = `
       <div class="nav-auth">
-        <a href="auth.html" class="btn btn-primary btn-sm">Bejelentkezés</a>
+        <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <div class="profile-header-widget">
+          <a href="auth.html" class="profile-trigger-link">
+            <div class="profile-avatar-circle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <span class="profile-subtext">Bejelentkezés</span>
+          </a>
+        </div>
       </div>
     `;
 
@@ -202,6 +232,16 @@ function renderHeader() {
         ${authSection}
       </nav>
     </div>
+
+    <!-- Search Bar Dropdown -->
+    <div class="search-dropdown-bar" id="search-dropdown-bar">
+      <div class="search-bar-inner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" placeholder="Keresés a mászófalak, hírek vagy órarendek között..." id="header-search-input" oninput="handleHeaderSearch(this.value)" />
+        <button class="search-clear-btn" onclick="clearHeaderSearch()" aria-label="Keresés törlése">&times;</button>
+      </div>
+      <div class="search-results-dropdown" id="search-results-dropdown" style="display:none;"></div>
+    </div>
   `;
 
   // Hamburger Menu toggle events
@@ -227,6 +267,103 @@ function renderHeader() {
     });
   }
 }
+
+// ---------------- HEADER SEARCH UTILITIES ----------------
+const searchIndex = [
+  { title: "Rólunk", desc: "Ismerd meg a HawkStone csapatát és küldetésünket.", link: "#about", tags: ["rolunk", "csapat", "bemutatkozas", "mászás", "terem"] },
+  { title: "Helyszínek", desc: "Három helyszínünk: Eötvös mászófal, Kossuth mászófal, Zrínyi mászófal.", link: "#locations", tags: ["helyszin", "helyek", "eötvös", "kossuth", "zrínyi", "nyitvatartás", "cim", "címek"] },
+  { title: "Áraink", desc: "Tekintsd meg jegyeink és bérleteink árait.", link: "#prices", tags: ["arak", "araink", "jegy", "berlet", "bérlet", "napijegy", "vasarlas", "fizetes"] },
+  { title: "Szabályzatunk", desc: "Mászófal biztonsági és házirend szabályzatunk.", link: "#rules", tags: ["szabalyzat", "vizsga", "biztonsag", "zöld", "piros", "kartya", "kártya"] },
+  { title: "Kapcsolat", desc: "Vedd fel velünk a kapcsolatot, vagy küldj üzenetet.", link: "#contact", tags: ["kapcsolat", "email", "telefon", "terkep", "térkép", "uzenet"] },
+  { title: "Profilom", desc: "Személyes profil, megvásárolt jegyek és időpontfoglalások kezelése.", link: "dashboard.html", tags: ["profilom", "dashboard", "vezérlőpult", "foglalas", "jegyek", "qr", "kod"] }
+];
+
+function resolveSearchLink(link) {
+  if (link.startsWith('#')) {
+    const isIndex = window.location.pathname.endsWith('index.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/');
+    return isIndex ? link : `index.html${link}`;
+  }
+  return link;
+}
+
+function toggleHeaderSearch() {
+  const bar = document.getElementById('search-dropdown-bar');
+  if (!bar) return;
+  const isOpen = bar.classList.toggle('open');
+  if (isOpen) {
+    const input = document.getElementById('header-search-input');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    const results = document.getElementById('search-results-dropdown');
+    if (results) {
+      results.style.display = 'none';
+      results.innerHTML = '';
+    }
+  }
+}
+
+function clearHeaderSearch() {
+  const input = document.getElementById('header-search-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  const results = document.getElementById('search-results-dropdown');
+  if (results) {
+    results.style.display = 'none';
+    results.innerHTML = '';
+  }
+}
+
+function handleHeaderSearch(query) {
+  const resultsDiv = document.getElementById('search-results-dropdown');
+  if (!resultsDiv) return;
+
+  const cleanQuery = query.toLowerCase().trim();
+  if (!cleanQuery) {
+    resultsDiv.style.display = 'none';
+    resultsDiv.innerHTML = '';
+    return;
+  }
+
+  const filtered = searchIndex.filter(item => {
+    return item.title.toLowerCase().includes(cleanQuery) ||
+           item.desc.toLowerCase().includes(cleanQuery) ||
+           item.tags.some(tag => tag.includes(cleanQuery));
+  });
+
+  resultsDiv.style.display = 'block';
+  if (filtered.length === 0) {
+    resultsDiv.innerHTML = `<div class="search-no-results">Nincs találat a következőre: "${query}"</div>`;
+    return;
+  }
+
+  resultsDiv.innerHTML = filtered.map(item => {
+    const resolvedLink = resolveSearchLink(item.link);
+    return `
+      <a href="${resolvedLink}" class="search-result-item" onclick="toggleHeaderSearch()">
+        <span class="search-result-title">${item.title}</span>
+        <span class="search-result-desc">${item.desc}</span>
+      </a>
+    `;
+  }).join('');
+}
+
+// Click outside to close search bar
+document.addEventListener('click', (event) => {
+  const bar = document.getElementById('search-dropdown-bar');
+  const trigger = document.querySelector('.search-trigger-btn');
+  if (bar && bar.classList.contains('open') && !bar.contains(event.target) && (!trigger || !trigger.contains(event.target))) {
+    bar.classList.remove('open');
+  }
+});
+
+// Bind search utilities to window
+window.toggleHeaderSearch = toggleHeaderSearch;
+window.clearHeaderSearch = clearHeaderSearch;
+window.handleHeaderSearch = handleHeaderSearch;
 
 function isActive(page) {
   const path = window.location.pathname;
