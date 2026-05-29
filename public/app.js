@@ -241,6 +241,11 @@ async function initPublicLanding() {
     video.playbackRate = 0.85;
     video.loop = false;
     
+    // Fade in on first play (removes the default 'video-ended' opacity 0 class)
+    video.addEventListener('play', () => {
+      video.classList.remove('video-ended');
+    }, { once: true });
+    
     let hasFadedInText = false;
     
     // Listen to timeupdate to trigger text fade-in 3 seconds before the end
@@ -259,9 +264,21 @@ async function initPublicLanding() {
       const isMobile = window.innerWidth <= 768;
       
       if (isMobile) {
-        // Mobile loop: restart immediately and keep text visible
+        // Mobile loop: restart immediately with fade-in and keep text visible
+        video.classList.add('no-transition');
+        video.classList.add('video-ended'); // Set opacity to 0 instantly
         video.currentTime = 0;
-        video.play().catch(err => console.log("Video autoplay loop error:", err));
+        
+        // Force reflow
+        video.offsetHeight;
+        
+        video.classList.remove('no-transition');
+        video.play().then(() => {
+          video.classList.remove('video-ended'); // Smooth fade-in
+        }).catch(err => {
+          console.log("Video autoplay loop error:", err);
+          video.classList.remove('video-ended');
+        });
       } else {
         // Desktop loop: fade to black, wait, then restart and fade out text
         video.classList.add('video-ended');

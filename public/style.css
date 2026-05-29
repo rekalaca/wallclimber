@@ -284,6 +284,10 @@ header {
   opacity: 0;
 }
 
+.no-transition {
+  transition: none !important;
+}
+
 .hero-video-overlay {
   position: absolute;
   top: 0;
@@ -1137,7 +1141,7 @@ footer p {
     aspect-ratio: 16 / 9;
     z-index: 1;
     overflow: hidden;
-    margin-top: 15px;
+    margin-top: 30px;
   }
 
   .hero-video-bg {
