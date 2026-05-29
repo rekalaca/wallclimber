@@ -256,28 +256,32 @@ async function initPublicLanding() {
     });
     
     video.addEventListener('ended', () => {
-      // 1. Fade out video to black
-      video.classList.add('video-ended');
+      const isMobile = window.innerWidth <= 768;
       
-      // 2. Wait 3 seconds in the black screen state
-      setTimeout(() => {
-        // 3. Restart the video immediately
+      if (isMobile) {
+        // Mobile loop: restart immediately and keep text visible
         video.currentTime = 0;
-        video.classList.remove('video-ended');
         video.play().catch(err => console.log("Video autoplay loop error:", err));
+      } else {
+        // Desktop loop: fade to black, wait, then restart and fade out text
+        video.classList.add('video-ended');
         
-        // 4. Wait 1 second after restart, then fade out the text
         setTimeout(() => {
-          if (heroContent) {
-            heroContent.classList.remove('visible');
-          }
+          video.currentTime = 0;
+          video.classList.remove('video-ended');
+          video.play().catch(err => console.log("Video autoplay loop error:", err));
           
-          // 5. Once text fades out (1.2s transition), reset state for the next loop
           setTimeout(() => {
-            hasFadedInText = false;
-          }, 1200);
-        }, 1000);
-      }, 3000);
+            if (heroContent) {
+              heroContent.classList.remove('visible');
+            }
+            
+            setTimeout(() => {
+              hasFadedInText = false;
+            }, 1200);
+          }, 1000);
+        }, 3000);
+      }
     });
   }
   try {
