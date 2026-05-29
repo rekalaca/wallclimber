@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Felhasználói Vezérlőpult | HawkStone</title>
-  <link rel="stylesheet" href="style.css?v=20260529_v4">
+  <link rel="stylesheet" href="style.css?v=20260529_v5">
 </head>
 <body>
 
@@ -55,7 +55,11 @@
 
         <!-- Active Passes list -->
         <div class="glass-card">
-          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Megvásárolt Jegyek & Bérletek (Belépési QR kódok)</h3>
+          <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Megvásárolt Jegyek & Bérletek</h3>
+          <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="ticket-tab-active" onclick="switchTicketTab('active')" class="btn btn-primary btn-sm">Érvényes jegyeim</button>
+            <button id="ticket-tab-expired" onclick="switchTicketTab('expired')" class="btn btn-secondary btn-sm">Lejárt / Felhasznált</button>
+          </div>
           <div class="ticket-list" id="dashboard-tickets">
             <p style="color:var(--text-muted);">Jegyek betöltése...</p>
           </div>
@@ -89,7 +93,11 @@
 
         <!-- My upcoming bookings list -->
         <div class="glass-card">
-          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Saját Aktív Helyfoglalásaim</h3>
+          <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Saját Helyfoglalásaim</h3>
+          <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="booking-tab-upcoming" onclick="switchBookingTab('upcoming')" class="btn btn-primary btn-sm">Közelgő foglalások</button>
+            <button id="booking-tab-past" onclick="switchBookingTab('past')" class="btn btn-secondary btn-sm">Múltbéli foglalások</button>
+          </div>
           <div class="schedule-list" id="dashboard-bookings">
             <p style="color:var(--text-muted);">Foglalások betöltése...</p>
           </div>
@@ -147,6 +155,6 @@
   <script>
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
   </script>
-  <script src="app.js?v=20260529_v4"></script>
+  <script src="app.js?v=20260529_v5"></script>
 </body>
 </html>

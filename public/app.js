@@ -473,8 +473,13 @@ async function loadProfileAndDashboard() {
     const data = await res.json();
     const { user, tickets, bookings } = data;
     
+    // Save data to window for tab switching
+    window.dashboardTickets = tickets;
+    window.dashboardBookings = bookings;
+    
     // Save count of active tickets
-    window.activeTicketsCount = tickets.filter(t => t.status === 'ACTIVE').length;
+    const todayStr = new Date().toISOString().split('T')[0];
+    window.activeTicketsCount = tickets.filter(t => t.status === 'ACTIVE' && t.expires_date >= todayStr).length;
     
     // Save/update local storage user details
     localStorage.setItem('user', JSON.stringify(user));
@@ -503,135 +508,9 @@ async function loadProfileAndDashboard() {
       `;
     }
 
-    // Render active tickets
-    const ticketsContainer = document.getElementById('dashboard-tickets');
-    if (ticketsContainer) {
-      if (tickets.length === 0) {
-        ticketsContainer.innerHTML = '<p style="color:var(--text-muted);">Még nincs megvásárolt aktív jegyed vagy bérleted.</p>';
-      } else {
-        ticketsContainer.innerHTML = '';
-        tickets.forEach(t => {
-          let hungarianType = '';
-          let usageText = '';
-          if (t.ticket_type === 'NAPI') {
-            hungarianType = 'Egyszeri Napijegy';
-            usageText = t.status === 'USED' ? 'Felhasználva' : 'Még nem használt (1 alkalom)';
-          } else if (t.ticket_type === 'TIZ_ALKALMAS') {
-            hungarianType = '10 Alkalmas Bérlet';
-            usageText = `Fennmaradó alkalmak: ${t.sessions_remaining}/10`;
-          } else if (t.ticket_type === 'HAVI') {
-            hungarianType = '30 Napos Korlátlan Bérlet';
-            usageText = 'Korlátlan belépés érvényességi időn belül';
-          }
-
-          const ticketCard = document.createElement('div');
-          ticketCard.className = 'ticket-item';
-
-          const isExpired = new Date(t.expires_date) < new Date();
-          let statusLabelClass = 'badge-green';
-          let statusText = 'Aktív';
-          if (t.status === 'USED') {
-            statusLabelClass = 'badge-secondary';
-            statusText = 'Felhasznált';
-          } else if (t.status === 'EXPIRED' || isExpired) {
-            statusLabelClass = 'badge-red';
-            statusText = 'Lejárt';
-          }
-
-          let qrSectionHtml = '';
-          if (t.status === 'ACTIVE' && !isExpired) {
-            qrSectionHtml = `
-              <div class="ticket-qr-container">
-                <div class="qr-large-trigger" onclick="openQRModal('${t.qr_code_uuid}', '${hungarianType}')" title="Kattints a QR kód nagyításához">
-                  <div id="large-qr-${t.id}" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
-                </div>
-              </div>
-            `;
-            // Async draw large QR code
-            setTimeout(() => {
-              const largeDiv = document.getElementById(`large-qr-${t.id}`);
-              if (largeDiv) {
-                if (typeof qrcode !== 'undefined' && qrcode && typeof qrcode.toDataURL === 'function') {
-                  const qrUrl = window.location.origin + '/scanner.html?uuid=' + t.qr_code_uuid;
-                  qrcode.toDataURL(qrUrl, { width: 100, margin: 1 }, (err, url) => {
-                    if (!err) largeDiv.innerHTML = `<img src="${url}" alt="QR" />`;
-                  });
-                } else {
-                  largeDiv.innerHTML = '<span style="font-size:10px;color:var(--danger);">Nincs könyvtár</span>';
-                }
-              }
-            }, 50);
-          } else {
-            qrSectionHtml = `
-              <div class="ticket-qr-container">
-                <div class="qr-placeholder-expired" title="Nem aktív jegy">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); opacity: 0.5;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                </div>
-              </div>
-            `;
-          }
-
-          ticketCard.innerHTML = `
-            <div class="ticket-info">
-              <div class="ticket-info-details">
-                <h4 style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
-                  ${hungarianType} 
-                  <span class="badge ${statusLabelClass}" style="font-size:9px; padding:3px 8px;">${statusText}</span>
-                </h4>
-                <p style="margin-top: 4px;">${usageText}</p>
-                <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}</p>
-              </div>
-              <div style="margin-top: auto; padding-top: 15px;">
-                <button onclick="downloadRulesPDF(${t.id})" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  PDF jegy & szabályzat
-                </button>
-              </div>
-            </div>
-            ${qrSectionHtml}
-          `;
-          ticketsContainer.appendChild(ticketCard);
-        });
-      }
-    }
-
-    // Render bookings
-    const bookingsContainer = document.getElementById('dashboard-bookings');
-    if (bookingsContainer) {
-      if (bookings.length === 0) {
-        bookingsContainer.innerHTML = '<p style="color:var(--text-muted);">Nincsenek aktív helyfoglalásaid.</p>';
-      } else {
-        bookingsContainer.innerHTML = '';
-        bookings.forEach(b => {
-          const item = document.createElement('div');
-          item.className = 'schedule-item';
-          item.style.padding = '15px 20px';
-          
-          const isExpired = isBookingExpired(b.booking_date, b.end_time);
-          const isAttended = b.attended > 0;
-          
-          let actionButtonHtml = '';
-          if (isExpired) {
-            actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Lejárt</button>`;
-          } else if (isAttended) {
-            actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Megjelent</button>`;
-          } else {
-            actionButtonHtml = `<button onclick="cancelBooking(${b.booking_id})" class="btn btn-danger btn-sm">Lemondás</button>`;
-          }
-          
-          item.innerHTML = `
-            <div>
-              <h4 style="font-size: 16px; margin-bottom: 4px;">${b.location_name}</h4>
-              <p style="font-size: 13px; color: var(--text-secondary);">
-                Időpont: <strong>${b.booking_date}</strong> | <strong>${b.start_time} - ${b.end_time}</strong>
-              </p>
-            </div>
-            ${actionButtonHtml}
-          `;
-          bookingsContainer.appendChild(item);
-        });
-      }
-    }
+    // Call tab-based render functions
+    renderDashboardTickets(window.currentTicketTab || 'active');
+    renderDashboardBookings(window.currentBookingTab || 'upcoming');
 
     // Initialize locations dynamic dropdown for Booking
     const locSelect = document.getElementById('booking-location');
@@ -659,6 +538,214 @@ async function loadProfileAndDashboard() {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// Render tickets by tab
+function renderDashboardTickets(filter) {
+  window.currentTicketTab = filter;
+  const tickets = window.dashboardTickets || [];
+  const ticketsContainer = document.getElementById('dashboard-tickets');
+  if (!ticketsContainer) return;
+
+  // Update tab button styles
+  const activeBtn = document.getElementById('ticket-tab-active');
+  const expiredBtn = document.getElementById('ticket-tab-expired');
+  if (activeBtn && expiredBtn) {
+    if (filter === 'active') {
+      activeBtn.className = 'btn btn-primary btn-sm';
+      expiredBtn.className = 'btn btn-secondary btn-sm';
+    } else {
+      activeBtn.className = 'btn btn-secondary btn-sm';
+      expiredBtn.className = 'btn btn-primary btn-sm';
+    }
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  
+  const filteredTickets = tickets.filter(t => {
+    const isExpired = t.expires_date < today;
+    const isActive = t.status === 'ACTIVE' && !isExpired;
+    return filter === 'active' ? isActive : !isActive;
+  });
+
+  // Sort
+  if (filter === 'expired') {
+    // expired/used: purchase_date ASC (chronological)
+    filteredTickets.sort((a, b) => a.purchase_date.localeCompare(b.purchase_date));
+  } else {
+    // active: purchase_date DESC (newest first)
+    filteredTickets.sort((a, b) => b.purchase_date.localeCompare(a.purchase_date));
+  }
+
+  if (filteredTickets.length === 0) {
+    ticketsContainer.innerHTML = filter === 'active' 
+      ? '<p style="color:var(--text-muted);">Nincsenek érvényes jegyeid vagy bérleteid.</p>'
+      : '<p style="color:var(--text-muted);">Nincsenek lejárt vagy felhasznált jegyeid.</p>';
+    return;
+  }
+
+  ticketsContainer.innerHTML = '';
+  filteredTickets.forEach(t => {
+    let hungarianType = '';
+    let usageText = '';
+    if (t.ticket_type === 'NAPI') {
+      hungarianType = 'Egyszeri Napijegy';
+      usageText = t.status === 'USED' ? 'Felhasználva' : 'Még nem használt (1 alkalom)';
+    } else if (t.ticket_type === 'TIZ_ALKALMAS') {
+      hungarianType = '10 Alkalmas Bérlet';
+      usageText = `Fennmaradó alkalmak: ${t.sessions_remaining}/10`;
+    } else if (t.ticket_type === 'HAVI') {
+      hungarianType = '30 Napos Korlátlan Bérlet';
+      usageText = 'Korlátlan belépés érvényességi időn belül';
+    }
+
+    const ticketCard = document.createElement('div');
+    ticketCard.className = 'ticket-item';
+
+    const isExpired = t.expires_date < today;
+    let statusLabelClass = 'badge-green';
+    let statusText = 'Aktív';
+    if (t.status === 'USED') {
+      statusLabelClass = 'badge-secondary';
+      statusText = 'Felhasznált';
+    } else if (t.status === 'EXPIRED' || isExpired) {
+      statusLabelClass = 'badge-red';
+      statusText = 'Lejárt';
+    }
+
+    let qrSectionHtml = '';
+    if (t.status === 'ACTIVE' && !isExpired) {
+      qrSectionHtml = `
+        <div class="ticket-qr-container">
+          <div class="qr-large-trigger" onclick="openQRModal('${t.qr_code_uuid}', '${hungarianType}')" title="Kattints a QR kód nagyításához">
+            <div id="large-qr-${t.id}" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+          </div>
+        </div>
+      `;
+      setTimeout(() => {
+        const largeDiv = document.getElementById(`large-qr-${t.id}`);
+        if (largeDiv) {
+          if (typeof qrcode !== 'undefined' && qrcode && typeof qrcode.toDataURL === 'function') {
+            const qrUrl = window.location.origin + '/scanner.html?uuid=' + t.qr_code_uuid;
+            qrcode.toDataURL(qrUrl, { width: 100, margin: 1 }, (err, url) => {
+              if (!err) largeDiv.innerHTML = `<img src="${url}" alt="QR" />`;
+            });
+          } else {
+            largeDiv.innerHTML = '<span style="font-size:10px;color:var(--danger);">Nincs QR generátor</span>';
+          }
+        }
+      }, 50);
+    } else {
+      qrSectionHtml = `
+        <div class="ticket-qr-container">
+          <div class="qr-placeholder-expired" title="Nem aktív jegy">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); opacity: 0.5;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+        </div>
+      `;
+    }
+
+    ticketCard.innerHTML = `
+      <div class="ticket-info">
+        <div class="ticket-info-details">
+          <h4 style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+            ${hungarianType} 
+            <span class="badge ${statusLabelClass}" style="font-size:9px; padding:3px 8px;">${statusText}</span>
+          </h4>
+          <p style="margin-top: 4px;">${usageText}</p>
+          <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}</p>
+        </div>
+        <div style="margin-top: auto; padding-top: 15px;">
+          <button onclick="downloadRulesPDF(${t.id})" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            PDF jegy & szabályzat
+          </button>
+        </div>
+      </div>
+      ${qrSectionHtml}
+    `;
+    ticketsContainer.appendChild(ticketCard);
+  });
+}
+
+// Render bookings by tab
+function renderDashboardBookings(filter) {
+  window.currentBookingTab = filter;
+  const bookings = window.dashboardBookings || [];
+  const bookingsContainer = document.getElementById('dashboard-bookings');
+  if (!bookingsContainer) return;
+
+  // Update tab button styles
+  const upcomingBtn = document.getElementById('booking-tab-upcoming');
+  const pastBtn = document.getElementById('booking-tab-past');
+  if (upcomingBtn && pastBtn) {
+    if (filter === 'upcoming') {
+      upcomingBtn.className = 'btn btn-primary btn-sm';
+      pastBtn.className = 'btn btn-secondary btn-sm';
+    } else {
+      upcomingBtn.className = 'btn btn-secondary btn-sm';
+      pastBtn.className = 'btn btn-primary btn-sm';
+    }
+  }
+
+  // Filter bookings
+  const filteredBookings = bookings.filter(b => {
+    const isExpired = isBookingExpired(b.booking_date, b.end_time);
+    return filter === 'upcoming' ? !isExpired : isExpired;
+  });
+
+  // Sort
+  // chronological order: ASC
+  filteredBookings.sort((a, b) => {
+    const dateComp = a.booking_date.localeCompare(b.booking_date);
+    if (dateComp !== 0) return dateComp;
+    return a.start_time.localeCompare(b.start_time);
+  });
+
+  if (filteredBookings.length === 0) {
+    bookingsContainer.innerHTML = filter === 'upcoming' 
+      ? '<p style="color:var(--text-muted);">Nincsenek aktív helyfoglalásaid.</p>'
+      : '<p style="color:var(--text-muted);">Nincsenek múltbéli helyfoglalásaid.</p>';
+    return;
+  }
+
+  bookingsContainer.innerHTML = '';
+  filteredBookings.forEach(b => {
+    const item = document.createElement('div');
+    item.className = 'schedule-item';
+    item.style.padding = '15px 20px';
+    
+    const isExpired = isBookingExpired(b.booking_date, b.end_time);
+    const isAttended = b.attended > 0;
+    
+    let actionButtonHtml = '';
+    if (isExpired) {
+      actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Lejárt</button>`;
+    } else if (isAttended) {
+      actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Megjelent</button>`;
+    } else {
+      actionButtonHtml = `<button onclick="cancelBooking(${b.booking_id})" class="btn btn-danger btn-sm">Lemondás</button>`;
+    }
+    
+    item.innerHTML = `
+      <div>
+        <h4 style="font-size: 16px; margin-bottom: 4px;">${b.location_name}</h4>
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          Időpont: <strong>${b.booking_date}</strong> | <strong>${b.start_time} - ${b.end_time}</strong>
+        </p>
+      </div>
+      ${actionButtonHtml}
+    `;
+    bookingsContainer.appendChild(item);
+  });
+}
+
+function switchTicketTab(filter) {
+  renderDashboardTickets(filter);
+}
+
+function switchBookingTab(filter) {
+  renderDashboardBookings(filter);
 }
 
 // Open QR Modal
@@ -1966,3 +2053,5 @@ window.editNewsAnnouncement = editNewsAnnouncement;
 window.deleteNewsAnnouncement = deleteNewsAnnouncement;
 window.cancelNewsEdit = cancelNewsEdit;
 window.sortAdminUsers = sortAdminUsers;
+window.switchTicketTab = switchTicketTab;
+window.switchBookingTab = switchBookingTab;
