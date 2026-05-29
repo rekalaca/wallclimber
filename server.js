@@ -438,9 +438,16 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
     // Fetch user's active/unused tickets
     const tickets = await dbAll("SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC", [user.id]);
 
-    // Fetch user's bookings (upcoming or past)
+    // Fetch user's bookings (upcoming or past) with attendance log check
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name 
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
@@ -596,6 +603,53 @@ app.delete('/api/bookings/:id', authenticateToken, async (req, res) => {
     // Users can delete their own booking; Admin/Staff can delete any
     if (booking.user_id !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
       return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a foglalást!' });
+    }
+
+    // Regular users cannot delete expired or attended bookings
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+      const slot = await dbGet('SELECT * FROM slots WHERE id = ?', [booking.slot_id]);
+      if (slot) {
+        // Get current Budapest time
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('hu-HU', {
+          timeZone: 'Europe/Budapest',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        const parts = formatter.formatToParts(now);
+        const getPart = (type) => parts.find(p => p.type === type).value;
+        const curYear = getPart('year');
+        const curMonth = getPart('month');
+        const curDay = getPart('day');
+        const curHour = getPart('hour');
+        const curMin = getPart('minute');
+        
+        const currentBudapestStr = `${curYear}-${curMonth}-${curDay}T${curHour}:${curMin}`;
+        const bookingBudapestStr = `${booking.booking_date}T${slot.end_time}`;
+        
+        if (currentBudapestStr > bookingBudapestStr) {
+          return res.status(400).json({ error: 'Ezt a foglalást már nem mondhatod le, mert a foglalás időpontja már lejárt!' });
+        }
+      }
+
+      // Check if they attended
+      const attendedRow = await dbGet(`
+        SELECT COUNT(*) as count FROM entry_logs el 
+        JOIN tickets t ON el.ticket_id = t.id 
+        JOIN slots s ON s.id = ?
+        WHERE t.user_id = ? 
+          AND el.status = 'SUCCESS' 
+          AND el.location_id = s.location_id
+          AND date(el.scan_time) = ?
+      `, [booking.slot_id, booking.user_id, booking.booking_date]);
+
+      if (attendedRow && attendedRow.count > 0) {
+        return res.status(400).json({ error: 'Ezt a foglalást már nem mondhatod le, mert már megjelentél a mászófalnál!' });
+      }
     }
 
     await dbRun('DELETE FROM bookings WHERE id = ?', [bookingId]);
@@ -943,14 +997,14 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
     const getPart = (type) => parts.find(p => p.type === type).value;
     const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
 
-    // Get today's bookings for the user
+    // Get active/future bookings for the user (today and onwards)
     const bookings = await dbAll(`
       SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, s.location_id, l.name as location_name
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
-      WHERE b.user_id = ? AND b.booking_date = ?
-      ORDER BY s.start_time ASC
+      WHERE b.user_id = ? AND b.booking_date >= ?
+      ORDER BY b.booking_date ASC, s.start_time ASC
     `, [ticket.user_id, dateStr]);
 
     res.json({

@@ -422,6 +422,34 @@ async function loadPublicSchedules(locations, date) {
   container.innerHTML = html;
 }
 
+// Helper to check if a booking has expired (i.e. slot end time has passed) in Europe/Budapest timezone
+function isBookingExpired(bookingDateStr, endTimeStr) {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('hu-HU', {
+    timeZone: 'Europe/Budapest',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(now);
+  const getPart = (type) => parts.find(p => p.type === type).value;
+  
+  const curYear = getPart('year');
+  const curMonth = getPart('month');
+  const curDay = getPart('day');
+  const curHour = getPart('hour');
+  const curMin = getPart('minute');
+  
+  const currentBudapestStr = `${curYear}-${curMonth}-${curDay}T${curHour}:${curMin}`;
+  const bookingBudapestStr = `${bookingDateStr}T${endTimeStr}`;
+  
+  return currentBudapestStr > bookingBudapestStr;
+}
+
 // ---------------- CLIENT DASHBOARD (DASHBOARD) ----------------
 async function initDashboard() {
   const token = localStorage.getItem('token');
@@ -579,6 +607,18 @@ async function loadProfileAndDashboard() {
           item.className = 'schedule-item';
           item.style.padding = '15px 20px';
           
+          const isExpired = isBookingExpired(b.booking_date, b.end_time);
+          const isAttended = b.attended > 0;
+          
+          let actionButtonHtml = '';
+          if (isExpired) {
+            actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Lejárt</button>`;
+          } else if (isAttended) {
+            actionButtonHtml = `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Megjelent</button>`;
+          } else {
+            actionButtonHtml = `<button onclick="cancelBooking(${b.booking_id})" class="btn btn-danger btn-sm">Lemondás</button>`;
+          }
+          
           item.innerHTML = `
             <div>
               <h4 style="font-size: 16px; margin-bottom: 4px;">${b.location_name}</h4>
@@ -586,7 +626,7 @@ async function loadProfileAndDashboard() {
                 Időpont: <strong>${b.booking_date}</strong> | <strong>${b.start_time} - ${b.end_time}</strong>
               </p>
             </div>
-            <button onclick="cancelBooking(${b.booking_id})" class="btn btn-danger btn-sm">Lemondás</button>
+            ${actionButtonHtml}
           `;
           bookingsContainer.appendChild(item);
         });
@@ -1010,11 +1050,48 @@ async function validateScannedQR(uuid) {
     const bookings = data.bookings || [];
     let bookingInfoHtml = '';
 
+    // Get current date in Europe/Budapest timezone
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+
+    const formatTime = (t) => t ? t.substring(0, 5) : '';
+
     if (hasLocation) {
       const selectedLocationName = locSelect.options[locSelect.selectedIndex].text;
-      const matchingBooking = bookings.find(b => String(b.location_id) === String(selectedLocation));
+      
+      // Look for a matching booking TODAY at the SELECTED location
+      const matchingBooking = bookings.find(b => b.booking_date === todayStr && String(b.location_id) === String(selectedLocation));
+      
+      // Look for any booking TODAY (at any location)
+      const todayBookingAnyLoc = bookings.find(b => b.booking_date === todayStr);
 
-      const formatTime = (t) => t ? t.substring(0, 5) : '';
+      // Create a list of other bookings (different day/time/location)
+      const otherBookingsList = bookings.filter(b => !matchingBooking || b.booking_id !== matchingBooking.booking_id);
+      
+      let otherBookingsHtml = '';
+      if (otherBookingsList.length > 0) {
+        otherBookingsHtml = `
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 13px;">
+            <div style="font-weight: 600; color: var(--text-secondary); margin-bottom: 5px;">Mászó egyéb foglalásai:</div>
+            <ul style="margin: 0; padding-left: 15px; color: var(--text-muted); list-style-type: disc; text-align: left;">
+              ${otherBookingsList.map(b => `
+                <li>
+                  <strong>${b.booking_date}</strong> | ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }
 
       if (matchingBooking) {
         bookingInfoHtml = `
@@ -1023,16 +1100,17 @@ async function validateScannedQR(uuid) {
             <div class="scan-booking-match">
               ✅ Foglalás ma: ${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})
             </div>
+            ${otherBookingsHtml}
           </div>
         `;
-      } else if (bookings.length > 0) {
-        const otherBooking = bookings[0];
+      } else if (todayBookingAnyLoc) {
         bookingInfoHtml = `
           <div class="scan-booking-info">
             <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
             <div class="scan-booking-warning">
-              ⚠️ A mászó a ${otherBooking.location_name} mászófalra jelentkezett ma (${formatTime(otherBooking.start_time)} - ${formatTime(otherBooking.end_time)}), de te az ${selectedLocationName} helyszínen olvasod be!
+              ⚠️ A mászó a ${todayBookingAnyLoc.location_name} mászófalra jelentkezett ma (${formatTime(todayBookingAnyLoc.start_time)} - ${formatTime(todayBookingAnyLoc.end_time)}), de te az ${selectedLocationName} helyszínen olvasod be!
             </div>
+            ${otherBookingsHtml}
           </div>
         `;
       } else {
@@ -1042,19 +1120,23 @@ async function validateScannedQR(uuid) {
             <div class="scan-booking-error">
               ❌ Nincs mára foglalása ezen a helyszínen!
             </div>
+            ${otherBookingsHtml}
           </div>
         `;
       }
     } else {
       // No location selected yet
-      const formatTime = (t) => t ? t.substring(0, 5) : '';
       if (bookings.length > 0) {
-        const bookingList = bookings.map(b => `${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})`).join(', ');
+        const bookingList = bookings.map(b => `<li><strong>${b.booking_date}</strong>: ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})</li>`).join('');
         bookingInfoHtml = `
           <div class="scan-booking-info">
-            <div class="scan-booking-title">Mai foglalások</div>
-            <div style="font-size:13px; color:var(--text-secondary);">
-              Mára foglalva: ${bookingList} (Válassz helyszínt a fejlécben az ellenőrzéshez)
+            <div class="scan-booking-title">Aktív foglalások</div>
+            <div style="font-size:13px; color:var(--text-secondary); line-height: 1.5; text-align: left;">
+              Mászó összes foglalása:<br>
+              <ul style="margin: 5px 0 0 15px; padding: 0; list-style-type: disc;">
+                ${bookingList}
+              </ul>
+              <span style="font-size:11px; color:var(--text-muted); display: block; margin-top: 5px;">(Válassz helyszínt a fejlécben a pontos ellenőrzéshez)</span>
             </div>
           </div>
         `;
@@ -1063,7 +1145,7 @@ async function validateScannedQR(uuid) {
           <div class="scan-booking-info">
             <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
             <div style="font-size:13px; color:var(--text-secondary);">
-              Nincs mára foglalása. (Válassz helyszínt a fejlécben az ellenőrzéshez)
+              Nincs aktív foglalása. (Válassz helyszínt a fejlécben az ellenőrzéshez)
             </div>
           </div>
         `;
