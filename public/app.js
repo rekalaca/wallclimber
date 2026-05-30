@@ -444,7 +444,7 @@ async function initPublicLanding() {
               heroContent.classList.remove('visible');
             }
           }, 1000);
-        }, 3000);
+        }, 1000);
       }
     });
   }
