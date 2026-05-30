@@ -329,12 +329,15 @@ header {
 .hero-content p {
   opacity: 0;
   transform: translateY(80px);
-  transition: opacity 0.3s ease-in, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* exit transition (disappearing): fade out in place, snap transform after opacity is 0 */
+  transition: opacity 0.3s ease-in, transform 0s 0.3s;
 }
 
 .hero-content.visible-text p {
   opacity: 1;
   transform: translateY(0);
+  /* entry transition (appearing): fade in and slide up */
+  transition: opacity 0.3s ease-in, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .hero h1 {
