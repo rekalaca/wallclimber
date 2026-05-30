@@ -392,10 +392,10 @@ async function initPublicLanding() {
         hasFadedOutText = false;
         hasFadedOutVideo = false;
         if (heroContent) {
-          heroContent.classList.remove('grow');
           const isMobile = window.innerWidth <= 768;
           if (!isMobile) {
-            heroContent.classList.remove('visible');
+            // On desktop, clear grow class if still lingering
+            heroContent.classList.remove('grow');
           }
         }
       }
@@ -410,7 +410,8 @@ async function initPublicLanding() {
         if (!hasFadedInText) {
           hasFadedInText = true;
           if (heroContent) {
-            heroContent.classList.add('visible');
+            heroContent.classList.add('visible-title');
+            heroContent.classList.add('visible-text');
           }
         }
       }
@@ -433,13 +434,12 @@ async function initPublicLanding() {
         }
       }
 
-      // 4. Text fade-out (0.5 seconds before end, only on desktop)
+      // 4. Title (h1) fade-out (0.5 seconds before end, only on desktop)
       if (!isMobile && video.duration && (video.duration - video.currentTime <= 0.5)) {
         if (!hasFadedOutText) {
           hasFadedOutText = true;
           if (heroContent) {
-            heroContent.classList.remove('visible');
-            heroContent.classList.remove('grow');
+            heroContent.classList.remove('visible-title');
           }
         }
       }
@@ -472,6 +472,15 @@ async function initPublicLanding() {
           video.currentTime = 0;
           video.classList.remove('video-ended');
           video.play().catch(err => console.log("Video autoplay loop error:", err));
+          
+          // Remove paragraph and grow classes 500 ms after video starts playing!
+          // This makes the text fade out exactly 1.5 seconds (1500 ms) after the title
+          setTimeout(() => {
+            if (heroContent) {
+              heroContent.classList.remove('visible-text');
+              heroContent.classList.remove('grow');
+            }
+          }, 500);
         }, 500);
       }
     });

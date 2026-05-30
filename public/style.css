@@ -322,7 +322,7 @@ header {
   transition: opacity 1.2s ease-in-out;
 }
 
-.hero-content.visible h1 {
+.hero-content.visible-title h1 {
   opacity: 1;
 }
 
@@ -332,7 +332,7 @@ header {
   transition: opacity 0.3s ease-in, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-.hero-content.visible p {
+.hero-content.visible-text p {
   opacity: 1;
   transform: translateY(0);
 }
