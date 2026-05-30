@@ -330,7 +330,7 @@ header {
   opacity: 0;
   transform: translateY(0); /* Default at translateY(0) to stay in place on exit */
   /* exit transition (disappearing): fade out in place without moving */
-  transition: opacity 0.3s ease-in;
+  transition: opacity 0.8s ease-in-out;
 }
 
 .hero-content.visible-text p {
