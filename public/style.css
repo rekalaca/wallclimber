@@ -330,10 +330,11 @@ header {
   opacity: 0;
   transform: translateY(0); /* Default at translateY(0) to stay in place on exit */
   /* exit transition (disappearing): fade out in place without moving */
-  transition: opacity 0.8s ease-in-out;
+  transition: opacity 1.2s ease-in-out;
 }
 
 .hero-content.visible-text p {
+  opacity: 1; /* Statically set opacity to enable transition when class is removed */
   /* entry transition (appearing): slide up and fade in using keyframes to reset Y position when starting */
   animation: slideUpFadeIn 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
