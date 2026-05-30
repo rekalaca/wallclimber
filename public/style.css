@@ -328,16 +328,25 @@ header {
 
 .hero-content p {
   opacity: 0;
-  transform: translateY(80px);
-  /* exit transition (disappearing): fade out in place, snap transform after opacity is 0 */
-  transition: opacity 0.3s ease-in, transform 0s 0.3s;
+  transform: translateY(0); /* Default at translateY(0) to stay in place on exit */
+  /* exit transition (disappearing): fade out in place without moving */
+  transition: opacity 0.3s ease-in;
 }
 
 .hero-content.visible-text p {
-  opacity: 1;
-  transform: translateY(0);
-  /* entry transition (appearing): fade in and slide up */
-  transition: opacity 0.3s ease-in, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* entry transition (appearing): slide up and fade in using keyframes to reset Y position when starting */
+  animation: slideUpFadeIn 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+@keyframes slideUpFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hero h1 {
