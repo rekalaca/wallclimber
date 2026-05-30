@@ -391,13 +391,7 @@ async function initPublicLanding() {
         hasZoomedText = false;
         hasFadedOutText = false;
         hasFadedOutVideo = false;
-        if (heroContent) {
-          const isMobile = window.innerWidth <= 768;
-          if (!isMobile) {
-            // On desktop, clear grow class if still lingering
-            heroContent.classList.remove('grow');
-          }
-        }
+        // 'grow' class is now cleaned up inside the ended loop delay to prevent premature size reduction during fade-out
       }
     });
     
@@ -473,12 +467,15 @@ async function initPublicLanding() {
           video.classList.remove('video-ended');
           video.play().catch(err => console.log("Video autoplay loop error:", err));
           
-          // Remove paragraph and grow classes 500 ms after video starts playing!
+          // Remove paragraph class 500 ms after video starts playing!
           // This makes the text fade out exactly 1.5 seconds (1500 ms) after the title
           setTimeout(() => {
             if (heroContent) {
               heroContent.classList.remove('visible-text');
-              heroContent.classList.remove('grow');
+              // Delay removing grow class until the 1.2s fade-out is completely finished
+              setTimeout(() => {
+                heroContent.classList.remove('grow');
+              }, 1500);
             }
           }, 500);
         }, 500);
