@@ -378,6 +378,12 @@ async function initPublicLanding() {
     video.playbackRate = 0.85;
     video.loop = false;
     
+    // Prepare initial position of text on startup (desktop only)
+    const isMobileInit = window.innerWidth <= 768;
+    if (!isMobileInit && heroContent) {
+      heroContent.classList.add('prepare-text');
+    }
+    
     let hasFadedInText = false;
     let hasZoomedText = false;
     let hasFadedOutText = false;
@@ -404,6 +410,7 @@ async function initPublicLanding() {
         if (!hasFadedInText) {
           hasFadedInText = true;
           if (heroContent) {
+            heroContent.classList.remove('prepare-text'); // Remove Y=80px translate reset
             heroContent.classList.add('visible-title');
             heroContent.classList.add('visible-text');
           }
@@ -472,10 +479,11 @@ async function initPublicLanding() {
           setTimeout(() => {
             if (heroContent) {
               heroContent.classList.remove('visible-text');
-              // Delay removing grow class until the 1.2s fade-out is completely finished
+              // Delay removing grow class and resetting translateY position until the slow 2.4s fade-out is completely finished
               setTimeout(() => {
                 heroContent.classList.remove('grow');
-              }, 1500);
+                heroContent.classList.add('prepare-text'); // Instantly reset translateY to 80px while invisible
+              }, 2500);
             }
           }, 500);
         }, 500);
