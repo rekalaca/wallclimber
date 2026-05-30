@@ -844,7 +844,7 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
       GuestCheckout: true,
       FundingSources: ['All'],
       PaymentRequestId: `hawk_${Date.now()}_${req.user.id}`,
-      RedirectUrl: `${domain}/dashboard.html?paymentId={paymentId}`,
+      RedirectUrl: `${domain}/dashboard.html`,
       CallbackUrl: `${domain}/api/barion/callback`,
       Currency: 'HUF',
       Locale: 'hu-HU',
