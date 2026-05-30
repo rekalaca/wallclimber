@@ -14,6 +14,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'hawkstone-secret-key-2026-super-secure';
 
+// Barion configuration
+const BARION_POS_KEY = process.env.BARION_POS_KEY;
+const BARION_PAYEE_EMAIL = process.env.BARION_PAYEE_EMAIL;
+const BARION_BASE_URL = 'https://api.test.barion.com'; // Sandbox environment
+
 // SMTP Transporter configuration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -193,6 +198,19 @@ async function initDB() {
       image_url TEXT,
       is_active INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS barion_payments (
+      payment_id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      ticket_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed INTEGER DEFAULT 0,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -656,6 +674,277 @@ app.delete('/api/bookings/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Foglalás sikeresen lemondva!' });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a lemondás során: ' + error.message });
+  }
+});
+
+// ---------------- BARION ONLINE PAYMENT ----------------
+// Helper to query and process Barion payment state
+async function processBarionPayment(paymentId, domain) {
+  if (!BARION_POS_KEY) {
+    throw new Error('A Barion nincs konfigurálva a szerveren.');
+  }
+
+  // Get current payment state from DB first
+  const localPayment = await dbGet('SELECT * FROM barion_payments WHERE payment_id = ?', [paymentId]);
+  if (!localPayment) {
+    throw new Error('A tranzakció nem található az adatbázisban.');
+  }
+
+  if (localPayment.processed === 1) {
+    console.log(`[BARION] Payment ${paymentId} already processed.`);
+    return { success: true, alreadyProcessed: true };
+  }
+
+  // Fetch payment state from Barion
+  const response = await fetch(`${BARION_BASE_URL}/v2/Payment/GetPaymentState?PosKey=${BARION_POS_KEY}&PaymentId=${paymentId}`);
+  const stateData = await response.json();
+
+  if (!response.ok || (stateData.Errors && stateData.Errors.length > 0)) {
+    const errorMsg = stateData.Errors && stateData.Errors[0] ? stateData.Errors[0].Title : 'Lekérdezési hiba';
+    throw new Error(`Barion hiba a lekéréskor: ${errorMsg}`);
+  }
+
+  console.log(`[BARION] Checked state for payment ${paymentId}. Status: ${stateData.Status}`);
+
+  if (stateData.Status === 'Succeeded') {
+    // Double check processed status again inside a sequential block (fake lock/concurrency safety)
+    const doubleCheck = await dbGet('SELECT processed FROM barion_payments WHERE payment_id = ?', [paymentId]);
+    if (doubleCheck && doubleCheck.processed === 1) {
+      return { success: true, alreadyProcessed: true };
+    }
+
+    // Set processed = 1 and status = Succeeded
+    await dbRun(
+      'UPDATE barion_payments SET status = ?, processed = 1 WHERE payment_id = ?',
+      ['Succeeded', paymentId]
+    );
+
+    const userId = localPayment.user_id;
+    const ticketType = localPayment.ticket_type;
+
+    const today = new Date();
+    const purchaseDate = today.toISOString().split('T')[0];
+    
+    const expires = new Date();
+    expires.setDate(today.getDate() + 30);
+    const expiresDate = expires.toISOString().split('T')[0];
+
+    let sessions = 0;
+    if (ticketType === 'NAPI') sessions = 1;
+    else if (ticketType === 'TIZ_ALKALMAS') sessions = 10;
+    else if (ticketType === 'HAVI') sessions = 9999;
+
+    const qrUuid = generateUUID();
+
+    const result = await dbRun(
+      'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, ticketType, purchaseDate, expiresDate, sessions, qrUuid]
+    );
+
+    const ticketId = result.lastID;
+    const ticketObj = {
+      id: ticketId,
+      ticket_type: ticketType,
+      purchase_date: purchaseDate,
+      expires_date: expiresDate,
+      sessions_remaining: sessions,
+      qr_code_uuid: qrUuid
+    };
+
+    // Trigger email send in background
+    (async () => {
+      try {
+        const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!climber) return;
+
+        const { pdfData } = await generatePDFBuffer(ticketObj, climber, domain);
+
+        let HungarianType = '';
+        let sessionsText = '';
+        if (ticketType === 'NAPI') {
+          HungarianType = 'Egyszeri Napijegy';
+          sessionsText = '1 alkalom (felhasználható)';
+        } else if (ticketType === 'TIZ_ALKALMAS') {
+          HungarianType = '10 Alkalmas Bérlet';
+          sessionsText = '10 alkalom';
+        } else if (ticketType === 'HAVI') {
+          HungarianType = '30 Napos Korlátlan Bérlet';
+          sessionsText = 'Korlátlan';
+        }
+
+        if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+            to: climber.email,
+            subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
+            text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nTípus: ${HungarianType}\nVásárlás dátuma: ${purchaseDate}\nLejárat dátuma: ${expiresDate}\nEgyenleg: ${sessionsText}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+            attachments: [
+              {
+                filename: `HawkStone_Hasznalati_Szabalyzat_${ticketId}.pdf`,
+                content: pdfData
+              }
+            ]
+          });
+          console.log(`[EMAIL] Barion purchase confirmation email sent successfully to ${climber.email}`);
+        } else {
+          console.log(`[EMAIL MOCK] Barion SMTP not configured. Purchase email for ticket ${ticketId} would be sent to ${climber.email}`);
+        }
+      } catch (err) {
+        console.error('[EMAIL ERROR] Failed to send Barion purchase confirmation email:', err);
+      }
+    })();
+
+    return { success: true, ticket: ticketObj };
+  } else {
+    // Update local status with the non-success status
+    await dbRun(
+      'UPDATE barion_payments SET status = ? WHERE payment_id = ?',
+      [stateData.Status, paymentId]
+    );
+    return { success: false, status: stateData.Status };
+  }
+}
+
+// Start Barion Payment (returns GatewayUrl)
+app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
+  try {
+    const { ticketType } = req.body;
+    if (!['NAPI', 'TIZ_ALKALMAS', 'HAVI'].includes(ticketType)) {
+      return res.status(400).json({ error: 'Érvénytelen jegytípus!' });
+    }
+
+    if (!BARION_POS_KEY || !BARION_PAYEE_EMAIL) {
+      return res.status(500).json({ error: 'A Barion fizetés nincs konfigurálva a szerveren.' });
+    }
+
+    let price = 0;
+    let ticketName = '';
+    let ticketDesc = '';
+    if (ticketType === 'NAPI') {
+      price = 2800;
+      ticketName = 'Egyszeri Napijegy';
+      ticketDesc = 'Egyszeri belépésre jogosító jegy a HawkStone Városi Mászóklubban.';
+    } else if (ticketType === 'TIZ_ALKALMAS') {
+      price = 22000;
+      ticketName = '10 Alkalmas Bérlet';
+      ticketDesc = '10 alkalmas bérlet a HawkStone Városi Mászóklubban.';
+    } else if (ticketType === 'HAVI') {
+      price = 28000;
+      ticketName = '30 Napos Korlátlan Bérlet';
+      ticketDesc = '30 napig korlátlan belépésre jogosító bérlet a HawkStone Városi Mászóklubban.';
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+
+    const paymentRequest = {
+      POSKey: BARION_POS_KEY,
+      PaymentType: 'Immediate',
+      GuestCheckout: true,
+      FundingSources: ['All'],
+      PaymentRequestId: `hawk_${Date.now()}_${req.user.id}`,
+      RedirectUrl: `${domain}/dashboard.html?paymentId={paymentId}`,
+      CallbackUrl: `${domain}/api/barion/callback`,
+      Currency: 'HUF',
+      Locale: 'hu-HU',
+      Transactions: [
+        {
+          POSTransactionId: `tx_${Date.now()}_${req.user.id}`,
+          Payee: BARION_PAYEE_EMAIL,
+          Total: price,
+          Items: [
+            {
+              Name: ticketName,
+              Description: ticketDesc,
+              Quantity: 1,
+              Unit: 'db',
+              UnitPrice: price,
+              ItemTotal: price
+            }
+          ]
+        }
+      ]
+    };
+
+    console.log('[BARION] Initiating payment for user:', req.user.id, ticketType);
+
+    const response = await fetch(`${BARION_BASE_URL}/v2/Payment/Start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(paymentRequest)
+    });
+
+    const responseData = await response.json();
+    if (!response.ok || (responseData.Errors && responseData.Errors.length > 0)) {
+      const errorMsg = responseData.Errors && responseData.Errors[0] ? responseData.Errors[0].Title : 'Barion hiba';
+      console.error('[BARION ERROR] Failed to start payment:', responseData.Errors);
+      return res.status(400).json({ error: `Barion hiba: ${errorMsg}` });
+    }
+
+    // Save payment details in database with Prepared status
+    await dbRun(
+      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, processed) VALUES (?, ?, ?, ?, ?, 0)',
+      [responseData.PaymentId, req.user.id, ticketType, 'Prepared', price]
+    );
+
+    res.json({
+      PaymentId: responseData.PaymentId,
+      GatewayUrl: responseData.GatewayUrl
+    });
+  } catch (error) {
+    console.error('[BARION EXCEPTION] Error starting payment:', error);
+    res.status(500).json({ error: 'Belső szerverhiba a fizetés indításakor: ' + error.message });
+  }
+});
+
+// Verify Barion Payment (called by client upon redirect callback)
+app.post('/api/barion/verify-payment', authenticateToken, async (req, res) => {
+  try {
+    const { paymentId } = req.body;
+    if (!paymentId) {
+      return res.status(400).json({ error: 'Hiányzó fizetés azonosító!' });
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+
+    const result = await processBarionPayment(paymentId, domain);
+    if (result.success) {
+      res.json({ message: 'Fizetés sikeresen igazolva!', ticket: result.ticket });
+    } else {
+      res.status(400).json({ error: `Sikertelen fizetés! Státusz: ${result.status}` });
+    }
+  } catch (error) {
+    console.error('[BARION VERIFY ERROR]:', error);
+    res.status(500).json({ error: 'Hiba az ellenőrzés során: ' + error.message });
+  }
+});
+
+// Barion Webhook IPN Callback
+app.post('/api/barion/callback', async (req, res) => {
+  try {
+    const paymentId = req.body.PaymentId || req.query.paymentId || req.body.paymentId;
+    if (!paymentId) {
+      console.warn('[BARION CALLBACK] Received callback without paymentId');
+      return res.status(400).send('Missing paymentId');
+    }
+
+    console.log('[BARION CALLBACK] Received callback for payment:', paymentId);
+
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+
+    await processBarionPayment(paymentId, domain);
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('[BARION CALLBACK ERROR]:', error);
+    res.status(500).send('Internal Error: ' + error.message);
   }
 });
 

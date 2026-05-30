@@ -647,6 +647,7 @@ async function initDashboard() {
     return;
   }
 
+  await checkBarionCallback(); // Verify transaction if returning from Barion checkout
   await loadProfileAndDashboard();
 }
 
@@ -1000,19 +1001,76 @@ async function downloadRulesPDF(ticketId) {
   }
 }
 
-// Buy Ticket Simulation
+// Check and verify Barion payment returning from gateway
+async function checkBarionCallback() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentId = urlParams.get('paymentId');
+  if (!paymentId) return;
+
+  // Create loading overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-backdrop';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.zIndex = '99999';
+  overlay.innerHTML = `
+    <div class="glass-card" style="padding: 40px; text-align: center; max-width: 400px; width: 90%;">
+      <div class="spinner" style="margin: 0 auto 20px auto; width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <h3 style="margin-bottom: 10px; color: var(--primary);">Fizetés ellenőrzése...</h3>
+      <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">Ellenőrizzük a tranzakciót a Barion rendszerében. Kérjük, ne zárd be az ablakot!</p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Add css keyframe animation for spinner if not present
+  if (!document.getElementById('spin-keyframe-style')) {
+    const style = document.createElement('style');
+    style.id = 'spin-keyframe-style';
+    style.innerHTML = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  try {
+    const res = await fetch('/api/barion/verify-payment', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ paymentId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sikertelen fizetésellenőrzés');
+
+    showToast('Sikeres fizetés! A jegyet és a QR kódot kiállítottuk.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    // Remove overlay
+    overlay.remove();
+    // Clean URL query parameters so page refresh doesn't trigger verification again
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.replaceState({ path: newUrl }, '', newUrl);
+  }
+}
+
+// Buy Ticket (Initiate Barion Payment)
 async function buyTicket(ticketType) {
   try {
-    const res = await fetch('/api/tickets/purchase', {
+    showToast('Fizetés kezdeményezése a Barion rendszerében...', 'info');
+    const res = await fetch('/api/barion/start-payment', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ ticketType })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Vásárlási hiba');
+    if (!res.ok) throw new Error(data.error || 'Fizetés indítási hiba');
 
-    showToast('Sikeres jegyvásárlás! A QR kód és a PDF letölthető.');
-    loadProfileAndDashboard();
+    // Redirect user to secure Barion Gateway page
+    window.location.href = data.GatewayUrl;
   } catch (err) {
     showToast(err.message, 'error');
   }
