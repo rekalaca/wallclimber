@@ -378,14 +378,19 @@ async function initPublicLanding() {
     video.playbackRate = 0.85;
     video.loop = false;
     
-    // Fade in on first play (removes the default 'video-ended' opacity 0 class)
+    let hasFadedInText = false;
+    let hasFadedOutVideo = false;
+    
+    // Fade in on first play and reset flags at loop start
     video.addEventListener('play', () => {
       video.classList.remove('video-ended');
-    }, { once: true });
+      if (video.currentTime < 1) {
+        hasFadedInText = false;
+        hasFadedOutVideo = false;
+      }
+    });
     
-    let hasFadedInText = false;
-    
-    // Listen to timeupdate to trigger text fade-in 3 seconds before the end
+    // Listen to timeupdate to trigger text fade-in and video fade-out before the end
     video.addEventListener('timeupdate', () => {
       if (video.duration && (video.duration - video.currentTime <= 3)) {
         if (!hasFadedInText) {
@@ -393,6 +398,15 @@ async function initPublicLanding() {
           if (heroContent) {
             heroContent.classList.add('visible');
           }
+        }
+      }
+      
+      // Video fade-out to black (1.8 seconds before end, only on desktop)
+      const isMobile = window.innerWidth <= 768;
+      if (!isMobile && video.duration && (video.duration - video.currentTime <= 1.8)) {
+        if (!hasFadedOutVideo) {
+          hasFadedOutVideo = true;
+          video.classList.add('video-ended');
         }
       }
     });
@@ -429,10 +443,6 @@ async function initPublicLanding() {
             if (heroContent) {
               heroContent.classList.remove('visible');
             }
-            
-            setTimeout(() => {
-              hasFadedInText = false;
-            }, 1200);
           }, 1000);
         }, 3000);
       }
