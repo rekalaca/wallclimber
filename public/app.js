@@ -433,8 +433,8 @@ async function initPublicLanding() {
         }
       }
 
-      // 4. Text fade-out (1.0 second before end, only on desktop)
-      if (!isMobile && video.duration && (video.duration - video.currentTime <= 1.0)) {
+      // 4. Text fade-out (0.5 seconds before end, only on desktop)
+      if (!isMobile && video.duration && (video.duration - video.currentTime <= 0.5)) {
         if (!hasFadedOutText) {
           hasFadedOutText = true;
           if (heroContent) {
