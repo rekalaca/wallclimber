@@ -379,6 +379,8 @@ async function initPublicLanding() {
     video.loop = false;
     
     let hasFadedInText = false;
+    let hasZoomedText = false;
+    let hasFadedOutText = false;
     let hasFadedOutVideo = false;
     
     // Fade in on first play and reset flags at loop start
@@ -386,12 +388,24 @@ async function initPublicLanding() {
       video.classList.remove('video-ended');
       if (video.currentTime < 1) {
         hasFadedInText = false;
+        hasZoomedText = false;
+        hasFadedOutText = false;
         hasFadedOutVideo = false;
+        if (heroContent) {
+          heroContent.classList.remove('grow');
+          const isMobile = window.innerWidth <= 768;
+          if (!isMobile) {
+            heroContent.classList.remove('visible');
+          }
+        }
       }
     });
     
-    // Listen to timeupdate to trigger text fade-in and video fade-out before the end
+    // Listen to timeupdate to trigger text fade-in, grow zoom, and video fade-out before the end
     video.addEventListener('timeupdate', () => {
+      const isMobile = window.innerWidth <= 768;
+
+      // 1. Text fade-in (3 seconds before end)
       if (video.duration && (video.duration - video.currentTime <= 3)) {
         if (!hasFadedInText) {
           hasFadedInText = true;
@@ -401,12 +415,32 @@ async function initPublicLanding() {
         }
       }
       
-      // Video fade-out to black (1.8 seconds before end, only on desktop)
-      const isMobile = window.innerWidth <= 768;
+      // 2. Text grow zoom (2.5 seconds before end)
+      if (video.duration && (video.duration - video.currentTime <= 2.5)) {
+        if (!hasZoomedText) {
+          hasZoomedText = true;
+          if (heroContent) {
+            heroContent.classList.add('grow');
+          }
+        }
+      }
+
+      // 3. Video fade-out to black (1.8 seconds before end, only on desktop)
       if (!isMobile && video.duration && (video.duration - video.currentTime <= 1.8)) {
         if (!hasFadedOutVideo) {
           hasFadedOutVideo = true;
           video.classList.add('video-ended');
+        }
+      }
+
+      // 4. Text fade-out (1.0 second before end, only on desktop)
+      if (!isMobile && video.duration && (video.duration - video.currentTime <= 1.0)) {
+        if (!hasFadedOutText) {
+          hasFadedOutText = true;
+          if (heroContent) {
+            heroContent.classList.remove('visible');
+            heroContent.classList.remove('grow');
+          }
         }
       }
     });
@@ -431,20 +465,14 @@ async function initPublicLanding() {
           video.classList.remove('video-ended');
         });
       } else {
-        // Desktop loop: fade to black, wait, then restart and fade out text
+        // Desktop loop: fade to black, wait 500ms, then restart
         video.classList.add('video-ended');
         
         setTimeout(() => {
           video.currentTime = 0;
           video.classList.remove('video-ended');
           video.play().catch(err => console.log("Video autoplay loop error:", err));
-          
-          setTimeout(() => {
-            if (heroContent) {
-              heroContent.classList.remove('visible');
-            }
-          }, 1000);
-        }, 1000);
+        }, 500);
       }
     });
   }
