@@ -334,43 +334,47 @@ app.post('/api/auth/register', async (req, res) => {
       [name, email, phone, passwordHash, licenseNumber || '', cardType, verificationToken]
     );
 
-    const activationLink = `http://localhost:3000/api/auth/verify?token=${verificationToken}`;
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+    const activationLink = `${domain}/api/auth/verify?token=${verificationToken}`;
 
-    // Send real SMTP email asynchronously if configured (prevents blocking HTTP request flow)
+    // Send real SMTP email synchronously in serverless to ensure it is not frozen before sending
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      transporter.sendMail({
-        from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
-        to: email,
-        subject: 'HawkStone Regisztráció Aktiválás',
-        text: `Kedves ${name}!\n\nKöszönjük regisztrációdat a HawkStone Városi Mászóklubban.\n\nA fiókod aktiválásához kattints az alábbi linkre:\n${activationLink}\n\nÜdvözlettel,\nHawkStone Csapata`,
-        html: `
-          <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-            <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
-            <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center;">Kedves ${name}!</h2>
-            <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; text-align: center;">Köszönjük regisztrációdat a <strong>HawkStone Városi Mászóklubban</strong>.</p>
-            <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px; text-align: center;">A fiókod aktiválásához és a belépéshez kérjük, kattints az alábbi gombra:</p>
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${activationLink}" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Fiók Aktiválása</a>
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+          to: email,
+          subject: 'HawkStone Regisztráció Aktiválás',
+          text: `Kedves ${name}!\n\nKöszönjük regisztrációdat a HawkStone Városi Mászóklubban.\n\nA fiókod aktiválásához kattints az alábbi linkre:\n${activationLink}\n\nÜdvözlettel,\nHawkStone Csapata`,
+          html: `
+            <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+              <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
+              <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center;">Kedves ${name}!</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; text-align: center;">Köszönjük regisztrációdat a <strong>HawkStone Városi Mászóklubban</strong>.</p>
+              <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px; text-align: center;">A fiókod aktiválásához és a belépéshez kérjük, kattints az alábbi gombra:</p>
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="${activationLink}" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Fiók Aktiválása</a>
+              </div>
+              <p style="font-size: 13px; color: #64748b; text-align: center;">Ha a fenti gomb nem működik, másold be ezt a linket a böngésződbe:<br><a href="${activationLink}" style="color: #ff6b00; text-decoration: none;">${activationLink}</a></p>
+              <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+              <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
             </div>
-            <p style="font-size: 13px; color: #64748b; text-align: center;">Ha a fenti gomb nem működik, másold be ezt a linket a böngésződbe:<br><a href="${activationLink}" style="color: #ff6b00; text-decoration: none;">${activationLink}</a></p>
-            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
-            <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
-          </div>
-        `,
-        attachments: [{
-          filename: 'mail_header.png',
-          path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
-          cid: 'mail_header_image'
-        }]
-      }).then(() => {
+          `,
+          attachments: [{
+            filename: 'mail_header.png',
+            path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
+            cid: 'mail_header_image'
+          }]
+        });
         console.log(`[EMAIL] Actual activation email sent successfully to ${email}`);
-      }).catch((mailError) => {
+      } catch (mailError) {
         console.error('[EMAIL ERROR] Failed to send email via SMTP, logging fallback link instead:', mailError);
         console.log(`\n==================================================`);
         console.log(`[EMAIL MOCK FALLBACK] Verification email sent to: ${email}`);
         console.log(`Link: ${activationLink}`);
         console.log(`==================================================\n`);
-      });
+      }
     } else {
       console.log(`\n==================================================`);
       console.log(`[EMAIL MOCK] Verification email sent to: ${email}`);
