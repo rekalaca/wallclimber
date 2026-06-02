@@ -794,7 +794,7 @@ async function processBarionPayment(paymentId, domain) {
 // Start Barion Payment (returns GatewayUrl)
 app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
   try {
-    const { ticketType } = req.body;
+    const { ticketType, billingName, billingZip, billingCity, billingAddress, billingTaxNumber } = req.body;
     if (!['NAPI', 'TIZ_ALKALMAS', 'HAVI'].includes(ticketType)) {
       return res.status(400).json({ error: 'Érvénytelen jegytípus!' });
     }
@@ -870,10 +870,21 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: `Barion hiba: ${errorMsg}` });
     }
 
-    // Save payment details in database with Prepared status
+    // Save payment details in database with Prepared status and billing details
     await dbRun(
-      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, processed) VALUES (?, ?, ?, ?, ?, 0)',
-      [responseData.PaymentId, req.user.id, ticketType, 'Prepared', price]
+      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, processed, billing_name, billing_zip, billing_city, billing_address, billing_tax_number) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+      [
+        responseData.PaymentId,
+        req.user.id,
+        ticketType,
+        'Prepared',
+        price,
+        billingName || '',
+        billingZip || '',
+        billingCity || '',
+        billingAddress || '',
+        billingTaxNumber || ''
+      ]
     );
 
     res.json({
