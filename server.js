@@ -757,44 +757,9 @@ async function processBarionPayment(paymentId, domain) {
 
     // Trigger email send in background
     (async () => {
-      try {
-        const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
-        if (!climber) return;
-
-        const { pdfData } = await generatePDFBuffer(ticketObj, climber, domain);
-
-        let HungarianType = '';
-        let sessionsText = '';
-        if (ticketType === 'NAPI') {
-          HungarianType = 'Egyszeri Napijegy';
-          sessionsText = '1 alkalom (felhasználható)';
-        } else if (ticketType === 'TIZ_ALKALMAS') {
-          HungarianType = '10 Alkalmas Bérlet';
-          sessionsText = '10 alkalom';
-        } else if (ticketType === 'HAVI') {
-          HungarianType = '30 Napos Korlátlan Bérlet';
-          sessionsText = 'Korlátlan';
-        }
-
-        if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-          await transporter.sendMail({
-            from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
-            to: climber.email,
-            subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-            text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nTípus: ${HungarianType}\nVásárlás dátuma: ${purchaseDate}\nLejárat dátuma: ${expiresDate}\nEgyenleg: ${sessionsText}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
-            attachments: [
-              {
-                filename: `HawkStone_Hasznalati_Szabalyzat_${ticketId}.pdf`,
-                content: pdfData
-              }
-            ]
-          });
-          console.log(`[EMAIL] Barion purchase confirmation email sent successfully to ${climber.email}`);
-        } else {
-          console.log(`[EMAIL MOCK] Barion SMTP not configured. Purchase email for ticket ${ticketId} would be sent to ${climber.email}`);
-        }
-      } catch (err) {
-        console.error('[EMAIL ERROR] Failed to send Barion purchase confirmation email:', err);
+      const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+      if (climber) {
+        await sendTicketConfirmationEmail(ticketObj, climber, domain);
       }
     })();
 
@@ -997,70 +962,9 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
 
     // Send confirmation email with PDF attached asynchronously in the background
     (async () => {
-      try {
-        const climber = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
-        if (!climber) return;
-
-        const { pdfData } = await generatePDFBuffer(ticketObj, climber, domain);
-
-        let HungarianType = '';
-        let sessionsText = '';
-        if (ticketType === 'NAPI') {
-          HungarianType = 'Egyszeri Napijegy';
-          sessionsText = '1 alkalom (felhasználható)';
-        } else if (ticketType === 'TIZ_ALKALMAS') {
-          HungarianType = '10 Alkalmas Bérlet';
-          sessionsText = '10 alkalom';
-        } else if (ticketType === 'HAVI') {
-          HungarianType = '30 Napos Korlátlan Bérlet';
-          sessionsText = 'Korlátlan';
-        }
-
-        if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-          await transporter.sendMail({
-            from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
-            to: climber.email,
-            subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-            text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nTípus: ${HungarianType}\nVásárlás dátuma: ${purchaseDate}\nLejárat dátuma: ${expiresDate}\nEgyenleg: ${sessionsText}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
-            html: `
-              <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-                <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
-                <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center;">Sikeres Vásárlás!</h2>
-                <p style="font-size: 15px; line-height: 1.6; color: #94a3b8;">Kedves ${climber.name},</p>
-                <p style="font-size: 15px; line-height: 1.6; color: #94a3b8;">Köszönjük, hogy jegyet/bérletet vásároltál a <strong>HawkStone Városi Mászóklubban</strong>.</p>
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <p style="margin: 0 0 10px 0; font-size: 14px; color: #94a3b8;"><strong>Jegytípus:</strong> <span style="color: #ffffff;">${HungarianType}</span></p>
-                  <p style="margin: 0 0 10px 0; font-size: 14px; color: #94a3b8;"><strong>Vásárlás dátuma:</strong> <span style="color: #ffffff;">${purchaseDate}</span></p>
-                  <p style="margin: 0 0 10px 0; font-size: 14px; color: #94a3b8;"><strong>Lejárat dátuma:</strong> <span style="color: #ffffff;">${expiresDate}</span></p>
-                  <p style="margin: 0; font-size: 14px; color: #94a3b8;"><strong>Egyenleg:</strong> <span style="color: #ffffff;">${sessionsText}</span></p>
-                </div>
-                <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px; text-align: center;">A belépéshez szükséges szabályzatot és az egyedi belépő QR kódot tartalmazó PDF igazolást csatoltuk ehhez az e-mailhez.</p>
-                <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px; text-align: center;">A digitális QR kódot bármikor elérheted a mászói fiókodban is:</p>
-                <div style="text-align: center; margin-bottom: 30px;">
-                  <a href="http://localhost:3000/dashboard.html" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Mászói Fiók megnyitása</a>
-                </div>
-                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
-                <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
-              </div>
-            `,
-            attachments: [
-              {
-                filename: 'mail_header.png',
-                path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
-                cid: 'mail_header_image'
-              },
-              {
-                filename: `HawkStone_Jegy_Szabalyzat_${ticketId}.pdf`,
-                content: pdfData
-              }
-            ]
-          });
-          console.log(`[EMAIL] Purchase confirmation email sent successfully to ${climber.email}`);
-        } else {
-          console.log(`[EMAIL MOCK] SMTP not configured. Purchase email confirmation for ticket ${ticketId} would be sent to ${climber.email}`);
-        }
-      } catch (err) {
-        console.error('[EMAIL ERROR] Failed to send purchase confirmation email:', err);
+      const climber = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
+      if (climber) {
+        await sendTicketConfirmationEmail(ticketObj, climber, domain);
       }
     })();
 
@@ -1207,14 +1111,120 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          .text('Dátum: ..................................', 50, 480)
          .text('Aláírás: ..................................', 350, 480);
 
-      doc.end();
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-// Get rules and ticket validation PDF
+       doc.end();
+     } catch (e) {
+       reject(e);
+     }
+   });
+ }
+ 
+ // Send ticket purchase confirmation email with dynamic domain and inline QR code
+ async function sendTicketConfirmationEmail(ticket, climber, domain) {
+   try {
+     const { pdfData, qrBuffer } = await generatePDFBuffer(ticket, climber, domain);
+ 
+     let HungarianType = '';
+     let sessionsText = '';
+     let priceText = '';
+     if (ticket.ticket_type === 'NAPI') {
+       HungarianType = 'Egyszeri Napijegy';
+       sessionsText = '1 alkalom (felhasználható)';
+       priceText = '2 800 Ft';
+     } else if (ticket.ticket_type === 'TIZ_ALKALMAS') {
+       HungarianType = '10 Alkalmas Bérlet';
+       sessionsText = '10 alkalom';
+       priceText = '22 000 Ft';
+     } else if (ticket.ticket_type === 'HAVI') {
+       HungarianType = '30 Napos Korlátlan Bérlet';
+       sessionsText = 'Korlátlan (30 napig)';
+       priceText = '28 000 Ft';
+     }
+ 
+     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+       await transporter.sendMail({
+         from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+         to: climber.email,
+         subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
+         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+         html: `
+           <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+             <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
+             <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center; font-size: 24px;">Sikeres vásárlás!</h2>
+             <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; text-align: center;">Kedves ${climber.name}, köszönjük a vásárlást a <strong>HawkStone Városi Mászóklubban</strong>.</p>
+             
+             <!-- Ticket Info Card -->
+             <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 10px; margin: 25px 0;">
+               <h3 style="margin: 0 0 15px 0; color: #ff6b00; font-family: 'Outfit', sans-serif; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">Jegy Részletei</h3>
+               <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Jegytípus:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${HungarianType}</td>
+                 </tr>
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Fizetett összeg:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${priceText}</td>
+                 </tr>
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Vásárlás időpontja:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.purchase_date}</td>
+                 </tr>
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Lejárat dátuma:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.expires_date}</td>
+                 </tr>
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Alkalmak száma:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${sessionsText}</td>
+                 </tr>
+               </table>
+             </div>
+ 
+             <!-- QR Code Section -->
+             <div style="text-align: center; margin: 30px 0;">
+               <p style="font-size: 15px; color: #94a3b8; margin-bottom: 15px;"><strong>Belépő QR kódod:</strong></p>
+               <div style="display: inline-block; background: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                 <img src="cid:qr_code_image" alt="QR kód a belépéshez" style="width: 160px; height: 160px; display: block;">
+               </div>
+               <p style="font-size: 12px; color: #64748b; margin-top: 10px;">Mutasd be ezt a QR kódot a leolvasónál a belépéshez.</p>
+             </div>
+ 
+             <!-- Action Button -->
+             <div style="text-align: center; margin: 30px 0;">
+               <a href="${domain}/dashboard.html" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Mászói Fiók megnyitása</a>
+             </div>
+ 
+             <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; text-align: center;">A belépéshez szükséges szabályzatot és az aláírandó felelősségnyilatkozatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.</p>
+             <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+             <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
+           </div>
+         `,
+         attachments: [
+           {
+             filename: 'mail_header.png',
+             path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
+             cid: 'mail_header_image'
+           },
+           {
+             filename: 'qr_code.png',
+             content: qrBuffer,
+             cid: 'qr_code_image'
+           },
+           {
+             filename: `HawkStone_Szabalyzat_${ticket.id}.pdf`,
+             content: pdfData
+           }
+         ]
+       });
+       console.log(`[EMAIL] Trendy purchase confirmation email sent successfully to ${climber.email}`);
+     } else {
+       console.log(`[EMAIL MOCK] SMTP not configured. Purchase email for ticket ${ticket.id} would be sent to ${climber.email}`);
+     }
+   } catch (err) {
+     console.error('[EMAIL ERROR] Failed to send ticket confirmation email:', err);
+   }
+ }
+ 
+ // Get rules and ticket validation PDF
 app.get('/api/tickets/:id/rules-pdf', authenticateToken, async (req, res) => {
   try {
     const ticketId = req.params.id;
