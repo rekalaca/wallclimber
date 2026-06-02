@@ -1307,6 +1307,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
     <penznem>HUF</penznem>
     <szamlaNyelve>hu</szamlaNyelve>
     <megjegyzes>Fizetve a Barion rendszerén keresztül. Tranzakció: ${payment.payment_id}</megjegyzes>
+    <fizetve>true</fizetve>
   </fejlec>
   <elado>
   </elado>
