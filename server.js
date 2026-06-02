@@ -755,11 +755,29 @@ async function processBarionPayment(paymentId, domain) {
       qr_code_uuid: qrUuid
     };
 
-    // Trigger email send in background
+    // Trigger email and invoice send in background
     (async () => {
-      const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
-      if (climber) {
-        await sendTicketConfirmationEmail(ticketObj, climber, domain);
+      try {
+        const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!climber) return;
+        
+        // Fetch latest payment details (which includes the billing columns)
+        const paymentDetails = await dbGet('SELECT * FROM barion_payments WHERE payment_id = ?', [paymentId]);
+        
+        let invoiceBuffer = null;
+        let invoiceNumber = null;
+        
+        if (paymentDetails && paymentDetails.billing_name) {
+          const invoiceResult = await createSzamlazzInvoice(paymentDetails, climber);
+          if (invoiceResult && invoiceResult.success) {
+            invoiceBuffer = invoiceResult.pdfBuffer;
+            invoiceNumber = invoiceResult.szamlaszam;
+          }
+        }
+        
+        await sendTicketConfirmationEmail(ticketObj, climber, domain, invoiceBuffer, invoiceNumber);
+      } catch (err) {
+        console.error('[EMAIL/BILLING ERROR] Error processing post-payment email/invoice:', err);
       }
     })();
 
@@ -1119,7 +1137,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
  }
  
  // Send ticket purchase confirmation email with dynamic domain and inline QR code
- async function sendTicketConfirmationEmail(ticket, climber, domain) {
+ async function sendTicketConfirmationEmail(ticket, climber, domain, invoiceBuffer = null, invoiceNumber = null) {
    try {
      const { pdfData, qrBuffer } = await generatePDFBuffer(ticket, climber, domain);
  
@@ -1179,6 +1197,12 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
                </table>
              </div>
  
+             ${invoiceNumber ? `
+             <!-- Invoice Box -->
+             <div style="background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.2); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+               <p style="margin: 0; font-size: 14px; color: #2ecc71;"><strong>A kiállított e-számla (${invoiceNumber}) elkészült és csatolva van ehhez a levélhez.</strong></p>
+             </div>` : ''}
+
              <!-- QR Code Section -->
              <div style="text-align: center; margin: 30px 0;">
                <p style="font-size: 15px; color: #94a3b8; margin-bottom: 15px;"><strong>Belépő QR kódod:</strong></p>
@@ -1212,7 +1236,11 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
            {
              filename: `HawkStone_Szabalyzat_${ticket.id}.pdf`,
              content: pdfData
-           }
+           },
+           ...(invoiceBuffer ? [{
+             filename: `Szamla_${invoiceNumber}.pdf`,
+             content: invoiceBuffer
+           }] : [])
          ]
        });
        console.log(`[EMAIL] Trendy purchase confirmation email sent successfully to ${climber.email}`);
@@ -1221,6 +1249,137 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
      }
    } catch (err) {
      console.error('[EMAIL ERROR] Failed to send ticket confirmation email:', err);
+   }
+ }
+ 
+ // Generate e-invoice using Számlázz.hu Számla Agent XML API
+ async function createSzamlazzInvoice(payment, climber) {
+   const SZAMLAZZ_KEY = process.env.SZAMLAZZ_KEY;
+   if (!SZAMLAZZ_KEY) {
+     console.log('[SZAMLAZZ] Agent key (SZAMLAZZ_KEY) not configured. Skipping invoice generation.');
+     return null;
+   }
+ 
+   const today = new Date().toISOString().split('T')[0];
+   
+   let itemName = '';
+   let price = payment.amount;
+   if (payment.ticket_type === 'NAPI') {
+     itemName = 'Egyszeri Napijegy';
+   } else if (payment.ticket_type === 'TIZ_ALKALMAS') {
+     itemName = '10 Alkalmas Bérlet';
+   } else if (payment.ticket_type === 'HAVI') {
+     itemName = '30 Napos Korlátlan Bérlet';
+   } else {
+     itemName = 'HawkStone Szolgáltatás';
+   }
+ 
+   // Math calculation for Hungarian 27% VAT
+   const netto = (price / 1.27).toFixed(2);
+   const afa = (price - parseFloat(netto)).toFixed(2);
+ 
+   // Build the XML payload strictly matching Számla Agent schema
+   const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xmlszamla xmlns="http://www.szamlazz.hu/xmlszamla" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.szamlazz.hu/xmlszamla https://www.szamlazz.hu/szamla/docs/xsds/agent/xmlszamla.xsd">
+  <beallitasok>
+    <szamlaAgentKulcs>${SZAMLAZZ_KEY}</szamlaAgentKulcs>
+    <eszamla>true</eszamla>
+    <szamlaLetoltes>true</szamlaLetoltes>
+    <szamlaLetoltesPpj>false</szamlaLetoltesPpj>
+    <valaszVerzio>2</valaszVerzio>
+  </beallitasok>
+  <fejlec>
+    <kelt>${today}</kelt>
+    <teljesites>${today}</teljesites>
+    <fizhatido>${today}</fizhatido>
+    <fizmod>Bankkártya</fizmod>
+    <penznem>HUF</penznem>
+    <szamlaNyelve>hu</szamlaNyelve>
+    <megjegyzes>Fizetve a Barion rendszerén keresztül. Tranzakció: ${payment.payment_id}</megjegyzes>
+  </fejlec>
+  <vevo>
+    <nev><![CDATA[${payment.billing_name}]]></nev>
+    <irsz>${payment.billing_zip}</irsz>
+    <telepules><![CDATA[${payment.billing_city}]]></telepules>
+    <cim><![CDATA[${payment.billing_address}]]></cim>
+    <email>${climber.email}</email>
+    <sendEmail>false</sendEmail>
+    ${payment.billing_tax_number ? `<adoszam>${payment.billing_tax_number}</adoszam>` : ''}
+  </vevo>
+  <tetelek>
+    <tetel>
+      <megnevezes><![CDATA[${itemName}]]></megnevezes>
+      <mennyiseg>1.0</mennyiseg>
+      <mennyisegiEgyseg>db</mennyisegiEgyseg>
+      <nettoEgysegar>${netto}</nettoEgysegar>
+      <afakulcs>27</afakulcs>
+      <nettoErtek>${netto}</nettoErtek>
+      <afaErtek>${afa}</afaErtek>
+      <bruttoErtek>${price}</bruttoErtek>
+    </tetel>
+  </tetelek>
+</xmlszamla>`;
+ 
+   // Manual multipart/form-data boundary construction for robust serverless support without external libs
+   const boundary = '----SzamlazzAgentBoundary' + Math.random().toString(36).substring(2);
+   const bodyParts = [];
+   bodyParts.push(`--${boundary}\r\n`);
+   bodyParts.push(`Content-Disposition: form-data; name="action-xmlagentxmlfile"; filename="request.xml"\r\n`);
+   bodyParts.push(`Content-Type: text/xml\r\n\r\n`);
+   bodyParts.push(xml);
+   bodyParts.push(`\r\n--${boundary}--\r\n`);
+ 
+   const requestBody = bodyParts.join('');
+ 
+   try {
+     console.log('[SZAMLAZZ] Sending invoice generation request for payment:', payment.payment_id);
+     
+     const response = await fetch('https://www.szamlazz.hu/szamla/', {
+       method: 'POST',
+       headers: {
+         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+         'Content-Length': Buffer.byteLength(requestBody).toString()
+       },
+       body: requestBody
+     });
+ 
+     const responseText = await response.text();
+ 
+     if (!response.ok) {
+       throw new Error(`Számlázz.hu HTTP Error: ${response.status}`);
+     }
+ 
+     const matchesSikeres = responseText.match(/<sikeres>(.*?)<\/sikeres>/);
+     const isSuccess = matchesSikeres && matchesSikeres[1] === 'true';
+ 
+     if (isSuccess) {
+       const matchesSzamlaszam = responseText.match(/<szamlaszam>(.*?)<\/szamlaszam>/);
+       const szamlaSzam = matchesSzamlaszam ? matchesSzamlaszam[1] : 'ISMERETLEN';
+       
+       const matchesPdf = responseText.match(/<pdf>(.*?)<\/pdf>/);
+       const pdfBase64 = matchesPdf ? matchesPdf[1] : null;
+ 
+       console.log(`[SZAMLAZZ] Invoice generated successfully. Invoice Number: ${szamlaSzam}`);
+       return {
+         success: true,
+         szamlaszam: szamlaSzam,
+         pdfBuffer: pdfBase64 ? Buffer.from(pdfBase64, 'base64') : null
+       };
+     } else {
+       const matchesHiba = responseText.match(/<hibauzenet>(.*?)<\/hibauzenet>/);
+       const errorMsg = matchesHiba ? matchesHiba[1] : 'Ismeretlen számlázási hiba';
+       console.error(`[SZAMLAZZ ERROR] Invoice generation failed: ${errorMsg}`);
+       return {
+         success: false,
+         error: errorMsg
+       };
+     }
+   } catch (error) {
+     console.error('[SZAMLAZZ EXCEPTION] Invoice request failed:', error);
+     return {
+       success: false,
+       error: error.message
+     };
    }
  }
  

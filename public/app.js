@@ -1057,14 +1057,47 @@ async function checkBarionCallback() {
   }
 }
 
-// Buy Ticket (Initiate Barion Payment)
-async function buyTicket(ticketType) {
+// Global storage for checkout flow
+window.selectedTicketType = null;
+
+// Close Billing Modal
+function closeBillingModal() {
+  const form = document.getElementById('billing-form');
+  if (form) form.reset();
+  const modal = document.getElementById('billing-modal-backdrop');
+  if (modal) modal.classList.remove('open');
+}
+
+// Handle Billing Form Submit
+async function handleBillingSubmit(event) {
+  event.preventDefault();
+  
+  const billingName = document.getElementById('billing-name').value.trim();
+  const billingZip = document.getElementById('billing-zip').value.trim();
+  const billingCity = document.getElementById('billing-city').value.trim();
+  const billingAddress = document.getElementById('billing-address').value.trim();
+  const billingTaxNumber = document.getElementById('billing-tax-number').value.trim();
+
+  if (!billingName || !billingZip || !billingCity || !billingAddress) {
+    showToast('Kérjük, minden kötelező számlázási mezőt tölts ki!', 'error');
+    return;
+  }
+
+  closeBillingModal();
+
   try {
     showToast('Fizetés kezdeményezése a Barion rendszerében...', 'info');
     const res = await fetch('/api/barion/start-payment', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ ticketType })
+      body: JSON.stringify({
+        ticketType: window.selectedTicketType,
+        billingName,
+        billingZip,
+        billingCity,
+        billingAddress,
+        billingTaxNumber
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Fizetés indítási hiba');
@@ -1073,6 +1106,32 @@ async function buyTicket(ticketType) {
     window.location.href = data.GatewayUrl;
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+// Buy Ticket (Opens Billing Modal first)
+function buyTicket(ticketType) {
+  window.selectedTicketType = ticketType;
+  
+  // Try to pre-fill user name from local storage details
+  const userJson = localStorage.getItem('user');
+  if (userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      const nameInput = document.getElementById('billing-name');
+      if (nameInput) nameInput.value = user.name || '';
+    } catch (e) {
+      console.error('Error pre-filling billing name:', e);
+    }
+  }
+
+  // Open billing modal
+  const modal = document.getElementById('billing-modal-backdrop');
+  if (modal) {
+    modal.classList.add('open');
+  } else {
+    // Fallback if modal not present (e.g. on other pages)
+    showToast('Nem található számlázási modal!', 'error');
   }
 }
 
@@ -2301,4 +2360,6 @@ window.deleteNewsAnnouncement = deleteNewsAnnouncement;
 window.cancelNewsEdit = cancelNewsEdit;
 window.sortAdminUsers = sortAdminUsers;
 window.switchTicketTab = switchTicketTab;
-window.switchBookingTab = switchBookingTab;
+window.closeBillingModal = closeBillingModal;
+window.handleBillingSubmit = handleBillingSubmit;
+

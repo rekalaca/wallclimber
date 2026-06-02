@@ -158,6 +158,48 @@
     </div>
   </div>
 
+  <!-- Billing Details Modal for Purchases -->
+  <div class="modal-backdrop" id="billing-modal-backdrop" onclick="closeBillingModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeBillingModal()">×</button>
+      <h3 style="color: var(--primary); margin-bottom: 15px; text-align: center;">Számlázási Adatok</h3>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; text-align: center;">Kérjük, add meg a számlázási adataidat a számla kiállításához.</p>
+      
+      <form id="billing-form" onsubmit="handleBillingSubmit(event)" style="width: 100%; text-align: left;">
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label class="form-label" for="billing-name">Számlázási név (Személy vagy Cég)</label>
+          <input type="text" id="billing-name" class="form-control" placeholder="Pl. Kovács János vagy Kovács Kft." required>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+          <div class="form-group">
+            <label class="form-label" for="billing-zip">Irányítószám</label>
+            <input type="text" id="billing-zip" class="form-control" placeholder="1000" maxlength="10" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="billing-city">Település</label>
+            <input type="text" id="billing-city" class="form-control" placeholder="Budapest" required>
+          </div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label class="form-label" for="billing-address">Cím (utca, házszám, emelet/ajtó)</label>
+          <input type="text" id="billing-address" class="form-control" placeholder="Fő utca 12. 2. em. 4." required>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label class="form-label" for="billing-tax-number">Adószám (csak cégeknek)</label>
+          <input type="text" id="billing-tax-number" class="form-control" placeholder="12345678-1-12">
+        </div>
+        
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeBillingModal()">Mégse</button>
+          <button type="submit" class="btn btn-primary btn-sm">Fizetés indítása</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer>
     <div class="container">
       <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
