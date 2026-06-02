@@ -1028,9 +1028,9 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
         resolve({ pdfData, qrBuffer });
       });
 
-      // Register Arial font to support Hungarian accented characters (on Windows)
-      const fontRegular = 'C:/Windows/Fonts/arial.ttf';
-      const fontBold = 'C:/Windows/Fonts/arialbd.ttf';
+      // Register Arial font to support Hungarian accented characters (bundled inside project)
+      const fontRegular = path.join(__dirname, 'public', 'fonts', 'arial.ttf');
+      const fontBold = path.join(__dirname, 'public', 'fonts', 'arialbd.ttf');
       let fontName = 'Helvetica';
       let fontBoldName = 'Helvetica-Bold';
       
@@ -1039,7 +1039,10 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
         doc.registerFont('Arial-Bold', fontBold);
         fontName = 'Arial';
         fontBoldName = 'Arial-Bold';
+      } else {
+        console.warn('[PDF] Arial fonts not found in public/fonts. Accents might be corrupted.');
       }
+
 
       // Draw branding header
       doc.fillColor('#ff6b00')
