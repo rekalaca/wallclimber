@@ -2454,21 +2454,34 @@ window.selectedAdminWeek = 0;
 
 function getMonday(d) {
   d = new Date(d);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+  const res = new Date(d);
+  res.setUTCDate(diff);
+  return res;
 }
 
 function renderWeekSelector() {
-  const currentMonday = getMonday(new Date());
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('hu-HU', {
+    timeZone: 'Europe/Budapest',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type) => parts.find(p => p.type === type).value;
+  const currentBudapest = new Date(`${getPart('year')}-${getPart('month')}-${getPart('day')}`);
+
+  const currentMonday = getMonday(currentBudapest);
   for (let w = 0; w < 3; w++) {
     const m = new Date(currentMonday);
-    m.setDate(currentMonday.getDate() + w * 7);
+    m.setUTCDate(currentMonday.getUTCDate() + w * 7);
     const s = new Date(m);
-    s.setDate(m.getDate() + 6);
+    s.setUTCDate(m.getUTCDate() + 6);
     
     const pad = (n) => String(n).padStart(2, '0');
-    const rangeStr = `${pad(m.getMonth() + 1)}.${pad(m.getDate())} - ${pad(s.getMonth() + 1)}.${pad(s.getDate())}`;
+    const rangeStr = `${pad(m.getUTCMonth() + 1)}.${pad(m.getUTCDate())} - ${pad(s.getUTCMonth() + 1)}.${pad(s.getUTCDate())}`;
     
     const btn = document.getElementById(`admin-week-btn-${w}`);
     if (btn) {
@@ -2537,9 +2550,20 @@ async function loadAdminSlots() {
     const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday (1) to Sunday (0)
     
     // Calculate Monday of the selected week
-    const currentMonday = getMonday(new Date());
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const currentBudapest = new Date(`${getPart('year')}-${getPart('month')}-${getPart('day')}`);
+
+    const currentMonday = getMonday(currentBudapest);
     const selectedMonday = new Date(currentMonday);
-    selectedMonday.setDate(currentMonday.getDate() + window.selectedAdminWeek * 7);
+    selectedMonday.setUTCDate(currentMonday.getUTCDate() + window.selectedAdminWeek * 7);
 
     for (const locName in grouped) {
       const locDiv = document.createElement('div');
@@ -2553,11 +2577,11 @@ async function loadAdminSlots() {
           // Calculate specific date for this day of the selected week
           const offset = dayIdx === 0 ? 6 : dayIdx - 1;
           const targetDate = new Date(selectedMonday);
-          targetDate.setDate(selectedMonday.getDate() + offset);
+          targetDate.setUTCDate(selectedMonday.getUTCDate() + offset);
           
           const pad = (n) => String(n).padStart(2, '0');
-          const dateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}`;
-          const dateDisplayStr = `${pad(targetDate.getMonth() + 1)}.${pad(targetDate.getDate())}`;
+          const dateStr = `${targetDate.getUTCFullYear()}-${pad(targetDate.getUTCMonth() + 1)}-${pad(targetDate.getUTCDate())}`;
+          const dateDisplayStr = `${pad(targetDate.getUTCMonth() + 1)}.${pad(targetDate.getUTCDate())}`;
 
           let slotItemsHtml = '';
           grouped[locName][dayIdx].forEach(s => {
@@ -2884,30 +2908,30 @@ function getWeeksData() {
   const currentBudapest = new Date(`${getPart('year')}-${getPart('month')}-${getPart('day')}`);
 
   // Get day of week (0 = Sun, 1 = Mon ... 6 = Sat)
-  const day = currentBudapest.getDay();
+  const day = currentBudapest.getUTCDay();
   // Calculate distance to current week's Monday
   // If today is Sunday (0), distance is -6 days. Otherwise distance is -(day - 1) days.
   const distanceToMonday = day === 0 ? -6 : -(day - 1);
   
   const monday1 = new Date(currentBudapest);
-  monday1.setDate(currentBudapest.getDate() + distanceToMonday);
+  monday1.setUTCDate(currentBudapest.getUTCDate() + distanceToMonday);
   
   const sunday1 = new Date(monday1);
-  sunday1.setDate(monday1.getDate() + 6);
+  sunday1.setUTCDate(monday1.getUTCDate() + 6);
   
   const monday2 = new Date(monday1);
-  monday2.setDate(monday1.getDate() + 7);
+  monday2.setUTCDate(monday1.getUTCDate() + 7);
   const sunday2 = new Date(monday2);
-  sunday2.setDate(monday2.getDate() + 6);
+  sunday2.setUTCDate(monday2.getUTCDate() + 6);
 
   const monday3 = new Date(monday1);
-  monday3.setDate(monday1.getDate() + 14);
+  monday3.setUTCDate(monday1.getUTCDate() + 14);
   const sunday3 = new Date(monday3);
-  sunday3.setDate(monday3.getDate() + 6);
+  sunday3.setUTCDate(monday3.getUTCDate() + 6);
 
   const formatDate = (d) => {
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${month}.${day}`;
   };
 
@@ -2934,23 +2958,106 @@ function getWeeksData() {
   ];
 }
 
+let currentBookingsLocationId = null;
+let currentBookingsLocationName = '';
+
 async function loadAdminBookings() {
-  const container = document.getElementById('admin-bookings-list');
+  const locationsView = document.getElementById('admin-bookings-locations-view');
+  const detailsView = document.getElementById('admin-bookings-details-view');
+  
+  if (currentBookingsLocationId === null) {
+    if (locationsView) locationsView.style.display = 'block';
+    if (detailsView) detailsView.style.display = 'none';
+
+    const container = document.getElementById('admin-bookings-locations-grid');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 20px; grid-column: 1/-1;">Helyszínek statisztikáinak betöltése...</p>';
+
+    try {
+      const res = await fetch('/api/admin/bookings/stats', { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error();
+      const stats = await res.json();
+      renderBookingsLocationsGrid(stats);
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<p style="color:var(--danger); text-align:center; padding: 20px; grid-column: 1/-1;">Nem sikerült betölteni a helyszínek statisztikáit.</p>';
+    }
+  } else {
+    if (locationsView) locationsView.style.display = 'none';
+    if (detailsView) detailsView.style.display = 'block';
+
+    const container = document.getElementById('admin-bookings-list');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 20px;">Foglalások betöltése...</p>';
+
+    try {
+      const weeks = getWeeksData();
+      const activeWeek = weeks[currentSelectedWeekIdx];
+      const res = await fetch(`/api/admin/bookings?locationId=${currentBookingsLocationId}&startDate=${activeWeek.start}&endDate=${activeWeek.end}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error();
+      const bookings = await res.json();
+      window.adminBookings = bookings;
+      renderAdminBookings();
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<p style="color:var(--danger); text-align:center; padding: 20px;">Nem sikerült betölteni a foglalásokat.</p>';
+    }
+  }
+}
+
+function renderBookingsLocationsGrid(stats) {
+  const container = document.getElementById('admin-bookings-locations-grid');
   if (!container) return;
 
-  container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 20px;">Foglalások betöltése...</p>';
+  container.innerHTML = '';
+  
+  const imageMap = {
+    1: 'pictures/eotvos_wall.png',
+    2: 'pictures/kossuth_wall.png',
+    3: 'pictures/zrinyi_wall.png'
+  };
 
-  try {
-    const res = await fetch('/api/admin/bookings', { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error();
-    const bookings = await res.json();
-    window.adminBookings = bookings;
+  stats.forEach(loc => {
+    const imgPath = imageMap[loc.location_id] || 'pictures/eotvos_wall.png';
+    const card = document.createElement('div');
+    card.className = 'location-booking-card';
+    card.onclick = () => showBookingsDetailsForLocation(loc.location_id, loc.location_name);
 
-    renderAdminBookings();
-  } catch (err) {
-    console.error(err);
-    container.innerHTML = '<p style="color:var(--danger); text-align:center; padding: 20px;">Nem sikerült betölteni a foglalásokat.</p>';
-  }
+    card.innerHTML = `
+      <img src="${imgPath}" alt="${loc.location_name}">
+      <div class="location-booking-card-body">
+        <h4 class="location-booking-card-title">${loc.location_name}</h4>
+        <div class="location-booking-card-stats">
+          <div class="location-booking-card-stat-item">
+            <span class="location-booking-card-stat-label">Múltbéli</span>
+            <span class="location-booking-card-stat-value">${loc.past_count || 0}</span>
+          </div>
+          <div class="location-booking-card-stat-item">
+            <span class="location-booking-card-stat-label">Jövőbeli</span>
+            <span class="location-booking-card-stat-value">${loc.future_count || 0}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function showBookingsLocationsGrid() {
+  currentBookingsLocationId = null;
+  currentBookingsLocationName = '';
+  loadAdminBookings();
+}
+
+function showBookingsDetailsForLocation(locationId, locationName) {
+  currentBookingsLocationId = locationId;
+  currentBookingsLocationName = locationName;
+  
+  const titleEl = document.getElementById('admin-booking-location-title');
+  if (titleEl) titleEl.textContent = locationName;
+  
+  currentSelectedWeekIdx = 0;
+  loadAdminBookings();
 }
 
 function renderAdminBookings() {
@@ -2960,7 +3067,6 @@ function renderAdminBookings() {
 
   const weeks = getWeeksData();
 
-  // Render Week Selector Buttons
   if (weekSelector) {
     weekSelector.innerHTML = '';
     weeks.forEach((w, idx) => {
@@ -2972,18 +3078,14 @@ function renderAdminBookings() {
       btn.textContent = w.label;
       btn.onclick = () => {
         currentSelectedWeekIdx = idx;
-        renderAdminBookings();
+        loadAdminBookings();
       };
       weekSelector.appendChild(btn);
     });
   }
 
   const activeWeek = weeks[currentSelectedWeekIdx];
-  
-  // Filter bookings for the active week
-  const filteredBookings = window.adminBookings.filter(b => {
-    return b.booking_date >= activeWeek.start && b.booking_date <= activeWeek.end;
-  });
+  const filteredBookings = window.adminBookings;
 
   container.innerHTML = '';
   if (filteredBookings.length === 0) {
@@ -2991,18 +3093,15 @@ function renderAdminBookings() {
     return;
   }
 
-  // Group bookings by date, then by location name, then by slot time range
   const grouped = {};
   filteredBookings.forEach(b => {
     const date = b.booking_date;
-    const loc = b.location_name;
     const slotTime = `${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}`;
 
     if (!grouped[date]) grouped[date] = {};
-    if (!grouped[date][loc]) grouped[date][loc] = {};
-    if (!grouped[date][loc][slotTime]) grouped[date][loc][slotTime] = [];
+    if (!grouped[date][slotTime]) grouped[date][slotTime] = [];
 
-    grouped[date][loc][slotTime].push(b);
+    grouped[date][slotTime].push(b);
   });
 
   const sortedDates = Object.keys(grouped).sort();
@@ -3021,44 +3120,35 @@ function renderAdminBookings() {
 
     let dateHtml = `<h4 style="font-size:18px; color:var(--primary); margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px; font-family:'Outfit', sans-serif;">${formattedDate}</h4>`;
 
-    for (const locName in grouped[date]) {
+    for (const slotTime in grouped[date]) {
       dateHtml += `
-        <div style="margin-top: 15px; margin-bottom: 20px;">
-          <div style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-            <span style="color: var(--primary);">📍</span> ${locName}
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+          <div style="font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--primary); font-size: 11px;">🕒</span> ${slotTime}
           </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
       `;
 
-      for (const slotTime in grouped[date][locName]) {
+      grouped[date][slotTime].forEach(b => {
+        const attendedBadge = b.attended > 0 ? `<span class="badge badge-green" style="font-size: 9px; padding: 2px 6px; opacity: 0.8; margin-left: 8px;">Megjelent</span>` : '';
         dateHtml += `
-          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; margin-left: 10px;">
-            <div style="font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-              <span style="color: var(--primary); font-size: 11px;">🕒</span> ${slotTime}
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; font-size: 13px;">
+            <div>
+              <strong style="color: #fff; font-size: 14px;">${b.user_name}</strong> 
+              ${attendedBadge}
+              <span style="color: var(--text-muted); margin-left: 8px; font-size: 11px;">(${b.user_email} | ${b.user_phone || '-'})</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-        `;
-
-        grouped[date][locName][slotTime].forEach(b => {
-          dateHtml += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; font-size: 13px;">
-              <div>
-                <strong style="color: #fff; font-size: 14px;">${b.user_name}</strong> 
-                <span style="color: var(--text-muted); margin-left: 8px; font-size: 11px;">(${b.user_email} | ${b.user_phone || '-'})</span>
-              </div>
-              <button onclick="cancelAdminBooking(${b.booking_id})" class="btn btn-danger btn-sm" style="padding: 4px 10px; font-size: 11px; background: #ef4444; border-color: #ef4444; min-height: auto; line-height: 1.2;">
-                Törlés
-              </button>
-            </div>
-          `;
-        });
-
-        dateHtml += `
-            </div>
+            <button onclick="cancelAdminBooking(${b.booking_id})" class="btn btn-danger btn-sm" style="padding: 4px 10px; font-size: 11px; background: #ef4444; border-color: #ef4444; min-height: auto; line-height: 1.2;">
+              Törlés
+            </button>
           </div>
         `;
-      }
+      });
 
-      dateHtml += `</div>`;
+      dateHtml += `
+          </div>
+        </div>
+      `;
     }
 
     dateCard.innerHTML = dateHtml;

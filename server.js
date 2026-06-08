@@ -1896,33 +1896,73 @@ app.delete('/api/admin/slots/:id', authenticateToken, requireRole(['ADMIN']), as
   }
 });
 
-// Get all bookings for admin panel (future only)
-app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+// Get location-grouped booking statistics (past and future counts)
+app.get('/api/admin/bookings/stats', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('hu-HU', {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Budapest',
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
-      hour12: false
+      day: '2-digit'
     });
-    const parts = formatter.formatToParts(now);
-    const getPart = (type) => parts.find(p => p.type === type).value;
-    const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const todayStr = formatter.format(new Date());
 
-    const bookings = await dbAll(`
+    const stats = await dbAll(`
+      SELECT 
+        l.id as location_id, 
+        l.name as location_name,
+        (SELECT COUNT(*) FROM bookings b JOIN slots s ON b.slot_id = s.id WHERE s.location_id = l.id AND b.booking_date < ?) as past_count,
+        (SELECT COUNT(*) FROM bookings b JOIN slots s ON b.slot_id = s.id WHERE s.location_id = l.id AND b.booking_date >= ?) as future_count
+      FROM locations l
+    `, [todayStr, todayStr]);
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all bookings for admin panel (supports filters)
+app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { locationId, startDate, endDate } = req.query;
+
+    let query = `
       SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, 
              l.name as location_name, l.id as location_id,
-             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id
+             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
       JOIN users u ON b.user_id = u.id
-      WHERE b.booking_date >= ?
-      ORDER BY b.booking_date ASC, s.start_time ASC, l.name ASC
-    `, [todayStr]);
+    `;
+    let params = [];
 
+    if (locationId && startDate && endDate) {
+      query += ` WHERE s.location_id = ? AND b.booking_date >= ? AND b.booking_date <= ?`;
+      params = [parseInt(locationId), startDate, endDate];
+    } else {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Budapest',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const todayStr = formatter.format(new Date());
+      query += ` WHERE b.booking_date >= ?`;
+      params = [todayStr];
+    }
+
+    query += ` ORDER BY b.booking_date ASC, s.start_time ASC, u.name ASC`;
+
+    const bookings = await dbAll(query, params);
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: error.message });

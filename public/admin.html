@@ -353,14 +353,30 @@
         </div>
       </div>
     </div>
-
     <!-- Tab Bookings Content -->
     <div id="admin-bookings-content" style="display: none;">
-      <div class="glass-card">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Aktív Foglalások</h3>
+      <!-- Grid of Location Cards -->
+      <div id="admin-bookings-locations-view" class="glass-card">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Foglalások helyszínenként</h3>
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
-          Itt láthatod a mászók által leadott aktív helyfoglalásokat a következő 3 hétre napok és mászófalak szerint csoportosítva.
+          Válaszd ki az egyik helyszínt a foglalások részletes megtekintéséhez és kezeléséhez.
         </p>
+        <div class="location-bookings-grid" id="admin-bookings-locations-grid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Specific Location Bookings Subpage (Hidden by default) -->
+      <div id="admin-bookings-details-view" class="glass-card" style="display: none;">
+        <button onclick="showBookingsLocationsGrid()" class="btn btn-secondary btn-sm" style="margin-bottom: 25px; display: inline-flex; align-items: center; gap: 5px;">
+          ⬅️ Vissza a helyszínekhez
+        </button>
+        
+        <h3 id="admin-booking-location-title" style="font-size: 24px; color: var(--primary); margin-bottom: 5px; font-family: 'Montserrat', sans-serif;"></h3>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
+          A helyszín foglalásai a kiválasztott héten, napok és idősávok szerint csoportosítva.
+        </p>
+
         <!-- Week Selector Buttons -->
         <div style="display: flex; gap: 15px; margin-bottom: 30px; justify-content: center; flex-wrap: wrap;" id="admin-bookings-week-selector">
           <!-- Rendered dynamically -->
@@ -371,7 +387,6 @@
         </div>
       </div>
     </div>
-
   </main>
 
   <footer>
