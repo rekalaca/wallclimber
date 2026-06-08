@@ -2029,70 +2029,13 @@ async function openUserDetailsModal(userId) {
     document.getElementById('subpage-edit-user-card').value = user.card_type;
     document.getElementById('subpage-edit-user-role').value = user.role;
     
-    // Render Tickets
-    const ticketsContainer = document.getElementById('subpage-user-tickets');
-    if (ticketsContainer) {
-      ticketsContainer.innerHTML = '';
-      if (!tickets || tickets.length === 0) {
-        ticketsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Nincsenek aktív vagy lejárt jegyei/bérletei.</p>';
-      } else {
-        tickets.forEach(t => {
-          let typeLabel = '';
-          if (t.ticket_type === 'NAPI') typeLabel = 'Napijegy';
-          else if (t.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 alk. bérlet';
-          else if (t.ticket_type === 'HAVI') typeLabel = 'Havi bérlet';
-
-          let sessionsLabel = '';
-          if (t.ticket_type === 'NAPI') sessionsLabel = '1 alk.';
-          else if (t.ticket_type === 'TIZ_ALKALMAS') sessionsLabel = `${t.sessions_remaining}/10 alk. maradt`;
-          else if (t.ticket_type === 'HAVI') sessionsLabel = 'Korlátlan';
-
-          const ticketDiv = document.createElement('div');
-          ticketDiv.style.background = 'rgba(255, 255, 255, 0.02)';
-          ticketDiv.style.border = '1px solid rgba(255,255,255,0.06)';
-          ticketDiv.style.borderRadius = '8px';
-          ticketDiv.style.padding = '8px 12px';
-          ticketDiv.style.fontSize = '12px';
-          ticketDiv.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3px;">
-              <strong style="color:#ffffff;">${typeLabel}</strong>
-              <span class="badge ${t.status === 'ACTIVE' ? 'badge-green' : 'badge-secondary'}" style="font-size:10px; padding: 2px 6px;">
-                ${t.status === 'ACTIVE' ? 'Aktív' : (t.status === 'USED' ? 'Elhasznált' : 'Lejárt')}
-              </span>
-            </div>
-            <div style="color:var(--text-secondary); font-size:11px;">
-              Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}<br>
-              Egyenleg: <strong>${sessionsLabel}</strong>
-            </div>
-          `;
-          ticketsContainer.appendChild(ticketDiv);
-        });
-      }
-    }
+    // Save tickets and bookings globally for subpage tabs filtering
+    window.currentSubpageTickets = tickets || [];
+    window.currentSubpageBookings = bookings || [];
     
-    // Render Bookings
-    const bookingsContainer = document.getElementById('subpage-user-bookings');
-    if (bookingsContainer) {
-      bookingsContainer.innerHTML = '';
-      if (!bookings || bookings.length === 0) {
-        bookingsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Nincsenek aktív foglalásai.</p>';
-      } else {
-        bookings.forEach(b => {
-          const bookingDiv = document.createElement('div');
-          bookingDiv.style.background = 'rgba(255, 255, 255, 0.02)';
-          bookingDiv.style.border = '1px solid rgba(255,255,255,0.04)';
-          bookingDiv.style.borderRadius = '6px';
-          bookingDiv.style.padding = '6px 10px';
-          bookingDiv.style.fontSize = '11px';
-          bookingDiv.innerHTML = `
-            <span style="font-weight:600; color:#fff;">${b.booking_date}</span> | 
-            <span>${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span> 
-            <span style="color:var(--primary);">(${b.location_name})</span>
-          `;
-          bookingsContainer.appendChild(bookingDiv);
-        });
-      }
-    }
+    // Render default tab states
+    filterSubpageTickets('active');
+    filterSubpageBookings('future');
     
     // Render Entry Logs
     const logsContainer = document.getElementById('subpage-user-logs');
@@ -2146,6 +2089,132 @@ function closeUserDetailsSubpage() {
   }
   currentViewedUser = null;
   currentViewedUserLogs = [];
+}
+
+function filterSubpageTickets(filter) {
+  const activeBtn = document.getElementById('subpage-tickets-tab-active');
+  const usedBtn = document.getElementById('subpage-tickets-tab-used');
+  if (activeBtn && usedBtn) {
+    if (filter === 'active') {
+      activeBtn.className = 'btn btn-primary btn-sm';
+      usedBtn.className = 'btn btn-secondary btn-sm';
+    } else {
+      activeBtn.className = 'btn btn-secondary btn-sm';
+      usedBtn.className = 'btn btn-primary btn-sm';
+    }
+  }
+  renderSubpageTicketsList(filter);
+}
+
+function renderSubpageTicketsList(filter) {
+  const tickets = window.currentSubpageTickets || [];
+  const ticketsContainer = document.getElementById('subpage-user-tickets');
+  if (!ticketsContainer) return;
+
+  ticketsContainer.innerHTML = '';
+  
+  const filtered = tickets.filter(t => filter === 'active' ? t.status === 'ACTIVE' : t.status !== 'ACTIVE');
+
+  if (filtered.length === 0) {
+    ticketsContainer.innerHTML = `<p style="color:var(--text-muted); font-size: 13px;">Nincsenek ${filter === 'active' ? 'aktív' : 'felhasznált/lejárt'} jegyek/bérletek.</p>`;
+    return;
+  }
+
+  filtered.forEach(t => {
+    let typeLabel = '';
+    if (t.ticket_type === 'NAPI') typeLabel = 'Napijegy';
+    else if (t.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 alk. bérlet';
+    else if (t.ticket_type === 'HAVI') typeLabel = 'Havi bérlet';
+
+    let sessionsLabel = '';
+    if (t.ticket_type === 'NAPI') sessionsLabel = '1 alk.';
+    else if (t.ticket_type === 'TIZ_ALKALMAS') sessionsLabel = `${t.sessions_remaining}/10 alk. maradt`;
+    else if (t.ticket_type === 'HAVI') sessionsLabel = 'Korlátlan';
+
+    const ticketDiv = document.createElement('div');
+    ticketDiv.style.background = 'rgba(255, 255, 255, 0.02)';
+    ticketDiv.style.border = '1px solid rgba(255,255,255,0.06)';
+    ticketDiv.style.borderRadius = '8px';
+    ticketDiv.style.padding = '8px 12px';
+    ticketDiv.style.fontSize = '12px';
+    ticketDiv.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3px;">
+        <strong style="color:#ffffff;">${typeLabel}</strong>
+        <span class="badge ${t.status === 'ACTIVE' ? 'badge-green' : 'badge-secondary'}" style="font-size:10px; padding: 2px 6px;">
+          ${t.status === 'ACTIVE' ? 'Aktív' : (t.status === 'USED' ? 'Elhasznált' : 'Lejárt')}
+        </span>
+      </div>
+      <div style="color:var(--text-secondary); font-size:11px;">
+        Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}<br>
+        Egyenleg: <strong>${sessionsLabel}</strong>
+      </div>
+    `;
+    ticketsContainer.appendChild(ticketDiv);
+  });
+}
+
+function filterSubpageBookings(filter) {
+  const futureBtn = document.getElementById('subpage-bookings-tab-future');
+  const pastBtn = document.getElementById('subpage-bookings-tab-past');
+  if (futureBtn && pastBtn) {
+    if (filter === 'future') {
+      futureBtn.className = 'btn btn-primary btn-sm';
+      pastBtn.className = 'btn btn-secondary btn-sm';
+    } else {
+      futureBtn.className = 'btn btn-secondary btn-sm';
+      pastBtn.className = 'btn btn-primary btn-sm';
+    }
+  }
+  renderSubpageBookingsList(filter);
+}
+
+function renderSubpageBookingsList(filter) {
+  const bookings = window.currentSubpageBookings || [];
+  const bookingsContainer = document.getElementById('subpage-user-bookings');
+  if (!bookingsContainer) return;
+
+  bookingsContainer.innerHTML = '';
+
+  const filtered = bookings.filter(b => {
+    const isExpired = isBookingExpired(b.booking_date, b.end_time);
+    const isAttended = b.attended > 0;
+    const isPast = isExpired || isAttended;
+    return filter === 'future' ? !isPast : isPast;
+  });
+
+  filtered.sort((a, b) => {
+    const dateComp = a.booking_date.localeCompare(b.booking_date);
+    if (dateComp !== 0) return filter === 'future' ? dateComp : -dateComp;
+    return filter === 'future' ? a.start_time.localeCompare(b.start_time) : -a.start_time.localeCompare(b.start_time);
+  });
+
+  if (filtered.length === 0) {
+    bookingsContainer.innerHTML = `<p style="color:var(--text-muted); font-size: 13px;">Nincsenek ${filter === 'future' ? 'jövőbeni' : 'eddigi'} foglalásai.</p>`;
+    return;
+  }
+
+  filtered.forEach(b => {
+    const isAttended = b.attended > 0;
+    const bookingDiv = document.createElement('div');
+    bookingDiv.style.background = 'rgba(255, 255, 255, 0.02)';
+    bookingDiv.style.border = '1px solid rgba(255,255,255,0.04)';
+    bookingDiv.style.borderRadius = '6px';
+    bookingDiv.style.padding = '6px 10px';
+    bookingDiv.style.fontSize = '11px';
+    bookingDiv.style.display = 'flex';
+    bookingDiv.style.justifyContent = 'space-between';
+    bookingDiv.style.alignItems = 'center';
+    
+    bookingDiv.innerHTML = `
+      <div>
+        <span style="font-weight:600; color:#fff;">${b.booking_date}</span> | 
+        <span>${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span> 
+        <span style="color:var(--primary);">(${b.location_name})</span>
+      </div>
+      ${isAttended ? '<span class="badge badge-secondary" style="font-size: 9px; padding: 1px 4px; opacity: 0.6;">Megjelent</span>' : ''}
+    `;
+    bookingsContainer.appendChild(bookingDiv);
+  });
 }
 
 function switchSubpageToView() {

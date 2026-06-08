@@ -245,19 +245,31 @@
             </div>
           </div>
 
-          <!-- Lists on the Right (Tickets, Upcoming Bookings, and Entry Logs) -->
+          <!-- Lists on the Right (Tickets, Bookings, and Entry Logs) -->
           <div>
-            <!-- Active Tickets -->
+            <!-- Megvásárolt Jegyek / Bérletek -->
             <div style="margin-bottom: 25px;">
-              <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Megvásárolt Jegyek / Bérletek</h4>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; margin-bottom: 12px;">
+                <h4 style="font-size: 14px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Megvásárolt Jegyek / Bérletek</h4>
+                <div style="display: flex; gap: 5px;">
+                  <button id="subpage-tickets-tab-active" onclick="filterSubpageTickets('active')" class="btn btn-primary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">Aktív</button>
+                  <button id="subpage-tickets-tab-used" onclick="filterSubpageTickets('used')" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">Felhasznált</button>
+                </div>
+              </div>
               <div id="subpage-user-tickets" style="display: flex; flex-direction: column; gap: 8px;">
                 <p style="color:var(--text-muted); font-size: 13px;">Nincsenek jegyek.</p>
               </div>
             </div>
 
-            <!-- Upcoming Bookings -->
+            <!-- Bookings -->
             <div style="margin-bottom: 25px;">
-              <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Aktív/Jövőbeli Foglalások</h4>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; margin-bottom: 12px;">
+                <h4 style="font-size: 14px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Foglalások</h4>
+                <div style="display: flex; gap: 5px;">
+                  <button id="subpage-bookings-tab-future" onclick="filterSubpageBookings('future')" class="btn btn-primary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">Jövőbeni</button>
+                  <button id="subpage-bookings-tab-past" onclick="filterSubpageBookings('past')" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">Eddigiek</button>
+                </div>
+              </div>
               <div id="subpage-user-bookings" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto;">
                 <p style="color:var(--text-muted); font-size: 13px;">Nincsenek foglalások.</p>
               </div>
