@@ -191,6 +191,16 @@ async function initDB() {
   `);
 
   await dbRun(`
+    CREATE TABLE IF NOT EXISTS slot_cancellations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slot_id INTEGER NOT NULL,
+      cancelled_date TEXT NOT NULL,
+      FOREIGN KEY(slot_id) REFERENCES slots(id) ON DELETE CASCADE,
+      UNIQUE(slot_id, cancelled_date)
+    )
+  `);
+
+  await dbRun(`
     CREATE TABLE IF NOT EXISTS announcements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -524,9 +534,11 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
         (SELECT COUNT(*) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ? AND b.user_id = ?) as user_booked
       FROM slots s
       JOIN locations l ON s.location_id = l.id
-      WHERE s.location_id = ? AND s.day_of_week = ?
+      WHERE s.location_id = ? 
+        AND s.day_of_week = ?
+        AND s.id NOT IN (SELECT slot_id FROM slot_cancellations WHERE cancelled_date = ?)
       ORDER BY s.start_time ASC
-    `, [date, date, req.user.id, locationId, dayOfWeek]);
+    `, [date, date, req.user.id, locationId, dayOfWeek, date]);
 
     // Get current Budapest date and time to filter out past slots
     const now = new Date();
@@ -1537,6 +1549,29 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     const climber = await dbGet('SELECT id, name, phone, license_number, card_type FROM users WHERE id = ?', [ticket.user_id]);
     const today = new Date().toISOString().split('T')[0];
 
+    // Double check-in protection: Check for successful entry in last 10 seconds
+    const recentScan = await dbGet(`
+      SELECT * FROM entry_logs 
+      WHERE ticket_id = ? 
+        AND location_id = ? 
+        AND status = 'SUCCESS' 
+        AND scan_time >= datetime('now', '-10 seconds')
+    `, [ticket.id, locationId || null]);
+
+    if (recentScan) {
+      return res.json({
+        valid: true,
+        message: `${recentScan.message} (Ismételt beolvasás kiszűrve)`,
+        user: climber,
+        ticket: {
+          ticket_type: ticket.ticket_type,
+          sessions_remaining: ticket.sessions_remaining,
+          expires_date: ticket.expires_date,
+          status: ticket.status
+        }
+      });
+    }
+
     // Check expiration date
     if (ticket.expires_date < today) {
       await dbRun("UPDATE tickets SET status = 'EXPIRED' WHERE id = ?", [ticket.id]);
@@ -1655,6 +1690,99 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['STAFF', 'ADMIN'
     `, [userId]);
 
     res.json({ user, tickets, bookings, logs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk User Import
+app.post('/api/admin/users/import', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { users } = req.body;
+    if (!Array.isArray(users)) {
+      return res.status(400).json({ error: 'Érvénytelen adatformátum!' });
+    }
+
+    const defaultPasswordHash = await bcrypt.hash('Hawkstone2026!', 10);
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const u of users) {
+      const { name, email, phone, license_number, card_type, role } = u;
+      if (!name || !email) continue;
+
+      const card = (card_type || 'PIROS').toUpperCase();
+      const r = (role || 'USER').toUpperCase();
+
+      const existing = await dbGet('SELECT id FROM users WHERE email = ?', [email]);
+      if (existing) {
+        await dbRun(`
+          UPDATE users 
+          SET name = ?, phone = ?, license_number = ?, card_type = ?, role = ?
+          WHERE id = ?
+        `, [name, phone || '', license_number || '', card, r, existing.id]);
+        updatedCount++;
+      } else {
+        await dbRun(`
+          INSERT INTO users (name, email, phone, password_hash, license_number, card_type, role, is_verified)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        `, [name, email, phone || '', defaultPasswordHash, license_number || '', card, r]);
+        insertedCount++;
+      }
+    }
+
+    res.json({ message: `Sikeres importálás! Új felhasználó: ${insertedCount}, frissítve: ${updatedCount}.`, insertedCount, updatedCount });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba az importálás során: ' + error.message });
+  }
+});
+
+// View all cancellations
+app.get('/api/admin/cancellations', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const cancellations = await dbAll('SELECT * FROM slot_cancellations');
+    res.json(cancellations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel a slot on a specific date, deleting any bookings
+app.post('/api/admin/slots/cancel', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { slotId, date } = req.body;
+    if (!slotId || !date) {
+      return res.status(400).json({ error: 'Hiányzó slotId vagy dátum!' });
+    }
+
+    // Insert cancellation (ignore if already exists)
+    try {
+      await dbRun('INSERT INTO slot_cancellations (slot_id, cancelled_date) VALUES (?, ?)', [slotId, date]);
+    } catch (err) {
+      if (!err.message || !err.message.includes('UNIQUE')) {
+        throw err;
+      }
+    }
+
+    // Delete existing bookings for this slot on this date
+    await dbRun('DELETE FROM bookings WHERE slot_id = ? AND booking_date = ?', [slotId, date]);
+
+    res.json({ message: 'Idősáv sikeresen törölve a megadott napról és a foglalások törölve!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Uncancel / restore a slot on a specific date
+app.post('/api/admin/slots/uncancel', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { slotId, date } = req.body;
+    if (!slotId || !date) {
+      return res.status(400).json({ error: 'Hiányzó slotId vagy dátum!' });
+    }
+
+    await dbRun('DELETE FROM slot_cancellations WHERE slot_id = ? AND cancelled_date = ?', [slotId, date]);
+    res.json({ message: 'Idősáv sikeresen visszaállítva a megadott napra!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

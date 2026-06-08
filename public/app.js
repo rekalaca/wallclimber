@@ -87,7 +87,7 @@ function renderHeader() {
 
   let navItems = '';
 
-  if (isAdminPage && isConfiguredAdmin) {
+  if (isConfiguredAdmin) {
     // Admin / Staff Specific Menu (Order requested by USER)
     const activeClass = (page, hash = '') => {
       const isPage = path.endsWith(page);
@@ -101,8 +101,8 @@ function renderHeader() {
       <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
       <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
       <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
-      <li><a href="dashboard.html" class="nav-link">Profilom</a></li>
-      <li><a href="index.html" target="_blank" class="nav-link">Weboldal ↗</a></li>
+      <li><a href="dashboard.html" class="nav-link ${activeClass('dashboard.html')}">Profilom</a></li>
+      <li><a href="index.html" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
     // Public / User Menu (Rólunk, Helyszínek, Áraink, Szabályzatunk, Kapcsolat)
@@ -119,15 +119,7 @@ function renderHeader() {
       <li><a href="${indexLink('#contact')}" class="nav-link">Kapcsolat</a></li>
     `;
     if (token) {
-      if (user.role === 'USER') {
-        navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>`;
-      } else if (user.role === 'STAFF' || user.role === 'ADMIN') {
-        navItems += `
-          <li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>
-          <li><a href="admin.html" class="nav-link ${isActive('admin.html')}">Adminisztráció</a></li>
-          <li><a href="scanner.html" class="nav-link ${isActive('scanner.html')}">Scanner</a></li>
-        `;
-      }
+      navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>`;
     }
   }
 
@@ -1729,6 +1721,13 @@ async function processCheckIn(uuid, hasBookingToday = true) {
     return;
   }
 
+  // Disable button immediately to prevent double scan clicks
+  const confirmBtn = document.getElementById('confirm-checkin-btn');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Beléptetés folyamatban...';
+  }
+
   const resultCard = document.getElementById('scan-result-container');
   if (!resultCard) return;
 
@@ -1965,39 +1964,137 @@ function sortAdminUsers() {
   renderAdminUsers();
 }
 
-async function openUserDetailsModal(userId) {
-  const user = (window.adminUsers || []).find(u => u.id === userId);
-  if (!user) return;
-  
-  // Populate basic info synchronously first for quick responsiveness
-  populateUserDetailsFields(user);
-  
-  const logsEl = document.getElementById('view-user-logs');
-  if (logsEl) {
-    logsEl.innerHTML = '<p style="color:var(--text-muted); font-size: 12px;">Napló betöltése...</p>';
-  }
-  
-  switchUserModalToView();
-  
-  const backdrop = document.getElementById('edit-user-modal-backdrop');
-  if (backdrop) backdrop.classList.add('open');
+let currentViewedUser = null;
+let currentViewedUserLogs = [];
 
-  // Fetch full details (including tickets, bookings, and entry logs) dynamically
+async function openUserDetailsModal(userId) {
+  const listWrapper = document.getElementById('admin-users-list-wrapper');
+  const detailsSubpage = document.getElementById('admin-user-details-subpage');
+  
+  if (!listWrapper || !detailsSubpage) return;
+  
+  // Hide list, show subpage details
+  listWrapper.style.display = 'none';
+  detailsSubpage.style.display = 'block';
+  
+  // Reset fields to loading
+  document.getElementById('subpage-user-name-title').textContent = 'Betöltés...';
+  document.getElementById('subpage-user-email').textContent = '-';
+  document.getElementById('subpage-user-phone').textContent = '-';
+  document.getElementById('subpage-user-license').textContent = '-';
+  
+  document.getElementById('subpage-user-tickets').innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Betöltés...</p>';
+  document.getElementById('subpage-user-bookings').innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Betöltés...</p>';
+  document.getElementById('subpage-user-logs').innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Betöltés...</p>';
+  
+  switchSubpageToView();
+
   try {
     const res = await fetch(`/api/admin/users/${userId}`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Nem sikerült betölteni a felhasználó részletes adatait.');
+    if (!res.ok) throw new Error('Nem sikerült betölteni a tag részletes adatait.');
     
     const data = await res.json();
-    const { user: freshUser, logs } = data;
+    const { user, tickets, bookings, logs } = data;
     
-    // Refresh basic info with fresh database values
-    populateUserDetailsFields(freshUser);
+    currentViewedUser = user;
+    currentViewedUserLogs = logs;
     
-    // Render entry logs
-    if (logsEl) {
-      logsEl.innerHTML = '';
+    // Populate User basic details
+    document.getElementById('subpage-user-name-title').textContent = user.name;
+    document.getElementById('subpage-user-email').textContent = user.email;
+    document.getElementById('subpage-user-phone').textContent = user.phone || '-';
+    document.getElementById('subpage-user-license').textContent = user.license_number || 'Nincs megadva';
+    
+    const cardBadge = document.getElementById('subpage-user-card');
+    if (cardBadge) {
+      cardBadge.textContent = user.card_type + ' KÁRTYA';
+      cardBadge.className = 'badge ' + (user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red');
+    }
+    
+    const roleLabel = user.role === 'ADMIN' ? 'Admin' : (user.role === 'STAFF' ? 'Staff' : 'Mászó');
+    const roleEl = document.getElementById('subpage-user-role');
+    if (roleEl) roleEl.textContent = roleLabel;
+    
+    // Pre-populate Edit fields
+    document.getElementById('subpage-edit-user-id').value = user.id;
+    document.getElementById('subpage-edit-user-name').value = user.name;
+    document.getElementById('subpage-edit-user-email').value = user.email;
+    document.getElementById('subpage-edit-user-phone').value = user.phone || '';
+    document.getElementById('subpage-edit-user-license').value = user.license_number || '';
+    document.getElementById('subpage-edit-user-card').value = user.card_type;
+    document.getElementById('subpage-edit-user-role').value = user.role;
+    
+    // Render Tickets
+    const ticketsContainer = document.getElementById('subpage-user-tickets');
+    if (ticketsContainer) {
+      ticketsContainer.innerHTML = '';
+      if (!tickets || tickets.length === 0) {
+        ticketsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Nincsenek aktív vagy lejárt jegyei/bérletei.</p>';
+      } else {
+        tickets.forEach(t => {
+          let typeLabel = '';
+          if (t.ticket_type === 'NAPI') typeLabel = 'Napijegy';
+          else if (t.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 alk. bérlet';
+          else if (t.ticket_type === 'HAVI') typeLabel = 'Havi bérlet';
+
+          let sessionsLabel = '';
+          if (t.ticket_type === 'NAPI') sessionsLabel = '1 alk.';
+          else if (t.ticket_type === 'TIZ_ALKALMAS') sessionsLabel = `${t.sessions_remaining}/10 alk. maradt`;
+          else if (t.ticket_type === 'HAVI') sessionsLabel = 'Korlátlan';
+
+          const ticketDiv = document.createElement('div');
+          ticketDiv.style.background = 'rgba(255, 255, 255, 0.02)';
+          ticketDiv.style.border = '1px solid rgba(255,255,255,0.06)';
+          ticketDiv.style.borderRadius = '8px';
+          ticketDiv.style.padding = '8px 12px';
+          ticketDiv.style.fontSize = '12px';
+          ticketDiv.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3px;">
+              <strong style="color:#ffffff;">${typeLabel}</strong>
+              <span class="badge ${t.status === 'ACTIVE' ? 'badge-green' : 'badge-secondary'}" style="font-size:10px; padding: 2px 6px;">
+                ${t.status === 'ACTIVE' ? 'Aktív' : (t.status === 'USED' ? 'Elhasznált' : 'Lejárt')}
+              </span>
+            </div>
+            <div style="color:var(--text-secondary); font-size:11px;">
+              Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}<br>
+              Egyenleg: <strong>${sessionsLabel}</strong>
+            </div>
+          `;
+          ticketsContainer.appendChild(ticketDiv);
+        });
+      }
+    }
+    
+    // Render Bookings
+    const bookingsContainer = document.getElementById('subpage-user-bookings');
+    if (bookingsContainer) {
+      bookingsContainer.innerHTML = '';
+      if (!bookings || bookings.length === 0) {
+        bookingsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Nincsenek aktív foglalásai.</p>';
+      } else {
+        bookings.forEach(b => {
+          const bookingDiv = document.createElement('div');
+          bookingDiv.style.background = 'rgba(255, 255, 255, 0.02)';
+          bookingDiv.style.border = '1px solid rgba(255,255,255,0.04)';
+          bookingDiv.style.borderRadius = '6px';
+          bookingDiv.style.padding = '6px 10px';
+          bookingDiv.style.fontSize = '11px';
+          bookingDiv.innerHTML = `
+            <span style="font-weight:600; color:#fff;">${b.booking_date}</span> | 
+            <span>${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span> 
+            <span style="color:var(--primary);">(${b.location_name})</span>
+          `;
+          bookingsContainer.appendChild(bookingDiv);
+        });
+      }
+    }
+    
+    // Render Entry Logs
+    const logsContainer = document.getElementById('subpage-user-logs');
+    if (logsContainer) {
+      logsContainer.innerHTML = '';
       if (!logs || logs.length === 0) {
-        logsEl.innerHTML = '<p style="color:var(--text-muted); font-size: 12px;">Nincsenek belépési adatok.</p>';
+        logsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Nincsenek korábbi belépései.</p>';
       } else {
         logs.forEach(log => {
           let ticketLabel = '';
@@ -2025,129 +2122,49 @@ async function openUserDetailsModal(userId) {
               <span style="color: ${log.status === 'SUCCESS' ? 'var(--success)' : 'var(--danger)'};">${log.message}</span>
             </div>
           `;
-          logsEl.appendChild(logDiv);
+          logsContainer.appendChild(logDiv);
         });
       }
     }
   } catch (err) {
-    console.error('Hiba a belépési előzmények betöltésekor:', err);
-    if (logsEl) {
-      logsEl.innerHTML = `<p style="color:var(--danger); font-size: 12px;">Nem sikerült betölteni a naplót.</p>`;
-    }
-  }
-}
-
-function populateUserDetailsFields(user) {
-  document.getElementById('edit-user-id').value = user.id;
-  
-  // Populate View Mode
-  document.getElementById('view-user-name-title').textContent = user.name;
-  document.getElementById('view-user-email').textContent = user.email;
-  document.getElementById('view-user-phone').textContent = user.phone || '-';
-  document.getElementById('view-user-license').textContent = user.license_number || 'Nincs megadva';
-  
-  const cardBadge = document.getElementById('view-user-card');
-  if (cardBadge) {
-    cardBadge.textContent = user.card_type + ' KÁRTYA';
-    cardBadge.className = 'badge ' + (user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red');
-  }
-  
-  const roleLabel = user.role === 'ADMIN' ? 'Admin' : (user.role === 'STAFF' ? 'Staff' : 'Mászó');
-  const roleEl = document.getElementById('view-user-role');
-  if (roleEl) roleEl.textContent = roleLabel;
-  
-  // Populate Edit Mode
-  const editName = document.getElementById('edit-user-name');
-  if (editName) editName.value = user.name;
-  
-  const editEmail = document.getElementById('edit-user-email');
-  if (editEmail) editEmail.value = user.email;
-  
-  const editPhone = document.getElementById('edit-user-phone');
-  if (editPhone) editPhone.value = user.phone || '';
-  
-  const editLicense = document.getElementById('edit-user-license');
-  if (editLicense) editLicense.value = user.license_number || '';
-  
-  const editCard = document.getElementById('edit-user-card');
-  if (editCard) editCard.value = user.card_type;
-  
-  const editRole = document.getElementById('edit-user-role');
-  if (editRole) editRole.value = user.role;
-}
-
-function openEditUserModal(userId) {
-  openUserDetailsModal(userId);
-  switchUserModalToEdit();
-}
-
-function closeEditUserModal() {
-  const backdrop = document.getElementById('edit-user-modal-backdrop');
-  if (backdrop) backdrop.classList.remove('open');
-}
-
-function switchUserModalToView() {
-  const viewEl = document.getElementById('user-details-view-mode');
-  const editEl = document.getElementById('user-details-edit-mode');
-  if (viewEl) viewEl.style.display = 'block';
-  if (editEl) editEl.style.display = 'none';
-}
-
-function switchUserModalToEdit() {
-  const viewEl = document.getElementById('user-details-view-mode');
-  const editEl = document.getElementById('user-details-edit-mode');
-  if (viewEl) viewEl.style.display = 'none';
-  if (editEl) editEl.style.display = 'block';
-}
-
-function triggerUserDeleteFromDetails() {
-  const userIdVal = document.getElementById('edit-user-id').value;
-  if (userIdVal) {
-    deleteUser(parseInt(userIdVal));
-  }
-}
-
-async function handleEditUserSubmit(e) {
-  if (e) e.preventDefault();
-  
-  const id = document.getElementById('edit-user-id').value;
-  const name = document.getElementById('edit-user-name').value;
-  const email = document.getElementById('edit-user-email').value;
-  const phone = document.getElementById('edit-user-phone').value;
-  const license_number = document.getElementById('edit-user-license').value;
-  const card_type = document.getElementById('edit-user-card').value;
-  const role = document.getElementById('edit-user-role').value;
-  
-  try {
-    const res = await fetch(`/api/admin/users/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ name, email, phone, license_number, card_type, role })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Mentési hiba');
-    
-    showToast('Felhasználó adatai sikeresen frissítve!');
-    closeEditUserModal();
-    loadAdminUsers();
-    
-    // If the edited user is the current logged-in admin, update local storage
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    if (currentUser.id === parseInt(id)) {
-      currentUser.name = name;
-      currentUser.email = email;
-      currentUser.role = role;
-      currentUser.card_type = card_type;
-      localStorage.setItem('user', JSON.stringify(currentUser));
-      renderHeader();
-    }
-  } catch (err) {
+    console.error(err);
     showToast(err.message, 'error');
   }
 }
 
-async function deleteUser(userId) {
+function closeUserDetailsSubpage() {
+  const listWrapper = document.getElementById('admin-users-list-wrapper');
+  const detailsSubpage = document.getElementById('admin-user-details-subpage');
+  if (listWrapper && detailsSubpage) {
+    listWrapper.style.display = 'block';
+    detailsSubpage.style.display = 'none';
+  }
+  currentViewedUser = null;
+  currentViewedUserLogs = [];
+}
+
+function switchSubpageToView() {
+  const viewEl = document.getElementById('user-details-subpage-view-mode');
+  const editEl = document.getElementById('user-details-subpage-edit-mode');
+  if (viewEl) viewEl.style.display = 'block';
+  if (editEl) editEl.style.display = 'none';
+}
+
+function switchSubpageToEdit() {
+  const viewEl = document.getElementById('user-details-subpage-view-mode');
+  const editEl = document.getElementById('user-details-subpage-edit-mode');
+  if (viewEl) viewEl.style.display = 'none';
+  if (editEl) editEl.style.display = 'block';
+}
+
+function triggerUserDeleteFromSubpage() {
+  const userIdVal = document.getElementById('subpage-edit-user-id').value;
+  if (userIdVal) {
+    deleteUserFromSubpage(parseInt(userIdVal));
+  }
+}
+
+async function deleteUserFromSubpage(userId) {
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
   if (currentUser.id === userId) {
     showToast('Nem törölheted a saját adminisztrátori fiókodat!', 'error');
@@ -2166,14 +2183,242 @@ async function deleteUser(userId) {
     if (!res.ok) throw new Error(data.error || 'Törlési hiba');
     
     showToast('Felhasználó sikeresen törölve!');
-    closeEditUserModal();
+    closeUserDetailsSubpage();
     loadAdminUsers();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
+async function handleSubpageEditUserSubmit(e) {
+  if (e) e.preventDefault();
+  
+  const id = document.getElementById('subpage-edit-user-id').value;
+  const name = document.getElementById('subpage-edit-user-name').value;
+  const email = document.getElementById('subpage-edit-user-email').value;
+  const phone = document.getElementById('subpage-edit-user-phone').value;
+  const license_number = document.getElementById('subpage-edit-user-license').value;
+  const card_type = document.getElementById('subpage-edit-user-card').value;
+  const role = document.getElementById('subpage-edit-user-role').value;
+  
+  try {
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, email, phone, license_number, card_type, role })
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Mentési hiba');
+    
+    showToast('Felhasználó adatai sikeresen frissítve!');
+    
+    // Refresh subpage details
+    openUserDetailsModal(parseInt(id));
+    loadAdminUsers();
+    
+    // If current user, update localStorage
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (currentUser.id === parseInt(id)) {
+      currentUser.name = name;
+      currentUser.email = email;
+      currentUser.role = role;
+      currentUser.card_type = card_type;
+      localStorage.setItem('user', JSON.stringify(currentUser));
+      renderHeader();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function exportUserLogsCSV() {
+  if (!currentViewedUser || !currentViewedUserLogs) {
+    showToast('Nincs betöltött felhasználó vagy előzmény!', 'error');
+    return;
+  }
+  
+  let csvContent = "\uFEFF"; // UTF-8 BOM
+  csvContent += "Dátum;Jegytípus;Helyszín;Státusz;Részletek\r\n";
+  
+  currentViewedUserLogs.forEach(log => {
+    let ticketLabel = '';
+    if (log.ticket_type === 'NAPI') ticketLabel = 'Napijegy';
+    else if (log.ticket_type === 'TIZ_ALKALMAS') ticketLabel = '10 alk. bérlet';
+    else if (log.ticket_type === 'HAVI') ticketLabel = 'Havi bérlet';
+
+    const formattedTime = log.scan_time ? log.scan_time.substring(0, 16).replace('T', ' ') : '-';
+    const statusLabel = log.status === 'SUCCESS' ? 'SIKERES' : 'SIKERTELEN';
+    const location = log.location_name || 'Ismeretlen';
+    const message = log.message || '';
+
+    csvContent += `"${formattedTime}";"${ticketLabel}";"${location}";"${statusLabel}";"${message.replace(/"/g, '""')}"\r\n`;
+  });
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const filename = `HawkStone_Belepesek_${currentViewedUser.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast('Látogatási előzmények kiexportálva!', 'success');
+}
+
+async function exportAllUsersToCSV() {
+  try {
+    const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Nem sikerült lekérni a tagok listáját.');
+    
+    const users = await res.json();
+    
+    let csvContent = "\uFEFF"; // UTF-8 BOM
+    csvContent += "Név;Email;Telefon;Engedélyszám;Kártyatípus;Szerepkör\r\n";
+    
+    users.forEach(u => {
+      csvContent += `"${u.name}";"${u.email}";"${u.phone || ''}";"${u.license_number || ''}";"${u.card_type}";"${u.role}"\r\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const filename = `HawkStone_Felhasznalok_${new Date().toISOString().split('T')[0]}.csv`;
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Összes felhasználó kiexportálva!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function importUsersFromCSVFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/);
+    if (lines.length <= 1) {
+      showToast('A CSV fájl üres vagy hiányzik a fejléc!', 'error');
+      return;
+    }
+    
+    const users = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const separator = line.includes(';') ? ';' : ',';
+      const cols = line.split(separator).map(col => {
+        let c = col.trim();
+        if (c.startsWith('"') && c.endsWith('"')) {
+          c = c.substring(1, c.length - 1);
+        }
+        return c;
+      });
+      
+      if (cols.length < 2) continue;
+      
+      const [name, email, phone, license_number, card_type, role] = cols;
+      if (!name || !email) continue;
+      
+      users.push({
+        name,
+        email,
+        phone: phone || '',
+        license_number: license_number || '',
+        card_type: (card_type || 'PIROS').toUpperCase(),
+        role: (role || 'USER').toUpperCase()
+      });
+    }
+    
+    if (users.length === 0) {
+      showToast('Nem található érvényes felhasználó adat a fájlban!', 'error');
+      return;
+    }
+    
+    if (!confirm(`Biztosan be akarsz importálni ${users.length} felhasználót? A meglévő tagok adatai frissülni fognak.`)) {
+      input.value = '';
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/admin/users/import', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ users })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Importálási hiba');
+      
+      showToast(data.message, 'success');
+      loadAdminUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+window.selectedAdminWeek = 0;
+
+function getMonday(d) {
+  d = new Date(d);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+function renderWeekSelector() {
+  const currentMonday = getMonday(new Date());
+  for (let w = 0; w < 3; w++) {
+    const m = new Date(currentMonday);
+    m.setDate(currentMonday.getDate() + w * 7);
+    const s = new Date(m);
+    s.setDate(m.getDate() + 6);
+    
+    const pad = (n) => String(n).padStart(2, '0');
+    const rangeStr = `${pad(m.getMonth() + 1)}.${pad(m.getDate())} - ${pad(s.getMonth() + 1)}.${pad(s.getDate())}`;
+    
+    const btn = document.getElementById(`admin-week-btn-${w}`);
+    if (btn) {
+      btn.innerHTML = `${w === 0 ? 'Ezen a héten' : (w === 1 ? 'Következő héten' : 'Harmadik héten')} <br><span style="font-size:11px; opacity:0.8;">(${rangeStr})</span>`;
+      
+      // Update active class
+      if (w === window.selectedAdminWeek) {
+        btn.className = 'btn btn-primary btn-sm';
+      } else {
+        btn.className = 'btn btn-secondary btn-sm';
+      }
+    }
+  }
+}
+
+function switchAdminScheduleWeek(weekIndex) {
+  window.selectedAdminWeek = weekIndex;
+  renderWeekSelector();
+  loadAdminSlots();
+}
+
 async function loadAdminSlots() {
+  renderWeekSelector(); // Ensure selectors are rendered
+  
   const list = document.getElementById('admin-slots-list');
   const locSelect = document.getElementById('admin-slot-location');
   if (!list) return;
@@ -2197,6 +2442,9 @@ async function loadAdminSlots() {
     if (!res.ok) throw new Error();
     const slots = await res.json();
 
+    const cancRes = await fetch('/api/admin/cancellations', { headers: getAuthHeaders() });
+    const cancellations = cancRes.ok ? await cancRes.json() : [];
+
     const daysHungarian = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
 
     list.innerHTML = '';
@@ -2213,6 +2461,11 @@ async function loadAdminSlots() {
     });
 
     const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday (1) to Sunday (0)
+    
+    // Calculate Monday of the selected week
+    const currentMonday = getMonday(new Date());
+    const selectedMonday = new Date(currentMonday);
+    selectedMonday.setDate(currentMonday.getDate() + window.selectedAdminWeek * 7);
 
     for (const locName in grouped) {
       const locDiv = document.createElement('div');
@@ -2222,19 +2475,40 @@ async function loadAdminSlots() {
       dayOrder.forEach(dayIdx => {
         if (grouped[locName][dayIdx] && grouped[locName][dayIdx].length > 0) {
           const dayName = daysHungarian[dayIdx];
+          
+          // Calculate specific date for this day of the selected week
+          const offset = dayIdx === 0 ? 6 : dayIdx - 1;
+          const targetDate = new Date(selectedMonday);
+          targetDate.setDate(selectedMonday.getDate() + offset);
+          
+          const pad = (n) => String(n).padStart(2, '0');
+          const dateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}`;
+          const dateDisplayStr = `${pad(targetDate.getMonth() + 1)}.${pad(targetDate.getDate())}`;
+
           let slotItemsHtml = '';
           grouped[locName][dayIdx].forEach(s => {
-            slotItemsHtml += `
-              <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); padding:6px 12px; border-radius:30px; margin:4px; font-size:13px;">
-                <strong>${s.start_time} - ${s.end_time}</strong> (${s.max_capacity} fő)
-                <span onclick="deleteAdminSlot(${s.id})" style="color:var(--danger); cursor:pointer; font-weight:bold; padding-left:4px;" title="Idősáv törlése">×</span>
-              </div>
-            `;
+            const isCancelled = cancellations.some(c => c.slot_id === s.id && c.cancelled_date === dateStr);
+            
+            if (isCancelled) {
+              slotItemsHtml += `
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(239,68,68,0.08); border:1px dashed #ef4444; padding:6px 12px; border-radius:30px; margin:4px; font-size:13px; text-decoration: line-through; color: var(--text-muted);">
+                  <strong>${s.start_time} - ${s.end_time}</strong> (${s.max_capacity} fő)
+                  <span onclick="uncancelAdminSlot(${s.id}, '${dateStr}')" style="color:var(--success); cursor:pointer; font-weight:bold; padding-left:4px; text-decoration: none;" title="Lemondás visszavonása">+</span>
+                </div>
+              `;
+            } else {
+              slotItemsHtml += `
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); padding:6px 12px; border-radius:30px; margin:4px; font-size:13px;">
+                  <strong>${s.start_time} - ${s.end_time}</strong> (${s.max_capacity} fő)
+                  <span onclick="deleteAdminSlot(${s.id}, '${dateStr}')" style="color:var(--danger); cursor:pointer; font-weight:bold; padding-left:4px;" title="Törlés/Lemondás">×</span>
+                </div>
+              `;
+            }
           });
 
           daysHtml += `
             <div style="margin-bottom:12px;">
-              <span style="font-weight:600; font-size:14px; width:100px; display:inline-block; color:var(--text-secondary);">${dayName}:</span>
+              <span style="font-weight:600; font-size:14px; width:150px; display:inline-block; color:var(--text-secondary);">${dayName} (${dateDisplayStr}):</span>
               <div style="display:inline-block; vertical-align:middle;">${slotItemsHtml}</div>
             </div>
           `;
@@ -2282,17 +2556,63 @@ async function addAdminSlot(e) {
   }
 }
 
-async function deleteAdminSlot(slotId) {
-  if (!confirm('Biztosan törlöd ezt az idősávot a heti órarendből?')) return;
+async function deleteAdminSlot(slotId, dateStr) {
+  const cancelOnlyThisWeek = confirm(`Csak erről a hétről szeretnéd lemondani az idősávot (${dateStr})?\n\nHa a "Mégse"-re kattintasz, megkérdezzük, hogy véglegesen le akarod-e törölni.`);
+  
+  if (cancelOnlyThisWeek) {
+    // Cancel for specific date only
+    try {
+      const res = await fetch('/api/admin/slots/cancel', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ slotId, date: dateStr })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Hiba a lemondás során');
+      showToast('Idősáv lemondva erre a dátumra.');
+      loadAdminSlots();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  } else {
+    const deletePermanently = confirm(`Biztosan törölni szeretnéd ezt az idősávot véglegesen a heti sablonból?\n\nEz minden hétről törli ezt az időpontot.`);
+    if (deletePermanently) {
+      try {
+        const res = await fetch(`/api/admin/slots/${slotId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        showToast('Idősáv véglegesen törölve a sablonból.');
+        loadAdminSlots();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+  }
+}
+
+async function uncancelAdminSlot(slotId, dateStr) {
+  if (!confirm(`Biztosan visszaállítod ezt az idősávot a megadott dátumra (${dateStr})?`)) return;
+  
   try {
-    const res = await fetch(`/api/admin/slots/${slotId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
+    const res = await fetch('/api/admin/slots/uncancel', {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ slotId, date: dateStr })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    showToast('Idősáv törölve!');
+    if (!res.ok) throw new Error(data.error || 'Hiba a visszaállítás során');
+    
+    showToast('Idősáv visszaállítva.');
     loadAdminSlots();
   } catch (err) {
     showToast(err.message, 'error');
@@ -2800,13 +3120,17 @@ window.cancelBooking = cancelBooking;
 window.downloadRulesPDF = downloadRulesPDF;
 window.loadBookingSchedules = loadBookingSchedules;
 window.openUserDetailsModal = openUserDetailsModal;
-window.openEditUserModal = openEditUserModal;
-window.closeEditUserModal = closeEditUserModal;
-window.switchUserModalToView = switchUserModalToView;
-window.switchUserModalToEdit = switchUserModalToEdit;
-window.triggerUserDeleteFromDetails = triggerUserDeleteFromDetails;
-window.handleEditUserSubmit = handleEditUserSubmit;
-window.deleteUser = deleteUser;
+window.closeUserDetailsSubpage = closeUserDetailsSubpage;
+window.switchSubpageToView = switchSubpageToView;
+window.switchSubpageToEdit = switchSubpageToEdit;
+window.triggerUserDeleteFromSubpage = triggerUserDeleteFromSubpage;
+window.handleSubpageEditUserSubmit = handleSubpageEditUserSubmit;
+window.exportUserLogsCSV = exportUserLogsCSV;
+window.exportAllUsersToCSV = exportAllUsersToCSV;
+window.importUsersFromCSVFile = importUsersFromCSVFile;
+window.switchAdminScheduleWeek = switchAdminScheduleWeek;
+window.deleteAdminSlot = deleteAdminSlot;
+window.uncancelAdminSlot = uncancelAdminSlot;
 window.processCheckIn = processCheckIn;
 window.resetScannerUI = resetScannerUI;
 window.formatEditorText = formatEditorText;

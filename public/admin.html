@@ -52,6 +52,13 @@
       <div class="glass-card" style="margin-bottom: 40px;">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Heti Órarend Menedzsment (Eötvös, Kossuth, Zrínyi)</h3>
         
+        <!-- Week Switching Buttons -->
+        <div style="margin-bottom: 25px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;" id="admin-schedule-week-tabs">
+          <button id="admin-week-btn-0" onclick="switchAdminScheduleWeek(0)" class="btn btn-primary btn-sm" style="flex: 1; min-width: 150px; font-weight: 600;">Ezen a héten (...)</button>
+          <button id="admin-week-btn-1" onclick="switchAdminScheduleWeek(1)" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 150px; font-weight: 600;">Következő héten (...)</button>
+          <button id="admin-week-btn-2" onclick="switchAdminScheduleWeek(2)" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 150px; font-weight: 600;">Harmadik héten (...)</button>
+        </div>
+        
         <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
           <!-- Add Weekly Slot Form -->
           <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 10px; border-radius: 12px; width: 100%;">
@@ -117,18 +124,29 @@
 
     <!-- Tab Users Content -->
     <div id="admin-users-content" style="display: none;">
-      <!-- User Qualifications (Zöld/Piros Kártya management) -->
-      <div class="glass-card">
+      <!-- User List View -->
+      <div id="admin-users-list-wrapper" class="glass-card">
         <h3 style="font-size: 18px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Felhasználók kezelése</h3>
         
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
           <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 0; flex: 1; min-width: 280px;">
             Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).
           </p>
-          <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-            <label for="admin-users-sort" style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; margin-bottom: 0;">Rendezés:</label>
+          
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <!-- Bulk Export/Import Buttons -->
+            <button onclick="exportAllUsersToCSV()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 34px;">
+              📥 Tagok Exportálása
+            </button>
+            <button onclick="document.getElementById('import-users-csv').click()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 34px;">
+              📤 Tagok Importálása
+            </button>
+            <input type="file" id="import-users-csv" style="display:none;" accept=".csv" onchange="importUsersFromCSVFile(this)">
+            
+            <label for="admin-users-sort" style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; margin-bottom: 0; margin-left: 10px;">Rendezés:</label>
             <select id="admin-users-sort" class="form-control" style="width: auto; padding: 4px 10px; font-size: 13px; height: auto; margin-bottom: 0;" onchange="sortAdminUsers()">
               <option value="name-asc">Név szerint (A-Z)</option>
+              <option value="name-desc">Név szerint (Z-A)</option>
               <option value="reg-desc">Regisztráció szerint (Új elől)</option>
               <option value="reg-asc">Regisztráció szerint (Régi elől)</option>
             </select>
@@ -139,103 +157,125 @@
           <p style="text-align:center; color: var(--text-muted); width: 100%;">Tagok betöltése...</p>
         </div>
       </div>
-    </div>
 
-    <!-- User Details & Edit Modal -->
-    <div class="modal-backdrop" id="edit-user-modal-backdrop" onclick="closeEditUserModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="text-align: left; max-width: 500px; width: 90%;">
-        <button class="modal-close" onclick="closeEditUserModal()">×</button>
-        
-        <!-- View Mode Content -->
-        <div id="user-details-view-mode">
-          <h3 id="view-user-name-title" style="color: var(--primary); margin-bottom: 20px; text-align: center; font-size: 24px; font-family: 'Montserrat', sans-serif;"></h3>
-          
-          <div class="user-details-list" style="margin-bottom: 25px;">
-            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">E-mail cím</span>
-              <span id="view-user-email" style="font-size: 15px; color: #ffffff; word-break: break-all;"></span>
-            </div>
-            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Telefonszám</span>
-              <span id="view-user-phone" style="font-size: 15px; color: #ffffff;"></span>
-            </div>
-            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-              <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Sportmászó engedélyszám</span>
-              <span id="view-user-license" style="font-size: 15px; color: #ffffff;">-</span>
-            </div>
-            <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Kártya státusz</span>
-                <span id="view-user-card" class="badge" style="margin-top: 4px; display: inline-block;"></span>
+      <!-- User Details SPA Subpage (Hidden by default) -->
+      <div id="admin-user-details-subpage" class="glass-card" style="display: none; padding: 30px;">
+        <button onclick="closeUserDetailsSubpage()" class="btn btn-secondary btn-sm" style="margin-bottom: 25px; display: inline-flex; align-items: center; gap: 5px;">
+          ⬅️ Vissza a tagok listájához
+        </button>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; flex-wrap: wrap;" id="user-subpage-grid-layout">
+          <!-- View & Edit Profile Info -->
+          <div>
+            <div id="user-details-subpage-view-mode">
+              <h3 id="subpage-user-name-title" style="color: var(--primary); margin-bottom: 20px; font-size: 26px; font-family: 'Montserrat', sans-serif;"></h3>
+              
+              <div class="user-details-list" style="margin-bottom: 25px;">
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">E-mail cím</span>
+                  <span id="subpage-user-email" style="font-size: 16px; color: #ffffff; word-break: break-all; font-weight: 500;"></span>
+                </div>
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Telefonszám</span>
+                  <span id="subpage-user-phone" style="font-size: 16px; color: #ffffff; font-weight: 500;"></span>
+                </div>
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Sportmászó engedélyszám</span>
+                  <span id="subpage-user-license" style="font-size: 16px; color: #ffffff; font-weight: 500;">-</span>
+                </div>
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Kártya státusz</span>
+                    <span id="subpage-user-card" class="badge" style="margin-top: 4px; display: inline-block;"></span>
+                  </div>
+                  <div style="text-align: right;">
+                    <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Szerepkör</span>
+                    <span id="subpage-user-role" style="font-size: 16px; font-weight: 600; color: var(--primary); margin-top: 4px; display: inline-block;"></span>
+                  </div>
+                </div>
               </div>
-              <div style="text-align: right;">
-                <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Szerepkör</span>
-                <span id="view-user-role" style="font-size: 15px; font-weight: 600; color: var(--primary); margin-top: 4px; display: inline-block;"></span>
+              
+              <div style="display: flex; gap: 10px;">
+                <button onclick="switchSubpageToEdit()" class="btn btn-primary" style="flex: 1;">Szerkesztés</button>
+                <button onclick="triggerUserDeleteFromSubpage()" class="btn btn-danger" style="flex: 1; background: #ef4444; border-color: #ef4444;">Törlés</button>
               </div>
+            </div>
+
+            <!-- Edit Mode Info Form -->
+            <div id="user-details-subpage-edit-mode" style="display: none;">
+              <h3 style="color: var(--primary); margin-bottom: 20px;">Felhasználó Szerkesztése</h3>
+              <form id="subpage-edit-user-form" onsubmit="handleSubpageEditUserSubmit(event)">
+                <input type="hidden" id="subpage-edit-user-id">
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-name">Teljes név</label>
+                  <input type="text" id="subpage-edit-user-name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-email">E-mail cím</label>
+                  <input type="email" id="subpage-edit-user-email" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-phone">Telefonszám</label>
+                  <input type="tel" id="subpage-edit-user-phone" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-license">Sportmászó engedélyszám</label>
+                  <input type="text" id="subpage-edit-user-license" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-card">Mászókártya minősítés</label>
+                  <select id="subpage-edit-user-card" class="form-control">
+                    <option value="PIROS">PIROS (Nem biztosíthat)</option>
+                    <option value="ZÖLD">ZÖLD (Biztosíthat)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-role">Szerepkör</label>
+                  <select id="subpage-edit-user-role" class="form-control">
+                    <option value="USER">USER (Mászó)</option>
+                    <option value="STAFF">STAFF (Falmester)</option>
+                    <option value="ADMIN">ADMIN (Rendszergazda)</option>
+                  </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                  <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
+                  <button type="button" onclick="switchSubpageToView()" class="btn btn-secondary" style="flex: 1;">Mégse</button>
+                </div>
+              </form>
             </div>
           </div>
 
-          <!-- User Entry History -->
-          <div style="margin-bottom: 25px;">
-            <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Legutóbbi Belépések</h4>
-            <div id="view-user-logs" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
-              <p style="color:var(--text-muted); font-size: 12px;">Napló betöltése...</p>
-            </div>
-          </div>
-          
-          <div style="display: flex; gap: 10px;">
-            <button onclick="switchUserModalToEdit()" class="btn btn-primary" style="flex: 1;">Szerkesztés</button>
-            <button onclick="triggerUserDeleteFromDetails()" class="btn btn-danger" style="flex: 1; background: #ef4444; border-color: #ef4444;">Törlés</button>
-          </div>
-          <button onclick="closeEditUserModal()" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Bezárás</button>
-        </div>
-        
-        <!-- Edit Mode Content (Form) -->
-        <div id="user-details-edit-mode" style="display: none;">
-          <h3 style="color: var(--primary); margin-bottom: 20px; text-align: center;">Felhasználó Szerkesztése</h3>
-          
-          <form id="edit-user-form" onsubmit="handleEditUserSubmit(event)">
-            <input type="hidden" id="edit-user-id">
-            <div class="form-group">
-              <label class="form-label" for="edit-user-name">Teljes név</label>
-              <input type="text" id="edit-user-name" class="form-control" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-user-email">E-mail cím</label>
-              <input type="email" id="edit-user-email" class="form-control" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-user-phone">Telefonszám</label>
-              <input type="text" id="edit-user-phone" class="form-control" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-user-license">Vizsga igazolvány szám</label>
-              <input type="text" id="edit-user-license" class="form-control">
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-              <div class="form-group">
-                <label class="form-label" for="edit-user-card">Kártya típus</label>
-                <select id="edit-user-card" class="form-control" required>
-                  <option value="PIROS">PIROS KÁRTYA</option>
-                  <option value="ZÖLD">ZÖLD KÁRTYA</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="edit-user-role">Szerepkör</label>
-                <select id="edit-user-role" class="form-control" required>
-                  <option value="USER">User (Mászó)</option>
-                  <option value="STAFF">Staff (Személyzet)</option>
-                  <option value="ADMIN">Admin (Rendszergazda)</option>
-                </select>
+          <!-- Lists on the Right (Tickets, Upcoming Bookings, and Entry Logs) -->
+          <div>
+            <!-- Active Tickets -->
+            <div style="margin-bottom: 25px;">
+              <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Megvásárolt Jegyek / Bérletek</h4>
+              <div id="subpage-user-tickets" style="display: flex; flex-direction: column; gap: 8px;">
+                <p style="color:var(--text-muted); font-size: 13px;">Nincsenek jegyek.</p>
               </div>
             </div>
-            
-            <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 20px;">
-              <button type="button" class="btn btn-secondary" onclick="switchUserModalToView()" style="flex: 1;">Vissza</button>
-              <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
+
+            <!-- Upcoming Bookings -->
+            <div style="margin-bottom: 25px;">
+              <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Aktív/Jövőbeli Foglalások</h4>
+              <div id="subpage-user-bookings" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto;">
+                <p style="color:var(--text-muted); font-size: 13px;">Nincsenek foglalások.</p>
+              </div>
             </div>
-          </form>
+
+            <!-- User Entry History -->
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
+                <h4 style="font-size: 14px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Belépési Előzmények</h4>
+                <button onclick="exportUserLogsCSV()" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">
+                  📊 Export (.csv)
+                </button>
+              </div>
+              <div id="subpage-user-logs" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                <p style="color:var(--text-muted); font-size: 13px;">Nincsenek belépések.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
