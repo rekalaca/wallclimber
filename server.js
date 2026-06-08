@@ -289,6 +289,23 @@ async function initDB() {
 
 initDB().catch(console.error);
 
+// Migrate existing phone numbers from 06... to +36... format
+async function migratePhoneNumbers() {
+  try {
+    const users = await dbAll("SELECT id, phone FROM users WHERE phone LIKE '06%'");
+    for (const u of users) {
+      const newPhone = '+36' + u.phone.slice(2);
+      await dbRun('UPDATE users SET phone = ? WHERE id = ?', [newPhone, u.id]);
+    }
+    if (users.length > 0) {
+      console.log(`[DB MIGRATION] Converted ${users.length} phone number(s) from 06 to +36 format.`);
+    }
+  } catch (e) {
+    console.error('[DB MIGRATION] Phone normalization failed:', e.message);
+  }
+}
+migratePhoneNumbers();
+
 // Helper function to generate unique QR string
 function generateUUID() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -339,9 +356,15 @@ app.post('/api/auth/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const verificationToken = generateUUID();
 
+    // Normalize phone: convert 06... to +36... if needed
+    let normalizedPhone = phone.trim();
+    if (normalizedPhone.startsWith('06')) {
+      normalizedPhone = '+36' + normalizedPhone.slice(2);
+    }
+
     await dbRun(
       'INSERT INTO users (name, email, phone, password_hash, license_number, card_type, is_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
-      [name, email, phone, passwordHash, licenseNumber || '', cardType, verificationToken]
+      [name, email, normalizedPhone, passwordHash, licenseNumber || '', cardType, verificationToken]
     );
 
     const protocol = req.headers['x-forwarded-proto'] || 'http';
