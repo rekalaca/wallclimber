@@ -2156,12 +2156,9 @@ header.admin-header {
   right: 0;
   bottom: 0;
   pointer-events: none;
-  background: linear-gradient(to right, 
-    var(--bg-main) 0%, 
-    transparent 15%, 
-    transparent 85%, 
-    var(--bg-main) 100%
-  );
+  background: 
+    linear-gradient(to right, var(--bg-main) 0%, transparent 15%, transparent 85%, var(--bg-main) 100%),
+    linear-gradient(to bottom, var(--bg-main) 0%, transparent 15%, transparent 85%, var(--bg-main) 100%);
   z-index: 2;
 }
 
@@ -2184,7 +2181,7 @@ header.admin-header {
 }
 
 .about-title {
-  font-size: 36px;
+  font-size: 42px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2194,7 +2191,7 @@ header.admin-header {
 }
 
 .about-text {
-  font-size: 15px;
+  font-size: 17px;
   color: var(--text-secondary);
   line-height: 1.8;
   margin-bottom: 18px;
@@ -2246,11 +2243,12 @@ header.admin-header {
   }
 
   .about-title {
-    font-size: 26px;
+    font-size: 32px;
     text-align: left;
   }
 
   .about-text {
+    font-size: 16px;
     text-align: justify;
     hyphens: auto;
     -webkit-hyphens: auto;
