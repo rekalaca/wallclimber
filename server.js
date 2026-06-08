@@ -477,7 +477,17 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
       ORDER BY b.booking_date ASC, s.start_time ASC
     `, [user.id]);
 
-    res.json({ user, tickets, bookings });
+    // Fetch user's entry logs
+    const logs = await dbAll(`
+      SELECT el.scan_time, el.status, el.message, l.name as location_name, t.ticket_type
+      FROM entry_logs el
+      JOIN tickets t ON el.ticket_id = t.id
+      LEFT JOIN locations l ON el.location_id = l.id
+      WHERE t.user_id = ?
+      ORDER BY el.scan_time DESC
+    `, [user.id]);
+
+    res.json({ user, tickets, bookings, logs });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a profil betöltésekor: ' + error.message });
   }
@@ -1613,6 +1623,38 @@ app.get('/api/admin/users', authenticateToken, requireRole(['STAFF', 'ADMIN']), 
   try {
     const users = await dbAll('SELECT id, name, email, phone, license_number, card_type, role FROM users ORDER BY name ASC');
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// View single user details with tickets, bookings, and entry logs
+app.get('/api/admin/users/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role FROM users WHERE id = ?', [userId]);
+    if (!user) return res.status(404).json({ error: 'A keresett felhasználó nem található!' });
+
+    const tickets = await dbAll("SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC", [userId]);
+    const bookings = await dbAll(`
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN locations l ON s.location_id = l.id
+      WHERE b.user_id = ?
+      ORDER BY b.booking_date ASC, s.start_time ASC
+    `, [userId]);
+
+    const logs = await dbAll(`
+      SELECT el.scan_time, el.status, el.message, l.name as location_name, t.ticket_type
+      FROM entry_logs el
+      JOIN tickets t ON el.ticket_id = t.id
+      LEFT JOIN locations l ON el.location_id = l.id
+      WHERE t.user_id = ?
+      ORDER BY el.scan_time DESC
+    `, [userId]);
+
+    res.json({ user, tickets, bookings, logs });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

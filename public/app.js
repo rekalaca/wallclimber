@@ -662,11 +662,12 @@ async function loadProfileAndDashboard() {
     if (!res.ok) throw new Error('Hiba a profil betöltésekor');
     
     const data = await res.json();
-    const { user, tickets, bookings } = data;
+    const { user, tickets, bookings, logs } = data;
     
     // Save data to window for tab switching
     window.dashboardTickets = tickets;
     window.dashboardBookings = bookings;
+    window.dashboardLogs = logs;
     
     // Save count of active tickets
     const todayStr = new Date().toISOString().split('T')[0];
@@ -697,6 +698,44 @@ async function loadProfileAndDashboard() {
           </div>
         </div>
       `;
+    }
+
+    // Render entry logs history
+    const logsContainer = document.getElementById('dashboard-entry-logs');
+    if (logsContainer) {
+      logsContainer.innerHTML = '';
+      if (!logs || logs.length === 0) {
+        logsContainer.innerHTML = '<p style="color:var(--text-muted); font-size: 13px;">Még nincsenek belépési előzményeid.</p>';
+      } else {
+        logs.forEach(log => {
+          let ticketLabel = '';
+          if (log.ticket_type === 'NAPI') ticketLabel = 'Napijegy';
+          else if (log.ticket_type === 'TIZ_ALKALMAS') ticketLabel = '10 alk. bérlet';
+          else if (log.ticket_type === 'HAVI') ticketLabel = 'Havi bérlet';
+
+          const formattedTime = log.scan_time ? log.scan_time.substring(0, 16).replace('T', ' ') : '-';
+          const statusIcon = log.status === 'SUCCESS' ? '✅' : '❌';
+
+          const logDiv = document.createElement('div');
+          logDiv.style.background = 'rgba(255, 255, 255, 0.01)';
+          logDiv.style.border = '1px solid var(--border-color)';
+          logDiv.style.borderRadius = '8px';
+          logDiv.style.padding = '10px 12px';
+          logDiv.style.fontSize = '12px';
+
+          logDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+              <span style="font-weight: 600; color: #fff;">${statusIcon} ${ticketLabel}</span>
+              <span style="color: var(--text-muted); font-size: 11px;">${formattedTime}</span>
+            </div>
+            <div style="color: var(--text-secondary); line-height: 1.3;">
+              Helyszín: <strong>${log.location_name || 'Ismeretlen'}</strong><br>
+              <span style="font-size: 11px; color: ${log.status === 'SUCCESS' ? 'var(--success)' : 'var(--danger)'};">${log.message}</span>
+            </div>
+          `;
+          logsContainer.appendChild(logDiv);
+        });
+      }
     }
 
     // Call tab-based render functions
@@ -1926,10 +1965,79 @@ function sortAdminUsers() {
   renderAdminUsers();
 }
 
-function openUserDetailsModal(userId) {
+async function openUserDetailsModal(userId) {
   const user = (window.adminUsers || []).find(u => u.id === userId);
   if (!user) return;
   
+  // Populate basic info synchronously first for quick responsiveness
+  populateUserDetailsFields(user);
+  
+  const logsEl = document.getElementById('view-user-logs');
+  if (logsEl) {
+    logsEl.innerHTML = '<p style="color:var(--text-muted); font-size: 12px;">Napló betöltése...</p>';
+  }
+  
+  switchUserModalToView();
+  
+  const backdrop = document.getElementById('edit-user-modal-backdrop');
+  if (backdrop) backdrop.classList.add('open');
+
+  // Fetch full details (including tickets, bookings, and entry logs) dynamically
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Nem sikerült betölteni a felhasználó részletes adatait.');
+    
+    const data = await res.json();
+    const { user: freshUser, logs } = data;
+    
+    // Refresh basic info with fresh database values
+    populateUserDetailsFields(freshUser);
+    
+    // Render entry logs
+    if (logsEl) {
+      logsEl.innerHTML = '';
+      if (!logs || logs.length === 0) {
+        logsEl.innerHTML = '<p style="color:var(--text-muted); font-size: 12px;">Nincsenek belépési adatok.</p>';
+      } else {
+        logs.forEach(log => {
+          let ticketLabel = '';
+          if (log.ticket_type === 'NAPI') ticketLabel = 'Napijegy';
+          else if (log.ticket_type === 'TIZ_ALKALMAS') ticketLabel = '10 alk. bérlet';
+          else if (log.ticket_type === 'HAVI') ticketLabel = 'Havi bérlet';
+
+          const formattedTime = log.scan_time ? log.scan_time.substring(0, 16).replace('T', ' ') : '-';
+          const statusIcon = log.status === 'SUCCESS' ? '✅' : '❌';
+
+          const logDiv = document.createElement('div');
+          logDiv.style.background = 'rgba(255, 255, 255, 0.02)';
+          logDiv.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+          logDiv.style.borderRadius = '6px';
+          logDiv.style.padding = '6px 8px';
+          logDiv.style.fontSize = '11px';
+
+          logDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <span style="font-weight: 600; color: #fff;">${statusIcon} ${ticketLabel}</span>
+              <span style="color: var(--text-muted); font-size: 10px;">${formattedTime}</span>
+            </div>
+            <div style="color: var(--text-secondary); line-height: 1.2;">
+              Helyszín: <strong>${log.location_name || 'Ismeretlen'}</strong> | 
+              <span style="color: ${log.status === 'SUCCESS' ? 'var(--success)' : 'var(--danger)'};">${log.message}</span>
+            </div>
+          `;
+          logsEl.appendChild(logDiv);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Hiba a belépési előzmények betöltésekor:', err);
+    if (logsEl) {
+      logsEl.innerHTML = `<p style="color:var(--danger); font-size: 12px;">Nem sikerült betölteni a naplót.</p>`;
+    }
+  }
+}
+
+function populateUserDetailsFields(user) {
   document.getElementById('edit-user-id').value = user.id;
   
   // Populate View Mode
@@ -1939,24 +2047,33 @@ function openUserDetailsModal(userId) {
   document.getElementById('view-user-license').textContent = user.license_number || 'Nincs megadva';
   
   const cardBadge = document.getElementById('view-user-card');
-  cardBadge.textContent = user.card_type + ' KÁRTYA';
-  cardBadge.className = 'badge ' + (user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red');
+  if (cardBadge) {
+    cardBadge.textContent = user.card_type + ' KÁRTYA';
+    cardBadge.className = 'badge ' + (user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red');
+  }
   
   const roleLabel = user.role === 'ADMIN' ? 'Admin' : (user.role === 'STAFF' ? 'Staff' : 'Mászó');
-  document.getElementById('view-user-role').textContent = roleLabel;
+  const roleEl = document.getElementById('view-user-role');
+  if (roleEl) roleEl.textContent = roleLabel;
   
   // Populate Edit Mode
-  document.getElementById('edit-user-name').value = user.name;
-  document.getElementById('edit-user-email').value = user.email;
-  document.getElementById('edit-user-phone').value = user.phone || '';
-  document.getElementById('edit-user-license').value = user.license_number || '';
-  document.getElementById('edit-user-card').value = user.card_type;
-  document.getElementById('edit-user-role').value = user.role;
+  const editName = document.getElementById('edit-user-name');
+  if (editName) editName.value = user.name;
   
-  switchUserModalToView();
+  const editEmail = document.getElementById('edit-user-email');
+  if (editEmail) editEmail.value = user.email;
   
-  const backdrop = document.getElementById('edit-user-modal-backdrop');
-  if (backdrop) backdrop.classList.add('open');
+  const editPhone = document.getElementById('edit-user-phone');
+  if (editPhone) editPhone.value = user.phone || '';
+  
+  const editLicense = document.getElementById('edit-user-license');
+  if (editLicense) editLicense.value = user.license_number || '';
+  
+  const editCard = document.getElementById('edit-user-card');
+  if (editCard) editCard.value = user.card_type;
+  
+  const editRole = document.getElementById('edit-user-role');
+  if (editRole) editRole.value = user.role;
 }
 
 function openEditUserModal(userId) {
