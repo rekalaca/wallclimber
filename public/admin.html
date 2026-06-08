@@ -60,49 +60,54 @@
         </div>
         
         <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
-          <!-- Add Weekly Slot Form -->
-          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 10px; border-radius: 12px; width: 100%;">
-            <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új heti idősáv hozzáadása</h4>
-            <form id="admin-slot-form">
-              <div class="form-group">
-                <label class="form-label" for="admin-slot-location">Helyszín</label>
-                <select id="admin-slot-location" class="form-control" required>
-                  <option value="">Válassz mászófalat...</option>
-                </select>
-              </div>
-              
-              <div class="form-group">
-                <label class="form-label" for="admin-slot-day">Nap</label>
-                <select id="admin-slot-day" class="form-control" required>
-                  <option value="">Válassz napot...</option>
-                  <option value="1">Hétfő</option>
-                  <option value="2">Kedd</option>
-                  <option value="3">Szerda</option>
-                  <option value="4">Csütörtök</option>
-                  <option value="5">Péntek</option>
-                  <option value="6">Szombat</option>
-                  <option value="0">Vasárnap</option>
-                </select>
-              </div>
-
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <!-- Add Weekly Slot Form (Collapsible) -->
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; width: 100%; overflow: hidden;">
+            <button id="slot-form-toggle" onclick="toggleSlotForm()" style="width: 100%; background: none; border: none; padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; text-align: left;">
+              <span style="font-size: 16px; font-weight: 600; color: var(--primary);">+ Új heti idősáv hozzáadása</span>
+              <span id="slot-form-arrow" style="color: var(--primary); font-size: 18px; transition: transform 0.35s ease; display: inline-block;">▾</span>
+            </button>
+            <div id="slot-form-body" style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; padding: 0 16px;">
+              <form id="admin-slot-form" style="padding-bottom: 16px;">
                 <div class="form-group">
-                  <label class="form-label" for="admin-slot-start">Kezdés (óra:perc)</label>
-                  <input type="text" id="admin-slot-start" class="form-control" placeholder="14:00" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                  <label class="form-label" for="admin-slot-location">Helyszín</label>
+                  <select id="admin-slot-location" class="form-control" required>
+                    <option value="">Válassz mászófalat...</option>
+                  </select>
                 </div>
+                
                 <div class="form-group">
-                  <label class="form-label" for="admin-slot-end">Befejezés (óra:perc)</label>
-                  <input type="text" id="admin-slot-end" class="form-control" placeholder="16:30" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                  <label class="form-label" for="admin-slot-day">Nap</label>
+                  <select id="admin-slot-day" class="form-control" required>
+                    <option value="">Válassz napot...</option>
+                    <option value="1">Hétfő</option>
+                    <option value="2">Kedd</option>
+                    <option value="3">Szerda</option>
+                    <option value="4">Csütörtök</option>
+                    <option value="5">Péntek</option>
+                    <option value="6">Szombat</option>
+                    <option value="0">Vasárnap</option>
+                  </select>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label class="form-label" for="admin-slot-capacity">Maximális kapacitás (fő)</label>
-                <input type="number" id="admin-slot-capacity" class="form-control" value="15" min="1" required>
-              </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                  <div class="form-group">
+                    <label class="form-label" for="admin-slot-start">Kezdés (óra:perc)</label>
+                    <input type="text" id="admin-slot-start" class="form-control" placeholder="14:00" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="admin-slot-end">Befejezés (óra:perc)</label>
+                    <input type="text" id="admin-slot-end" class="form-control" placeholder="16:30" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
+                  </div>
+                </div>
 
-              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Idősáv hozzáadása</button>
-            </form>
+                <div class="form-group">
+                  <label class="form-label" for="admin-slot-capacity">Maximális kapacitás (fő)</label>
+                  <input type="number" id="admin-slot-capacity" class="form-control" value="15" min="1" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Idősáv hozzáadása</button>
+              </form>
+            </div>
           </div>
 
           <!-- Explanatory note -->

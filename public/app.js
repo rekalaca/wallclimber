@@ -2503,6 +2503,25 @@ function switchAdminScheduleWeek(weekIndex) {
   loadAdminSlots();
 }
 
+// Toggle the "Új idősáv hozzáadása" collapsible accordion
+function toggleSlotForm() {
+  const body = document.getElementById('slot-form-body');
+  const arrow = document.getElementById('slot-form-arrow');
+  if (!body) return;
+
+  const isOpen = body.style.maxHeight && body.style.maxHeight !== '0px';
+  if (isOpen) {
+    body.style.maxHeight = '0px';
+    body.style.paddingTop = '0';
+    body.style.paddingBottom = '0';
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  }
+}
+window.toggleSlotForm = toggleSlotForm;
+
 async function loadAdminSlots() {
   renderWeekSelector(); // Ensure selectors are rendered
   
