@@ -1520,11 +1520,14 @@ async function validateScannedQR(uuid) {
 
     const formatTime = (t) => t ? t.substring(0, 5) : '';
 
+    let hasBookingToday = false;
+
     if (hasLocation) {
       const selectedLocationName = locSelect.options[locSelect.selectedIndex].text;
       
       // Look for a matching booking TODAY at the SELECTED location
       const matchingBooking = bookings.find(b => b.booking_date === todayStr && String(b.location_id) === String(selectedLocation));
+      hasBookingToday = !!matchingBooking;
       
       // Look for any booking TODAY (at any location)
       const todayBookingAnyLoc = bookings.find(b => b.booking_date === todayStr);
@@ -1613,7 +1616,7 @@ async function validateScannedQR(uuid) {
         <div id="scanner-location-warning" style="margin-top:15px; color:var(--warning); font-size:13px; font-weight:600; display: ${hasLocation ? 'none' : 'block'}; text-align: center;">
           ⚠️ Kérjük, válassz helyszínt a lap tetején a beléptetéshez!
         </div>
-        <button id="confirm-checkin-btn" onclick="processCheckIn('${ticket.qr_code_uuid}')" class="btn btn-primary" style="margin-top: 20px; width: 100%;" data-ticket-valid="${isValid}" ${hasLocation ? '' : 'disabled'}>
+        <button id="confirm-checkin-btn" onclick="processCheckIn('${ticket.qr_code_uuid}', ${hasBookingToday})" class="btn btn-primary" style="margin-top: 20px; width: 100%;" data-ticket-valid="${isValid}" ${hasLocation ? '' : 'disabled'}>
           Beléptetés Jóváhagyása
         </button>
       `;
@@ -1675,7 +1678,12 @@ async function validateScannedQR(uuid) {
   }
 }
 
-async function processCheckIn(uuid) {
+async function processCheckIn(uuid, hasBookingToday = true) {
+  if (!hasBookingToday) {
+    const confirmCheckin = confirm('A mászónak nincs mára érvényes foglalása erre a helyszínre. Ennek ellenére belépteted?');
+    if (!confirmCheckin) return;
+  }
+
   const locationId = document.getElementById('scanner-location-select').value;
   if (!locationId) {
     showToast('Kérjük, válassz beléptetési helyszínt!', 'error');
