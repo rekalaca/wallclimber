@@ -43,6 +43,7 @@
       <div id="tab-slots" class="auth-tab active" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
       <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
+      <div id="tab-bookings" class="auth-tab" onclick="switchAdminTab('bookings')">Foglalások</div>
     </div>
 
     <!-- Tab Slots Content -->
@@ -293,6 +294,24 @@
       </div>
     </div>
 
+    <!-- Tab Bookings Content -->
+    <div id="admin-bookings-content" style="display: none;">
+      <div class="glass-card">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Aktív Foglalások</h3>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
+          Itt láthatod a mászók által leadott aktív helyfoglalásokat a következő 3 hétre napok és mászófalak szerint csoportosítva.
+        </p>
+        <!-- Week Selector Buttons -->
+        <div style="display: flex; gap: 15px; margin-bottom: 30px; justify-content: center; flex-wrap: wrap;" id="admin-bookings-week-selector">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <div id="admin-bookings-list">
+          <p style="color:var(--text-muted);">Foglalások betöltése...</p>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <footer>
@@ -316,10 +335,15 @@
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
       const tabNews = document.getElementById('tab-news');
+      const tabBookings = document.getElementById('tab-bookings');
+      
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
       const contentNews = document.getElementById('admin-news-content');
-      if (!tabSlots || !tabUsers || !tabNews || !contentSlots || !contentUsers || !contentNews) return;
+      const contentBookings = document.getElementById('admin-bookings-content');
+      
+      if (!tabSlots || !tabUsers || !tabNews || !tabBookings || 
+          !contentSlots || !contentUsers || !contentNews || !contentBookings) return;
 
       // Update URL hash without reload
       if (history.pushState) {
@@ -328,27 +352,25 @@
         window.location.hash = tab;
       }
 
+      // Deactivate all
+      [tabSlots, tabUsers, tabNews, tabBookings].forEach(t => t.classList.remove('active'));
+      [contentSlots, contentUsers, contentNews, contentBookings].forEach(c => c.style.display = 'none');
+
       if (tab === 'slots') {
         tabSlots.classList.add('active');
-        tabUsers.classList.remove('active');
-        tabNews.classList.remove('active');
         contentSlots.style.display = 'block';
-        contentUsers.style.display = 'none';
-        contentNews.style.display = 'none';
       } else if (tab === 'users') {
-        tabSlots.classList.remove('active');
         tabUsers.classList.add('active');
-        tabNews.classList.remove('active');
-        contentSlots.style.display = 'none';
         contentUsers.style.display = 'block';
-        contentNews.style.display = 'none';
       } else if (tab === 'news') {
-        tabSlots.classList.remove('active');
-        tabUsers.classList.remove('active');
         tabNews.classList.add('active');
-        contentSlots.style.display = 'none';
-        contentUsers.style.display = 'none';
         contentNews.style.display = 'block';
+      } else if (tab === 'bookings') {
+        tabBookings.classList.add('active');
+        contentBookings.style.display = 'block';
+        if (typeof window.loadAdminBookings === 'function') {
+          window.loadAdminBookings();
+        }
       }
     }
     window.switchAdminTab = switchAdminTab;

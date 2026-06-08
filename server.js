@@ -594,6 +594,14 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Múltbeli időpontra nem lehet foglalni!' });
     }
 
+    // Max booking in advance is 3 weeks (21 days)
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(now.getDate() + 21);
+    const maxDateStr = maxBookingDate.toISOString().split('T')[0];
+    if (date > maxDateStr) {
+      return res.status(400).json({ error: 'Csak legfeljebb 3 hétre előre lehet időpontot foglalni!' });
+    }
+
     const bookedCountRow = await dbGet('SELECT COUNT(*) as count FROM bookings WHERE slot_id = ? AND booking_date = ?', [slotId, date]);
     if (bookedCountRow.count >= slot.max_capacity) {
       return res.status(400).json({ error: 'Ez az időpont már betelt (telt ház)!' });
@@ -1710,6 +1718,39 @@ app.delete('/api/admin/slots/:id', authenticateToken, requireRole(['ADMIN']), as
   try {
     await dbRun('DELETE FROM slots WHERE id = ?', [req.params.id]);
     res.json({ message: 'Idősáv sikeresen törölve!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all bookings for admin panel (future only)
+app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+
+    const bookings = await dbAll(`
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, 
+             l.name as location_name, l.id as location_id,
+             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN locations l ON s.location_id = l.id
+      JOIN users u ON b.user_id = u.id
+      WHERE b.booking_date >= ?
+      ORDER BY b.booking_date ASC, s.start_time ASC, l.name ASC
+    `, [todayStr]);
+
+    res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

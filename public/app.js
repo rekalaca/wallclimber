@@ -99,6 +99,7 @@ function renderHeader() {
       <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
       <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
       <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
+      <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
       <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
       <li><a href="dashboard.html" class="nav-link">Profilom</a></li>
       <li><a href="index.html" target="_blank" class="nav-link">Weboldal ↗</a></li>
@@ -718,9 +719,17 @@ async function loadProfileAndDashboard() {
       locSelect.addEventListener('change', loadBookingSchedules);
       const bookingDate = document.getElementById('booking-date');
       if (bookingDate) {
-        const today = new Date().toISOString().split('T')[0];
+        const todayObj = new Date();
+        const today = todayObj.toISOString().split('T')[0];
+        
+        // Max date is 3 weeks (21 days) from today
+        const maxDateObj = new Date();
+        maxDateObj.setDate(todayObj.getDate() + 21);
+        const maxDate = maxDateObj.toISOString().split('T')[0];
+        
         bookingDate.value = today;
         bookingDate.min = today;
+        bookingDate.max = maxDate;
         bookingDate.addEventListener('change', loadBookingSchedules);
       }
     }
@@ -1257,6 +1266,28 @@ async function cancelBooking(bookingId) {
 let html5QrcodeScanner = null;
 let lastScannedUuid = null;
 
+function startCameraScanner() {
+  if (html5QrcodeScanner) return;
+  try {
+    if (typeof Html5QrcodeScanner !== 'undefined') {
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "qr-reader-viewport", 
+        { 
+          fps: 10, 
+          qrbox: 250,
+          aspectRatio: 1.0,
+          supportedScanTypes: [Html5QrcodeSupportedScanTypes.CAMERA]
+        }
+      );
+      html5QrcodeScanner.render(onScanSuccess, onScanError);
+    } else {
+      showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
+    }
+  } catch (cameraErr) {
+    console.warn('Nem sikerült elindítani a kamerát (lehet, hogy nincs engedély vagy eszköz):', cameraErr);
+  }
+}
+
 async function initScanner() {
   const role = getUserRole();
   if (role !== 'STAFF' && role !== 'ADMIN') {
@@ -1320,24 +1351,7 @@ async function initScanner() {
 
   // Only setup camera scanner if there is NO uuid in the URL
   if (!urlUuid) {
-    try {
-      if (typeof Html5QrcodeScanner !== 'undefined') {
-        html5QrcodeScanner = new Html5QrcodeScanner(
-          "qr-reader-viewport", 
-          { 
-            fps: 10, 
-            qrbox: 250,
-            aspectRatio: 1.0,
-            supportedScanTypes: [Html5QrcodeSupportedScanTypes.CAMERA]
-          }
-        );
-        html5QrcodeScanner.render(onScanSuccess, onScanError);
-      } else {
-        showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
-      }
-    } catch (cameraErr) {
-      console.warn('Nem sikerült elindítani a kamerát (lehet, hogy nincs engedély vagy eszköz):', cameraErr);
-    }
+    startCameraScanner();
   } else {
     // If scanning via URL, hide camera scanner viewport or show a helpful message
     const readerViewport = document.getElementById('qr-reader-viewport');
@@ -1653,26 +1667,46 @@ async function processCheckIn(uuid) {
       sessionsVal = 'Korlátlan';
     }
 
+    // Stop camera scanner on successful checkin
+    if (html5QrcodeScanner) {
+      try {
+        await html5QrcodeScanner.clear();
+        html5QrcodeScanner = null;
+      } catch (clearErr) {
+        console.error('Hiba a kamera leállításakor:', clearErr);
+      }
+    }
+
+    // Hide camera and location cards
+    const cameraCard = document.getElementById('scanner-camera-card');
+    const locationCard = document.getElementById('scanner-location-card');
+    if (cameraCard) cameraCard.style.display = 'none';
+    if (locationCard) locationCard.style.display = 'none';
+
     resultCard.innerHTML = `
-      <div class="scan-status-indicator scan-status-valid">
-        <span>✅</span>
-        <span>Sikeres Beléptetés!</span>
-      </div>
-      
-      <p style="font-size:16px; font-weight:700; margin: 25px 0; color: var(--success); text-align: center;">${message}</p>
-
-      <div class="scan-details-grid" style="margin-bottom: 20px;">
-        <div class="scan-detail-item">
-          <div class="scan-detail-label">Mászó neve</div>
-          <div class="scan-detail-value">${climber.name || 'Ismeretlen'}</div>
+      <div style="text-align: center; padding: 20px 0;">
+        <div class="scan-status-indicator scan-status-valid" style="margin: 0 auto 20px auto; width: fit-content;">
+          <span>✅</span>
+          <span>Sikeres Beléptetés!</span>
         </div>
-        <div class="scan-detail-item">
-          <div class="scan-detail-label">Új Egyenleg</div>
-          <div class="scan-detail-value">${sessionsVal}</div>
+        
+        <p style="font-size:18px; font-weight:700; margin: 25px 0; color: var(--success); text-align: center;">${message}</p>
+  
+        <div class="scan-details-grid" style="margin-bottom: 25px; border: 1px solid var(--border-color); padding: 15px; border-radius: 10px; background: rgba(255,255,255,0.01);">
+          <div class="scan-detail-item">
+            <div class="scan-detail-label">Mászó neve</div>
+            <div class="scan-detail-value" style="font-size: 16px; font-weight: 600; color: #fff;">${climber.name || 'Ismeretlen'}</div>
+          </div>
+          <div class="scan-detail-item">
+            <div class="scan-detail-label">Új Egyenleg</div>
+            <div class="scan-detail-value" style="font-size: 16px; font-weight: 600; color: var(--primary);">${sessionsVal}</div>
+          </div>
         </div>
+  
+        <button onclick="resetScannerAfterSuccess()" class="btn btn-primary" style="margin-top: 15px; width: 100%; font-size: 16px; padding: 12px 20px;">
+          További beolvasás...
+        </button>
       </div>
-
-      <button onclick="resetScannerUI()" class="btn btn-primary" style="margin-top: 15px; width: 100%;">Kész / Új beolvasás</button>
     `;
     showToast('Beléptetés sikeresen végrehajtva!', 'success');
   } catch (err) {
@@ -1686,6 +1720,26 @@ async function processCheckIn(uuid) {
     `;
     showToast(err.message, 'error');
   }
+}
+
+function resetScannerAfterSuccess() {
+  lastScannedUuid = null;
+  
+  // Show camera and location cards
+  const cameraCard = document.getElementById('scanner-camera-card');
+  const locationCard = document.getElementById('scanner-location-card');
+  if (cameraCard) cameraCard.style.display = 'block';
+  if (locationCard) locationCard.style.display = 'block';
+  
+  // Hide result card
+  const resultCard = document.getElementById('scan-result-container');
+  if (resultCard) {
+    resultCard.innerHTML = '';
+    resultCard.style.display = 'none';
+  }
+  
+  // Restart camera scanner
+  startCameraScanner();
 }
 
 function resetScannerUI() {
@@ -1705,6 +1759,7 @@ async function initAdminPanel() {
   await loadAdminUsers();
   await loadAdminSlots();
   await loadNewsAnnouncements();
+  await loadAdminBookings();
 
   // News Form submission
   const newsForm = document.getElementById('admin-news-form');
@@ -1720,6 +1775,8 @@ async function initAdminPanel() {
     if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
   } else if (hash === '#schedule') {
     if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
+  } else if (hash === '#bookings') {
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
   }
 
   // Global hash change listener for admin page tabs
@@ -1731,6 +1788,8 @@ async function initAdminPanel() {
       if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
     } else if (currentHash === '#schedule') {
       if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
+    } else if (currentHash === '#bookings') {
+      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
     }
     renderHeader();
   });
@@ -1964,45 +2023,49 @@ async function loadAdminSlots() {
     if (!res.ok) throw new Error();
     const slots = await res.json();
 
-    const daysHungarian = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szomb'];
+    const daysHungarian = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
 
     list.innerHTML = '';
     
-    // Group slots by location and day
+    // Group slots by location and day index (0-6)
     const grouped = {};
     slots.forEach(s => {
       const locKey = s.location_name;
       if (!grouped[locKey]) grouped[locKey] = {};
       
-      const dayName = daysHungarian[s.day_of_week];
-      if (!grouped[locKey][dayName]) grouped[locKey][dayName] = [];
+      if (!grouped[locKey][s.day_of_week]) grouped[locKey][s.day_of_week] = [];
       
-      grouped[locKey][dayName].push(s);
+      grouped[locKey][s.day_of_week].push(s);
     });
+
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday (1) to Sunday (0)
 
     for (const locName in grouped) {
       const locDiv = document.createElement('div');
       locDiv.style.marginBottom = '30px';
       
       let daysHtml = '';
-      for (const dayName in grouped[locName]) {
-        let slotItemsHtml = '';
-        grouped[locName][dayName].forEach(s => {
-          slotItemsHtml += `
-            <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); padding:6px 12px; border-radius:30px; margin:4px; font-size:13px;">
-              <strong>${s.start_time} - ${s.end_time}</strong> (${s.max_capacity} fő)
-              <span onclick="deleteAdminSlot(${s.id})" style="color:var(--danger); cursor:pointer; font-weight:bold; padding-left:4px;" title="Idősáv törlése">×</span>
+      dayOrder.forEach(dayIdx => {
+        if (grouped[locName][dayIdx] && grouped[locName][dayIdx].length > 0) {
+          const dayName = daysHungarian[dayIdx];
+          let slotItemsHtml = '';
+          grouped[locName][dayIdx].forEach(s => {
+            slotItemsHtml += `
+              <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); padding:6px 12px; border-radius:30px; margin:4px; font-size:13px;">
+                <strong>${s.start_time} - ${s.end_time}</strong> (${s.max_capacity} fő)
+                <span onclick="deleteAdminSlot(${s.id})" style="color:var(--danger); cursor:pointer; font-weight:bold; padding-left:4px;" title="Idősáv törlése">×</span>
+              </div>
+            `;
+          });
+
+          daysHtml += `
+            <div style="margin-bottom:12px;">
+              <span style="font-weight:600; font-size:14px; width:100px; display:inline-block; color:var(--text-secondary);">${dayName}:</span>
+              <div style="display:inline-block; vertical-align:middle;">${slotItemsHtml}</div>
             </div>
           `;
-        });
-
-        daysHtml += `
-          <div style="margin-bottom:12px;">
-            <span style="font-weight:600; font-size:14px; width:100px; display:inline-block; color:var(--text-secondary);">${dayName}:</span>
-            <div style="display:inline-block; vertical-align:middle;">${slotItemsHtml}</div>
-          </div>
-        `;
-      }
+        }
+      });
 
       locDiv.innerHTML = `
         <h4 style="border-bottom: 1px solid var(--border-color); padding-bottom:8px; margin-bottom:12px; color:var(--primary);">${locName}</h4>
@@ -2234,6 +2297,224 @@ function cancelNewsEdit() {
   document.getElementById('news-cancel-btn').style.display = 'none';
 }
 
+// ---------------- ADMIN BOOKINGS (ADMIN) ----------------
+let currentSelectedWeekIdx = 0; // Default to the first (current) week
+window.adminBookings = [];
+
+function getWeeksData() {
+  const now = new Date();
+  
+  // Get current Budapest date/time
+  const formatter = new Intl.DateTimeFormat('hu-HU', {
+    timeZone: 'Europe/Budapest',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type) => parts.find(p => p.type === type).value;
+  const currentBudapest = new Date(`${getPart('year')}-${getPart('month')}-${getPart('day')}`);
+
+  // Get day of week (0 = Sun, 1 = Mon ... 6 = Sat)
+  const day = currentBudapest.getDay();
+  // Calculate distance to current week's Monday
+  // If today is Sunday (0), distance is -6 days. Otherwise distance is -(day - 1) days.
+  const distanceToMonday = day === 0 ? -6 : -(day - 1);
+  
+  const monday1 = new Date(currentBudapest);
+  monday1.setDate(currentBudapest.getDate() + distanceToMonday);
+  
+  const sunday1 = new Date(monday1);
+  sunday1.setDate(monday1.getDate() + 6);
+  
+  const monday2 = new Date(monday1);
+  monday2.setDate(monday1.getDate() + 7);
+  const sunday2 = new Date(monday2);
+  sunday2.setDate(monday2.getDate() + 6);
+
+  const monday3 = new Date(monday1);
+  monday3.setDate(monday1.getDate() + 14);
+  const sunday3 = new Date(monday3);
+  sunday3.setDate(monday3.getDate() + 6);
+
+  const formatDate = (d) => {
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${month}.${day}`;
+  };
+
+  const formatDateIso = (d) => {
+    return d.toISOString().split('T')[0];
+  };
+
+  return [
+    {
+      label: `${formatDate(monday1)} - ${formatDate(sunday1)}`,
+      start: formatDateIso(monday1),
+      end: formatDateIso(sunday1)
+    },
+    {
+      label: `${formatDate(monday2)} - ${formatDate(sunday2)}`,
+      start: formatDateIso(monday2),
+      end: formatDateIso(sunday2)
+    },
+    {
+      label: `${formatDate(monday3)} - ${formatDate(sunday3)}`,
+      start: formatDateIso(monday3),
+      end: formatDateIso(sunday3)
+    }
+  ];
+}
+
+async function loadAdminBookings() {
+  const container = document.getElementById('admin-bookings-list');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 20px;">Foglalások betöltése...</p>';
+
+  try {
+    const res = await fetch('/api/admin/bookings', { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error();
+    const bookings = await res.json();
+    window.adminBookings = bookings;
+
+    renderAdminBookings();
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<p style="color:var(--danger); text-align:center; padding: 20px;">Nem sikerült betölteni a foglalásokat.</p>';
+  }
+}
+
+function renderAdminBookings() {
+  const container = document.getElementById('admin-bookings-list');
+  const weekSelector = document.getElementById('admin-bookings-week-selector');
+  if (!container || !window.adminBookings) return;
+
+  const weeks = getWeeksData();
+
+  // Render Week Selector Buttons
+  if (weekSelector) {
+    weekSelector.innerHTML = '';
+    weeks.forEach((w, idx) => {
+      const btn = document.createElement('button');
+      btn.className = idx === currentSelectedWeekIdx ? 'btn btn-primary' : 'btn btn-secondary';
+      btn.style.fontSize = '14px';
+      btn.style.padding = '8px 16px';
+      btn.style.margin = '4px';
+      btn.textContent = w.label;
+      btn.onclick = () => {
+        currentSelectedWeekIdx = idx;
+        renderAdminBookings();
+      };
+      weekSelector.appendChild(btn);
+    });
+  }
+
+  const activeWeek = weeks[currentSelectedWeekIdx];
+  
+  // Filter bookings for the active week
+  const filteredBookings = window.adminBookings.filter(b => {
+    return b.booking_date >= activeWeek.start && b.booking_date <= activeWeek.end;
+  });
+
+  container.innerHTML = '';
+  if (filteredBookings.length === 0) {
+    container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding: 35px; font-size:15px;">Nincs aktív foglalás erre a hétre (${activeWeek.label}).</p>`;
+    return;
+  }
+
+  // Group bookings by date, then by location name, then by slot time range
+  const grouped = {};
+  filteredBookings.forEach(b => {
+    const date = b.booking_date;
+    const loc = b.location_name;
+    const slotTime = `${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}`;
+
+    if (!grouped[date]) grouped[date] = {};
+    if (!grouped[date][loc]) grouped[date][loc] = {};
+    if (!grouped[date][loc][slotTime]) grouped[date][loc][slotTime] = [];
+
+    grouped[date][loc][slotTime].push(b);
+  });
+
+  const sortedDates = Object.keys(grouped).sort();
+  const daysHungarian = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
+
+  sortedDates.forEach(date => {
+    const dateCard = document.createElement('div');
+    dateCard.className = 'glass-card';
+    dateCard.style.marginBottom = '25px';
+    dateCard.style.padding = '20px';
+    dateCard.style.background = 'rgba(255, 255, 255, 0.01)';
+    dateCard.style.border = '1px solid var(--border-color)';
+
+    const dateObj = new Date(date);
+    const formattedDate = `${date.replace(/-/g, '. ')}. (${daysHungarian[dateObj.getDay()]})`;
+
+    let dateHtml = `<h4 style="font-size:18px; color:var(--primary); margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px; font-family:'Outfit', sans-serif;">${formattedDate}</h4>`;
+
+    for (const locName in grouped[date]) {
+      dateHtml += `
+        <div style="margin-top: 15px; margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">📍</span> ${locName}
+          </div>
+      `;
+
+      for (const slotTime in grouped[date][locName]) {
+        dateHtml += `
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; margin-left: 10px;">
+            <div style="font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+              <span style="color: var(--primary); font-size: 11px;">🕒</span> ${slotTime}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+
+        grouped[date][locName][slotTime].forEach(b => {
+          dateHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; font-size: 13px;">
+              <div>
+                <strong style="color: #fff; font-size: 14px;">${b.user_name}</strong> 
+                <span style="color: var(--text-muted); margin-left: 8px; font-size: 11px;">(${b.user_email} | ${b.user_phone || '-'})</span>
+              </div>
+              <button onclick="cancelAdminBooking(${b.booking_id})" class="btn btn-danger btn-sm" style="padding: 4px 10px; font-size: 11px; background: #ef4444; border-color: #ef4444; min-height: auto; line-height: 1.2;">
+                Törlés
+              </button>
+            </div>
+          `;
+        });
+
+        dateHtml += `
+            </div>
+          </div>
+        `;
+      }
+
+      dateHtml += `</div>`;
+    }
+
+    dateCard.innerHTML = dateHtml;
+    container.appendChild(dateCard);
+  });
+}
+
+async function cancelAdminBooking(bookingId) {
+  if (!confirm('Biztosan törölni szeretnéd ezt a foglalást?')) return;
+  try {
+    const res = await fetch(`/api/bookings/${bookingId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Foglalás sikeresen törölve!');
+    loadAdminBookings();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 // Check if there is an active announcement and display modal on landing/dashboard
 async function checkActiveAnnouncement() {
   const path = window.location.pathname;
@@ -2362,4 +2643,7 @@ window.sortAdminUsers = sortAdminUsers;
 window.switchTicketTab = switchTicketTab;
 window.closeBillingModal = closeBillingModal;
 window.handleBillingSubmit = handleBillingSubmit;
+window.loadAdminBookings = loadAdminBookings;
+window.cancelAdminBooking = cancelAdminBooking;
+window.resetScannerAfterSuccess = resetScannerAfterSuccess;
 

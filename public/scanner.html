@@ -66,13 +66,13 @@
 
   <main class="container" style="padding: 40px 20px 80px 20px; max-width: 500px;">
     
-    <div style="text-align: center; margin-bottom: 35px;">
+    <div style="text-align: center; margin-bottom: 35px;" id="scanner-title-section">
       <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 8px;">Kamerás QR Beléptetés</h2>
       <p style="color: var(--text-secondary); font-size: 14px;">Okostelefonod kameráját a kódra irányítva ellenőrizheted a mászók jogosultságát és bérleteik érvényességét.</p>
     </div>
 
     <!-- Location Selector for Scanner -->
-    <div class="glass-card" style="padding: 20px; margin-bottom: 25px;">
+    <div class="glass-card" id="scanner-location-card" style="padding: 20px; margin-bottom: 25px;">
       <div class="form-group" style="margin-bottom: 0;">
         <label class="form-label" for="scanner-location-select" style="font-weight: 600;">Beléptetés Helyszíne:</label>
         <select id="scanner-location-select" class="form-control">
@@ -82,7 +82,7 @@
     </div>
 
     <!-- Scanner Camera Port -->
-    <div class="glass-card" style="padding: 25px; margin-bottom: 30px;">
+    <div class="glass-card" id="scanner-camera-card" style="padding: 25px; margin-bottom: 30px;">
       <div id="qr-reader-viewport" style="width: 100%;"></div>
     </div>
 
