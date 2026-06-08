@@ -1716,12 +1716,13 @@ async function processCheckIn(uuid) {
     }
 
     // Stop camera scanner on successful checkin
-    if (html5QrcodeScanner) {
+    if (html5QrCode) {
       try {
-        await html5QrcodeScanner.clear();
-        html5QrcodeScanner = null;
+        await html5QrCode.stop();
+        html5QrCode = null;
       } catch (clearErr) {
         console.error('Hiba a kamera leállításakor:', clearErr);
+        html5QrCode = null;
       }
     }
 
