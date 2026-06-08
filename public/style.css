@@ -2225,7 +2225,7 @@ header.admin-header {
   }
 
   .about-video-wrapper::after {
-    display: none;
+    background: linear-gradient(to bottom, var(--bg-main) 0%, transparent 15%, transparent 85%, var(--bg-main) 100%);
   }
 
   .about-video {
