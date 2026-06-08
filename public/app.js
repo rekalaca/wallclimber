@@ -1263,28 +1263,74 @@ async function cancelBooking(bookingId) {
 }
 
 // ---------------- STAFF QR SCANNER (SCANNER) ----------------
-let html5QrcodeScanner = null;
+let html5QrCode = null;
 let lastScannedUuid = null;
 
 function startCameraScanner() {
-  if (html5QrcodeScanner) return;
+  if (html5QrCode) return;
+  
+  const cameraCard = document.getElementById('scanner-camera-card');
+  if (cameraCard) cameraCard.style.display = 'block';
+
   try {
-    if (typeof Html5QrcodeScanner !== 'undefined') {
-      html5QrcodeScanner = new Html5QrcodeScanner(
-        "qr-reader-viewport", 
-        { 
-          fps: 10, 
-          qrbox: 250,
-          aspectRatio: 1.0,
-          supportedScanTypes: [Html5QrcodeSupportedScanTypes.CAMERA]
+    if (typeof Html5Qrcode !== 'undefined') {
+      html5QrCode = new Html5Qrcode("qr-reader-viewport");
+      
+      const config = { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      };
+
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config,
+        onScanSuccess,
+        onScanError
+      ).then(() => {
+        const btn = document.getElementById('btn-toggle-camera');
+        if (btn) {
+          btn.innerHTML = '<span>❌</span> Kamera bezárása';
+          btn.className = 'btn btn-secondary';
         }
-      );
-      html5QrcodeScanner.render(onScanSuccess, onScanError);
+      }).catch(err => {
+        console.error('Kamera indítási hiba:', err);
+        showToast('Nem sikerült hozzáférni a kamerához. Ellenőrizd a jogosultságokat!', 'error');
+        stopCameraScanner();
+      });
     } else {
       showToast('A QR kód olvasó könyvtár nem töltődött be!', 'error');
     }
   } catch (cameraErr) {
-    console.warn('Nem sikerült elindítani a kamerát (lehet, hogy nincs engedély vagy eszköz):', cameraErr);
+    console.warn('Nem sikerült elindítani a kamerát:', cameraErr);
+  }
+}
+
+function stopCameraScanner() {
+  if (!html5QrCode) return;
+  
+  html5QrCode.stop().then(() => {
+    html5QrCode = null;
+    const btn = document.getElementById('btn-toggle-camera');
+    if (btn) {
+      btn.innerHTML = '<span>📷</span> Kamera megnyitása';
+      btn.className = 'btn btn-primary';
+    }
+    const cameraCard = document.getElementById('scanner-camera-card');
+    if (cameraCard) cameraCard.style.display = 'none';
+  }).catch(err => {
+    console.error('Kamera leállítási hiba:', err);
+    html5QrCode = null; // force clear reference
+    const cameraCard = document.getElementById('scanner-camera-card');
+    if (cameraCard) cameraCard.style.display = 'none';
+  });
+}
+
+function toggleCamera() {
+  if (html5QrCode) {
+    stopCameraScanner();
+  } else {
+    startCameraScanner();
   }
 }
 
@@ -1349,11 +1395,7 @@ async function initScanner() {
     }
   }
 
-  // Only setup camera scanner if there is NO uuid in the URL
-  if (!urlUuid) {
-    startCameraScanner();
-  } else {
-    // If scanning via URL, hide camera scanner viewport or show a helpful message
+  if (urlUuid) {
     const readerViewport = document.getElementById('qr-reader-viewport');
     if (readerViewport) {
       readerViewport.innerHTML = '<p style="text-align:center; padding:15px; color:var(--text-secondary); font-size: 14px;">Kód beolvasva a külső kamerából. Jegy adatok lekérdezése folyamatban...</p>';
@@ -1362,7 +1404,13 @@ async function initScanner() {
 }
 
 async function onScanSuccess(decodedText, decodedResult) {
-  if (html5QrcodeScanner) {
+  // If we are already displaying checkin/confirm screen or success screen, ignore new scans
+  const resultCard = document.getElementById('scan-result-container');
+  if (resultCard && resultCard.style.display === 'block') {
+    return;
+  }
+
+  if (html5QrCode) {
     try {
       showToast('Kód észlelve, adatok betöltése...', 'success');
       await validateScannedQR(decodedText);
@@ -2646,4 +2694,5 @@ window.handleBillingSubmit = handleBillingSubmit;
 window.loadAdminBookings = loadAdminBookings;
 window.cancelAdminBooking = cancelAdminBooking;
 window.resetScannerAfterSuccess = resetScannerAfterSuccess;
+window.toggleCamera = toggleCamera;
 

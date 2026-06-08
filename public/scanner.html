@@ -81,8 +81,15 @@
       </div>
     </div>
 
+    <!-- Camera Start/Toggle Button -->
+    <div style="margin-bottom: 25px; text-align: center;" id="scanner-start-btn-container">
+      <button id="btn-toggle-camera" onclick="toggleCamera()" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+        <span>📷</span> Kamera megnyitása
+      </button>
+    </div>
+
     <!-- Scanner Camera Port -->
-    <div class="glass-card" id="scanner-camera-card" style="padding: 25px; margin-bottom: 30px;">
+    <div class="glass-card" id="scanner-camera-card" style="padding: 25px; margin-bottom: 30px; display: none;">
       <div id="qr-reader-viewport" style="width: 100%;"></div>
     </div>
 
