@@ -2019,20 +2019,21 @@ header.admin-header {
 
 .location-booking-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.5s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   display: flex;
   flex-direction: column;
   position: relative;
 }
 
 .location-booking-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-5px) scale(1.03);
   border-color: var(--primary);
-  box-shadow: 0 10px 20px var(--primary-glow);
+  box-shadow: 0 15px 30px var(--primary-glow);
 }
 
 .location-booking-card img {
@@ -2049,6 +2050,8 @@ header.admin-header {
   flex-direction: column;
   gap: 15px;
   flex-grow: 1;
+  align-items: center;
+  text-align: center;
 }
 
 .location-booking-card-title {
@@ -2062,9 +2065,10 @@ header.admin-header {
 
 .location-booking-card-stats {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   margin-top: auto;
+  width: 100%;
 }
 
 .location-booking-card-stat-item {
@@ -2095,4 +2099,9 @@ header.admin-header {
   font-size: 18px;
   font-weight: 700;
   color: var(--primary);
+}
+
+/* Big container card with deep box-shadow */
+#admin-bookings-locations-view {
+  box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;
 }
