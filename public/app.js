@@ -1537,28 +1537,27 @@ async function validateScannedQR(uuid) {
     let bookingInfoHtml = '';
 
     // Get current date in Europe/Budapest timezone
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('hu-HU', {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Budapest',
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
-      hour12: false
+      day: '2-digit'
     });
-    const parts = formatter.formatToParts(now);
-    const getPart = (type) => parts.find(p => p.type === type).value;
-    const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const todayStr = formatter.format(new Date());
 
     const formatTime = (t) => t ? t.substring(0, 5) : '';
 
     let hasBookingToday = false;
+    let isAlreadyAttended = false;
 
     if (hasLocation) {
       const selectedLocationName = locSelect.options[locSelect.selectedIndex].text;
       
       // Look for a matching booking TODAY at the SELECTED location
       const matchingBooking = bookings.find(b => b.booking_date === todayStr && String(b.location_id) === String(selectedLocation));
-      hasBookingToday = !!matchingBooking;
+      
+      isAlreadyAttended = !!(matchingBooking && matchingBooking.attended > 0);
+      hasBookingToday = !!(matchingBooking && !isAlreadyAttended);
       
       // Look for any booking TODAY (at any location)
       const todayBookingAnyLoc = bookings.find(b => b.booking_date === todayStr);
@@ -1574,7 +1573,7 @@ async function validateScannedQR(uuid) {
             <ul style="margin: 0; padding-left: 15px; color: var(--text-muted); list-style-type: disc; text-align: left;">
               ${otherBookingsList.map(b => `
                 <li>
-                  <strong>${b.booking_date}</strong> | ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})
+                  <strong>${b.booking_date}</strong> | ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name}) ${b.attended > 0 ? '(Megjelent)' : ''}
                 </li>
               `).join('')}
             </ul>
@@ -1583,15 +1582,27 @@ async function validateScannedQR(uuid) {
       }
 
       if (matchingBooking) {
-        bookingInfoHtml = `
-          <div class="scan-booking-info">
-            <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
-            <div class="scan-booking-match">
-              ✅ Foglalás ma: ${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})
+        if (isAlreadyAttended) {
+          bookingInfoHtml = `
+            <div class="scan-booking-info">
+              <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+              <div class="scan-booking-warning">
+                ⚠️ A mászó ma már egyszer belépett erre az időpontra: <strong>${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})</strong>!
+              </div>
+              ${otherBookingsHtml}
             </div>
-            ${otherBookingsHtml}
-          </div>
-        `;
+          `;
+        } else {
+          bookingInfoHtml = `
+            <div class="scan-booking-info">
+              <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
+              <div class="scan-booking-match">
+                ✅ Foglalás ma: ${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})
+              </div>
+              ${otherBookingsHtml}
+            </div>
+          `;
+        }
       } else if (todayBookingAnyLoc) {
         bookingInfoHtml = `
           <div class="scan-booking-info">
@@ -1647,7 +1658,7 @@ async function validateScannedQR(uuid) {
         <div id="scanner-location-warning" style="margin-top:15px; color:var(--warning); font-size:13px; font-weight:600; display: ${hasLocation ? 'none' : 'block'}; text-align: center;">
           ⚠️ Kérjük, válassz helyszínt a lap tetején a beléptetéshez!
         </div>
-        <button id="confirm-checkin-btn" onclick="processCheckIn('${ticket.qr_code_uuid}', ${hasBookingToday})" class="btn btn-primary" style="margin-top: 20px; width: 100%;" data-ticket-valid="${isValid}" ${hasLocation ? '' : 'disabled'}>
+        <button id="confirm-checkin-btn" onclick="processCheckIn('${ticket.qr_code_uuid}', ${hasBookingToday}, ${isAlreadyAttended})" class="btn btn-primary" style="margin-top: 20px; width: 100%;" data-ticket-valid="${isValid}" ${hasLocation ? '' : 'disabled'}>
           Beléptetés Jóváhagyása
         </button>
       `;
@@ -1709,9 +1720,12 @@ async function validateScannedQR(uuid) {
   }
 }
 
-async function processCheckIn(uuid, hasBookingToday = true) {
-  if (!hasBookingToday) {
-    const confirmCheckin = confirm('A mászónak nincs mára érvényes foglalása erre a helyszínre. Ennek ellenére belépteted?');
+async function processCheckIn(uuid, hasBookingToday = true, isAlreadyAttended = false) {
+  if (isAlreadyAttended) {
+    const confirmCheckin = confirm('⚠️ A mászó ma már egyszer belépett erre az időpontra ezen a helyszínen! Ennek ellenére belépteted?');
+    if (!confirmCheckin) return;
+  } else if (!hasBookingToday) {
+    const confirmCheckin = confirm('⚠️ A mászónak nincs mára érvényes foglalása erre a helyszínre. Ennek ellenére belépteted?');
     if (!confirmCheckin) return;
   }
 
@@ -1761,16 +1775,7 @@ async function processCheckIn(uuid, hasBookingToday = true) {
       sessionsVal = 'Korlátlan';
     }
 
-    // Stop camera scanner on successful checkin
-    if (html5QrCode) {
-      try {
-        await html5QrCode.stop();
-        html5QrCode = null;
-      } catch (clearErr) {
-        console.error('Hiba a kamera leállításakor:', clearErr);
-        html5QrCode = null;
-      }
-    }
+    // Keep camera scanner active to prevent recurring permission prompts on mobile
 
     // Hide camera and location cards
     const cameraCard = document.getElementById('scanner-camera-card');

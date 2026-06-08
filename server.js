@@ -1491,21 +1491,24 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
     }
 
     // Get current Budapest date to lookup bookings
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('hu-HU', {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Budapest',
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
-      hour12: false
+      day: '2-digit'
     });
-    const parts = formatter.formatToParts(now);
-    const getPart = (type) => parts.find(p => p.type === type).value;
-    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const dateStr = formatter.format(new Date());
 
     // Get active/future bookings for the user (today and onwards)
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, s.location_id, l.name as location_name
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, s.location_id, l.name as location_name,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
