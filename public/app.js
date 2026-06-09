@@ -363,16 +363,77 @@ function isActive(page) {
   return path.endsWith(page) ? 'active' : '';
 }
 
+// ---------------- PARALLAX EFFECT ----------------
+function initParallax() {
+  const parallaxContainer = document.getElementById('parallax-divider');
+  const parallaxBg = parallaxContainer ? parallaxContainer.querySelector('.parallax-bg') : null;
+  if (!parallaxContainer || !parallaxBg) return;
+
+  let ticking = false;
+
+  function updateParallax() {
+    const rect = parallaxContainer.getBoundingClientRect();
+    const viewHeight = window.innerHeight;
+    
+    // Check if the parallax container is visible in viewport
+    if (rect.bottom >= 0 && rect.top <= viewHeight) {
+      // Calculate scroll progress through viewport (0 to 1)
+      const totalDist = viewHeight + rect.height;
+      const scrolledDist = viewHeight - rect.top;
+      const progress = Math.max(0, Math.min(1, scrolledDist / totalDist));
+      
+      // Calculate excess height dynamically based on actual element clientHeights in pixels.
+      // This is extremely robust and handles desktop/mobile size differences automatically.
+      const containerHeight = parallaxContainer.clientHeight;
+      const bgHeight = parallaxBg.clientHeight;
+      const maxOffset = Math.max(0, bgHeight - containerHeight);
+      
+      const yOffset = -progress * maxOffset;
+      
+      parallaxBg.style.transform = `translate3d(0, ${yOffset}px, 0)`;
+    }
+    ticking = false;
+  }
+
+  function onScroll() {
+    if (!ticking) {
+      window.requestAnimationFrame(updateParallax);
+      ticking = true;
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(updateParallax);
+      ticking = true;
+    }
+  });
+  
+  // Initial run
+  updateParallax();
+}
+
 // ---------------- PUBLIC LANDING PAGE (INDEX) ----------------
 async function initPublicLanding() {
+  initParallax();
   const video = document.querySelector('.hero-video-bg');
   const heroContent = document.querySelector('.hero-content');
+  
+  // Mobilon a cím azonnal jelenjen meg, a szöveg pedig 800ms késleltetéssel
+  const isMobileInit = window.innerWidth <= 768;
+  if (isMobileInit && heroContent) {
+    heroContent.classList.add('visible-title');
+    setTimeout(() => {
+      heroContent.classList.add('visible-text');
+    }, 800);
+  }
+
   if (video) {
     video.playbackRate = 0.85;
     video.loop = false;
     
     // Prepare initial position of text on startup (desktop only)
-    const isMobileInit = window.innerWidth <= 768;
     if (!isMobileInit && heroContent) {
       heroContent.classList.add('prepare-text');
     }
@@ -397,6 +458,7 @@ async function initPublicLanding() {
     // Listen to timeupdate to trigger text fade-in, grow zoom, and video fade-out before the end
     video.addEventListener('timeupdate', () => {
       const isMobile = window.innerWidth <= 768;
+      if (isMobile) return; // Mobilon ne animáljuk a szöveg ki/be áttűnését lejátszás közben
 
       // 1. Text fade-in (3 seconds before end)
       if (video.duration && (video.duration - video.currentTime <= 3)) {

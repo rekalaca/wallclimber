@@ -2173,7 +2173,7 @@ header.admin-header {
 .about-text-col {
   flex: 0 0 40%;
   max-width: 40%;
-  padding: 60px 50px 60px 50px;
+  padding: 60px 80px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -2253,5 +2253,60 @@ header.admin-header {
     text-align: justify;
     hyphens: auto;
     -webkit-hyphens: auto;
+  }
+}
+
+/* ---- PARALLAX SEPARATOR ---- */
+.parallax-section {
+  position: relative;
+  width: 100%;
+  height: 14vw;
+  max-height: 350px;
+  min-height: 80px;
+  overflow: hidden;
+  margin-bottom: 80px;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: inset 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 -20px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.parallax-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(12, 14, 23, 0.45); /* Halvány fátyol az oldal háttérszínével (#0c0e17) */
+  pointer-events: none;
+  z-index: 2;
+}
+
+.parallax-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 30.2vw; /* Keeps the aspect ratio of 1920x580 relative to the screen width */
+  max-height: 580px;
+  background-image: url('pictures/paraback.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .parallax-section {
+    height: 18vw; /* kissé magasabb arány mobilon az olvashatóságért */
+    margin-bottom: 60px;
+  }
+  .parallax-bg {
+    height: 30.2vw;
+    max-height: none;
   }
 }
