@@ -28,3 +28,5 @@ yarn-error.log*
 # Temporary scratch folder
 scratch/
 .gemini/
+
+.vercel

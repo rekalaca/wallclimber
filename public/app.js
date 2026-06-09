@@ -419,15 +419,8 @@ async function initPublicLanding() {
   initParallax();
   const video = document.querySelector('.hero-video-bg');
   const heroContent = document.querySelector('.hero-content');
-  
-  // Mobilon a cím azonnal jelenjen meg, a szöveg pedig 800ms késleltetéssel
   const isMobileInit = window.innerWidth <= 768;
-  if (isMobileInit && heroContent) {
-    heroContent.classList.add('visible-title');
-    setTimeout(() => {
-      heroContent.classList.add('visible-text');
-    }, 800);
-  }
+  let hasAnimatedHeroMobile = false;
 
   if (video) {
     video.playbackRate = 0.85;
@@ -451,7 +444,21 @@ async function initPublicLanding() {
         hasZoomedText = false;
         hasFadedOutText = false;
         hasFadedOutVideo = false;
-        // 'grow' class is now cleaned up inside the ended loop delay to prevent premature size reduction during fade-out
+      }
+      
+      // Mobilon a videó indulásakor indítjuk a szövegek késleltetett beúszását (csak egyszer fut le)
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile && heroContent && !hasAnimatedHeroMobile) {
+        hasAnimatedHeroMobile = true;
+        heroContent.classList.remove('visible-title', 'visible-text');
+        
+        setTimeout(() => {
+          heroContent.classList.add('visible-title');
+        }, 500); // 500ms a címnek
+        
+        setTimeout(() => {
+          heroContent.classList.add('visible-text');
+        }, 1300); // további 800ms (összesen 1300ms) a leírásnak
       }
     });
     
