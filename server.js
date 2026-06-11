@@ -224,6 +224,24 @@ async function initDB() {
     )
   `);
 
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS withdrawals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      customer_name TEXT NOT NULL,
+      customer_email TEXT NOT NULL,
+      contract_id TEXT NOT NULL,
+      ticket_id INTEGER NOT NULL,
+      ticket_type TEXT NOT NULL,
+      purchase_date TEXT NOT NULL,
+      sessions_remaining INTEGER DEFAULT 0,
+      withdrawal_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      status TEXT DEFAULT 'PROCESSED',
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+    )
+  `);
+
   // Seed Locations
   const locationsCount = await dbGet('SELECT COUNT(*) as count FROM locations');
   if (locationsCount.count === 0) {
@@ -887,6 +905,7 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
       CallbackUrl: `${domain}/api/barion/callback`,
       Currency: 'HUF',
       Locale: 'hu-HU',
+      SendPaymentMail: true,
       Transactions: [
         {
           POSTransactionId: `tx_${Date.now()}_${req.user.id}`,
@@ -975,27 +994,37 @@ app.post('/api/barion/verify-payment', authenticateToken, async (req, res) => {
 });
 
 // Barion Webhook IPN Callback
-app.post('/api/barion/callback', async (req, res) => {
-  try {
-    const paymentId = req.body.PaymentId || req.query.paymentId || req.body.paymentId;
-    if (!paymentId) {
-      console.warn('[BARION CALLBACK] Received callback without paymentId');
-      return res.status(400).send('Missing paymentId');
-    }
-
-    console.log('[BARION CALLBACK] Received callback for payment:', paymentId);
-
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const domain = `${protocol}://${host}`;
-
-    await processBarionPayment(paymentId, domain);
-
-    res.status(200).send('OK');
-  } catch (error) {
-    console.error('[BARION CALLBACK ERROR]:', error);
-    res.status(500).send('Internal Error: ' + error.message);
+// IMPORTANT: Respond with 200 OK immediately, BEFORE any async processing.
+// Barion has a short timeout for callbacks — if we wait for DB + API + email,
+// it will mark the callback as failed (CallbackFailed), even if it succeeded.
+app.post('/api/barion/callback', (req, res) => {
+  const paymentId = req.body.PaymentId || req.query.paymentId || req.body.paymentId;
+  if (!paymentId) {
+    console.warn('[BARION CALLBACK] Received callback without paymentId');
+    return res.status(400).send('Missing paymentId');
   }
+
+  console.log('[BARION CALLBACK] Received IPN for payment:', paymentId, '— responding 200 OK immediately.');
+
+  // Respond to Barion immediately so it does not retry / mark as CallbackFailed
+  res.status(200).send('OK');
+
+  // Process the payment asynchronously in the background (fire-and-forget)
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers.host;
+  const domain = `${protocol}://${host}`;
+
+  processBarionPayment(paymentId, domain).then(result => {
+    if (result.alreadyProcessed) {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} was already processed — no action needed.`);
+    } else if (result.success) {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} successfully processed in background.`);
+    } else {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} not succeeded — status: ${result.status}`);
+    }
+  }).catch(err => {
+    console.error(`[BARION CALLBACK ERROR] Background processing failed for payment ${paymentId}:`, err.message);
+  });
 });
 
 // ---------------- TICKETS ----------------
@@ -1228,7 +1257,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
          to: climber.email,
          subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
          html: `
            <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
              <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
@@ -1242,6 +1271,10 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Jegytípus:</td>
                    <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${HungarianType}</td>
+                 </tr>
+                 <tr style="background: rgba(255, 107, 0, 0.08); border-radius: 6px;">
+                   <td style="padding: 8px 6px; color: #ff6b00; font-weight: 700;">🎫 Jegy azonosítója (ID):</td>
+                   <td style="padding: 8px 6px; color: #ff6b00; text-align: right; font-weight: 700; font-size: 16px; letter-spacing: 1px;">#${ticket.id}</td>
                  </tr>
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Fizetett összeg:</td>
@@ -1260,6 +1293,12 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
                    <td style="padding: 6px 0; color: #ffffff; text-align: right;">${sessionsText}</td>
                  </tr>
                </table>
+             </div>
+
+             <!-- Withdrawal Info Box -->
+             <div style="background: rgba(255, 107, 0, 0.05); border: 1px solid rgba(255, 107, 0, 0.2); padding: 15px 18px; border-radius: 8px; margin: 0 0 20px 0;">
+               <p style="margin: 0 0 6px 0; font-size: 13px; color: #ff6b00; font-weight: 700;">⚠️ Elállási jog (EU 2023/2673)</p>
+               <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">A vásárlástól számított <strong style="color:#fff;">14 napon belül</strong> online elállhatsz a szerződéstől. Az elálláshoz szükséges a fenti <strong style="color:#ff6b00;">Jegy azonosítója: #${ticket.id}</strong>, amelyet add meg az <a href="${domain}/withdrawal.html" style="color:#ff6b00;">elállási oldalon</a>.</p>
              </div>
  
              ${invoiceNumber ? `
@@ -2073,6 +2112,291 @@ app.delete('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'A
     res.json({ message: 'Hír sikeresen törölve!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------- CONTRACT WITHDRAWAL (EU 2023/2673) ----------------
+
+// 1. Withdrawal Lookup Endpoint (Public)
+app.post('/api/withdrawal/lookup', async (req, res) => {
+  try {
+    const { email, name, identifier } = req.body;
+    if (!email || !name || !identifier) {
+      return res.status(400).json({ error: 'Minden mező kitöltése kötelező!' });
+    }
+
+    // Lookup user by email (case-insensitive)
+    const user = await dbGet('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email.trim()]);
+    if (!user) {
+      return res.status(404).json({ error: 'A megadott e-mail címmel nem található regisztrált felhasználó!' });
+    }
+
+    // Compare name
+    const normalizedInputName = name.trim().replace(/\s+/g, ' ').toLowerCase();
+    const normalizedDbName = user.name.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (normalizedInputName !== normalizedDbName) {
+      return res.status(400).json({ error: 'A megadott név nem egyezik a regisztrált felhasználó nevével!' });
+    }
+
+    // Find matching tickets by: ID, qr_code_uuid, or corresponding barion payment date
+    const tickets = await dbAll(`
+      SELECT t.id, t.ticket_type, t.purchase_date, t.expires_date, t.sessions_remaining, t.status 
+      FROM tickets t
+      WHERE t.user_id = ? 
+        AND (
+          CAST(t.id AS TEXT) = ? 
+          OR t.qr_code_uuid = ? 
+          OR t.purchase_date = (
+            SELECT date(created_at) 
+            FROM barion_payments 
+            WHERE payment_id = ? AND user_id = ?
+          )
+        )
+    `, [user.id, identifier.trim(), identifier.trim(), identifier.trim(), user.id]);
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ error: 'Nem található a megadott azonosítóhoz kapcsolódó aktív vagy lejárt jegy/bérlet ehhez a felhasználóhoz!' });
+    }
+
+    // Calculate eligibility (within 14 days and ACTIVE status)
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    const processedTickets = tickets.map(ticket => {
+      let eligible = true;
+      let reason = '';
+
+      if (ticket.status !== 'ACTIVE') {
+        eligible = false;
+        if (ticket.status === 'WITHDRAWN') {
+          reason = 'Ettől a vásárlástól már korábban elálltál!';
+        } else if (ticket.status === 'USED') {
+          reason = 'Ez a jegy/bérlet már teljesen felhasznált állapotú!';
+        } else if (ticket.status === 'EXPIRED') {
+          reason = 'Ez a jegy/bérlet már lejárt érvényességű!';
+        } else {
+          reason = `A jegy státusza nem teszi lehetővé az elállást (${ticket.status})`;
+        }
+      } else {
+        const purchaseDate = new Date(ticket.purchase_date);
+        const currentDate = new Date(todayStr);
+        const timeDiff = currentDate.getTime() - purchaseDate.getTime();
+        const diffDays = timeDiff / (1000 * 3600 * 24);
+
+        if (diffDays > 14) {
+          eligible = false;
+          reason = 'A vásárlástól számított 14 napos törvényi elállási határidő már lejárt!';
+        }
+      }
+
+      return {
+        ...ticket,
+        eligible,
+        reason
+      };
+    });
+
+    res.json({
+      user: {
+        name: user.name,
+        email: user.email
+      },
+      tickets: processedTickets
+    });
+  } catch (error) {
+    console.error('[WITHDRAWAL LOOKUP ERROR]:', error);
+    res.status(500).json({ error: 'Hiba az elállás vizsgálata közben: ' + error.message });
+  }
+});
+
+// 2. Withdrawal Confirm Endpoint (Public)
+app.post('/api/withdrawal/confirm', async (req, res) => {
+  try {
+    const { email, name, identifier, ticketIds } = req.body;
+    if (!email || !name || !identifier || !ticketIds || !Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ error: 'Hiányzó vagy helytelen elállási adatok!' });
+    }
+
+    // Lookup user by email (case-insensitive)
+    const user = await dbGet('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email.trim()]);
+    if (!user) {
+      return res.status(404).json({ error: 'A megadott e-mail címmel nem található regisztrált felhasználó!' });
+    }
+
+    // Compare name
+    const normalizedInputName = name.trim().replace(/\s+/g, ' ').toLowerCase();
+    const normalizedDbName = user.name.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (normalizedInputName !== normalizedDbName) {
+      return res.status(400).json({ error: 'A megadott név nem egyezik a regisztrált felhasználó nevével!' });
+    }
+
+    // Fetch selection
+    const tickets = await dbAll(`
+      SELECT t.id, t.ticket_type, t.purchase_date, t.sessions_remaining, t.status 
+      FROM tickets t
+      WHERE t.user_id = ? 
+        AND t.id IN (${ticketIds.map(() => '?').join(',')})
+    `, [user.id, ...ticketIds]);
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ error: 'Nem találhatók a kiválasztott jegyek!' });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const validTickets = [];
+    const invalidReasons = [];
+
+    for (const ticket of tickets) {
+      if (ticket.status !== 'ACTIVE') {
+        invalidReasons.push(`Jegy #${ticket.id}: Nem aktív (${ticket.status}).`);
+        continue;
+      }
+
+      const purchaseDate = new Date(ticket.purchase_date);
+      const currentDate = new Date(todayStr);
+      const timeDiff = currentDate.getTime() - purchaseDate.getTime();
+      const diffDays = timeDiff / (1000 * 3600 * 24);
+
+      if (diffDays > 14) {
+        invalidReasons.push(`Jegy #${ticket.id}: 14 nap letelt.`);
+        continue;
+      }
+
+      validTickets.push(ticket);
+    }
+
+    if (validTickets.length === 0) {
+      return res.status(400).json({ error: 'Egyik kijelölt jegy sem felel meg az elállás feltételeinek: ' + invalidReasons.join(' ') });
+    }
+
+    const withdrawalTime = new Date();
+    const hungarianTimeStr = withdrawalTime.toLocaleString('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    const processedDetails = [];
+
+    for (const ticket of validTickets) {
+      // Set to WITHDRAWN status & 0 remaining sessions immediately
+      await dbRun("UPDATE tickets SET status = 'WITHDRAWN', sessions_remaining = 0 WHERE id = ?", [ticket.id]);
+
+      // Record request
+      await dbRun(`
+        INSERT INTO withdrawals (user_id, customer_name, customer_email, contract_id, ticket_id, ticket_type, purchase_date, sessions_remaining, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PROCESSED')
+      `, [
+        user.id,
+        user.name,
+        email.trim(),
+        identifier.trim(),
+        ticket.id,
+        ticket.ticket_type,
+        ticket.purchase_date,
+        ticket.sessions_remaining
+      ]);
+
+      let typeLabel = '';
+      if (ticket.ticket_type === 'NAPI') typeLabel = 'Egyszeri Napijegy';
+      else if (ticket.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 Alkalmas Bérlet';
+      else if (ticket.ticket_type === 'HAVI') typeLabel = 'Korlátlan Havi Bérlet';
+
+      processedDetails.push(`
+        <li style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+          <strong>${typeLabel}</strong> (Azonosító: #${ticket.id})<br>
+          <span style="color:#64748b; font-size:12px;">Vásárolva: ${ticket.purchase_date} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
+        </li>
+      `);
+    }
+
+    // Send transaction email
+    const mailSubject = 'Visszaigazolás szerződéstől való elállásról - HawkStone';
+    const mailText = `Kedves ${user.name}!\n\nEzúton igazoljuk, hogy ${hungarianTimeStr} időpontban elállási nyilatkozatot nyújtottál be az alábbi vásárlásra (szerződésazonosító: ${identifier}).\n\nÉrintett jegyek/bérletek:\n${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}\n\nA jegyek/bérletek érvénytelenítése megtörtént. A vételár visszatérítéséről 14 napon belül intézkedünk.\n\nÜdvözlettel,\nHawkStone Csapata`;
+
+    const mailHtml = `
+      <div style="font-family: 'Montserrat', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+        <h2 style="color: #f27620; font-weight: 700; margin-bottom: 20px; text-align: center;">Elállási Nyilatkozat Visszaigazolás</h2>
+        <p style="font-size: 15px; line-height: 1.6; color: #94a3b8;">Kedves <strong>${user.name}</strong>!</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 20px;">
+          Köszönjük, hogy benyújtottad elállási nyilatkozatodat. Ezúton igazoljuk, hogy a nyilatkozat beérkezett és feldolgozásra került:
+        </p>
+        
+        <div style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+          <p style="margin: 0 0 8px 0; color: #94a3b8;">Beérkezés ideje: <strong style="color: #ffffff;">${hungarianTimeStr}</strong></p>
+          <p style="margin: 0 0 15px 0; color: #94a3b8;">Szerződés/Rendelés azonosító: <strong style="color: #ffffff;">${identifier}</strong></p>
+          <p style="margin: 0 0 10px 0; color: #f27620; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing:0.05em;">Visszavont szolgáltatások:</p>
+          <ul style="margin: 0; padding-left: 0; list-style:none; color: #ffffff;">
+            ${processedDetails.join('')}
+          </ul>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 15px;">
+          A fenti jegyek és bérletek, valamint a hozzájuk kapcsolódó QR-kódok azonnali hatállyal <strong>érvénytelenné váltak</strong>, azok beléptetésre többé nem alkalmasak.
+        </p>
+        <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px;">
+          A jogszabályoknak megfelelően a vételár visszatérítéséről (vagy részleges visszatérítésről) az elállás bejelentésétől számított 14 napon belül intézkedünk.
+        </p>
+
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0; line-height: 1.4;">
+          Ez egy automatikus, tartós adathordozón küldött visszaigazolás az EU 2023/2673 irányelvnek megfelelően.<br><br>
+          Üdvözlettel,<br><strong>HawkStone Csapata</strong>
+        </p>
+      </div>
+    `;
+
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+          to: email.trim(),
+          subject: mailSubject,
+          text: mailText,
+          html: mailHtml
+        });
+        console.log(`[EMAIL] Withdrawal confirmation sent successfully to ${email}`);
+      } catch (mailError) {
+        console.error('[EMAIL ERROR] Failed to send email via SMTP:', mailError);
+      }
+    } else {
+      console.log(`\n==================================================`);
+      console.log(`[EMAIL MOCK] Withdrawal confirmation sent to: ${email}`);
+      console.log(`Subject: ${mailSubject}`);
+      console.log(`Link: ${hungarianTimeStr}`);
+      console.log(`==================================================\n`);
+    }
+
+    res.json({
+      message: 'Sikeres elállás! A visszaigazolást e-mailben megküldtük.',
+      customerName: user.name,
+      customerEmail: email.trim(),
+      withdrawalTime: hungarianTimeStr,
+      tickets: validTickets.map(t => ({ id: t.id, type: t.ticket_type }))
+    });
+  } catch (error) {
+    console.error('[WITHDRAWAL CONFIRM ERROR]:', error);
+    res.status(500).json({ error: 'Hiba az elállási nyilatkozat beküldése során: ' + error.message });
+  }
+});
+
+// 3. Admin Withdrawals List Endpoint (Admin/Staff only)
+app.get('/api/admin/withdrawals', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const list = await dbAll(`
+      SELECT w.*, u.name as user_name, u.email as user_email
+      FROM withdrawals w
+      JOIN users u ON w.user_id = u.id
+      ORDER BY w.withdrawal_time DESC
+    `);
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a naplózott elállások lekérésekor: ' + error.message });
   }
 });
 
