@@ -1130,20 +1130,41 @@ function closeNoTicketModal() {
 // Download PDF
 async function downloadRulesPDF(ticketId) {
   try {
-    showToast('Szabályzat PDF generálása folyamatban...', 'success');
+    showToast('Szabályzat PDF generálása folyamatban...', 'info');
+    const token = localStorage.getItem('token');
     const res = await fetch(`/api/tickets/${ticketId}/rules-pdf`, {
-      headers: getAuthHeaders()
+      method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
-    if (!res.ok) throw new Error('Nem sikerült a PDF generálása a szerveren');
-    
+
+    // Check content type – if not PDF, extract the error message
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('application/pdf')) {
+      let errMsg = 'Nem sikerült a PDF generálása.';
+      try {
+        const errJson = await res.json();
+        errMsg = errJson.error || errMsg;
+      } catch (_) {
+        errMsg = await res.text().catch(() => errMsg);
+      }
+      throw new Error(errMsg);
+    }
+
     const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
+    const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(pdfBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `HawkStone_Hasznalati_Szabalyzat_${ticketId}.pdf`;
+    a.download = `HawkStone_Jegy_${ticketId}.pdf`;
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    setTimeout(() => {
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }, 200);
+    showToast('PDF sikeresen letöltve!', 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
