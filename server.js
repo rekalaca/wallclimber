@@ -2631,7 +2631,7 @@ app.get('/api/admin/withdrawals', authenticateToken, requireRole(['STAFF', 'ADMI
   try {
     const list = await dbAll(`
       SELECT w.*, u.name as user_name, u.email as user_email,
-             t.expires_date as ticket_expires_date, t.price as ticket_price
+             t.expires_date as ticket_expires_date
       FROM withdrawals w
       JOIN users u ON w.user_id = u.id
       LEFT JOIN tickets t ON w.ticket_id = t.id
