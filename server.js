@@ -246,10 +246,20 @@ async function initDB() {
       sessions_remaining INTEGER DEFAULT 0,
       withdrawal_time DATETIME DEFAULT CURRENT_TIMESTAMP,
       status TEXT DEFAULT 'PROCESSED',
+      refund_status TEXT DEFAULT 'PENDING',
+      admin_note TEXT DEFAULT '',
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
     )
   `);
+
+  // Migrate existing withdrawals table – add columns if missing
+  try {
+    await dbRun("ALTER TABLE withdrawals ADD COLUMN refund_status TEXT DEFAULT 'PENDING'");
+  } catch (_) { /* column already exists */ }
+  try {
+    await dbRun("ALTER TABLE withdrawals ADD COLUMN admin_note TEXT DEFAULT ''");
+  } catch (_) { /* column already exists */ }
 
   // Seed Locations
   const locationsCount = await dbGet('SELECT COUNT(*) as count FROM locations');
@@ -2615,14 +2625,87 @@ HawkStone Mászóklub`;
 app.get('/api/admin/withdrawals', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
     const list = await dbAll(`
-      SELECT w.*, u.name as user_name, u.email as user_email
+      SELECT w.*, u.name as user_name, u.email as user_email,
+             t.expires_date as ticket_expires_date, t.price as ticket_price
       FROM withdrawals w
       JOIN users u ON w.user_id = u.id
+      LEFT JOIN tickets t ON w.ticket_id = t.id
       ORDER BY w.withdrawal_time DESC
     `);
     res.json(list);
   } catch (error) {
     res.status(500).json({ error: 'Hiba a naplózott elállások lekérésekor: ' + error.message });
+  }
+});
+
+// 4. Admin Update Withdrawal Status (refund_status + admin_note)
+app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { refund_status, admin_note } = req.body;
+    const withdrawalId = req.params.id;
+    const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [withdrawalId]);
+    if (!withdrawal) return res.status(404).json({ error: 'Elállás nem található.' });
+
+    const newRefundStatus = refund_status || withdrawal.refund_status;
+    const newNote = admin_note !== undefined ? admin_note : (withdrawal.admin_note || '');
+
+    await dbRun(
+      'UPDATE withdrawals SET refund_status = ?, admin_note = ? WHERE id = ?',
+      [newRefundStatus, newNote, withdrawalId]
+    );
+    const updated = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [withdrawalId]);
+    res.json({ success: true, withdrawal: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba az elállás frissítésekor: ' + error.message });
+  }
+});
+
+// 5. Admin Send Message to Customer about Withdrawal
+app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const withdrawalId = req.params.id;
+    const { subject, message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Az üzenet nem lehet üres.' });
+
+    const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [withdrawalId]);
+    if (!withdrawal) return res.status(404).json({ error: 'Elállás nem található.' });
+
+    const mailSubject = subject || `HawkStone – Elállási ügy értesítő (#${withdrawal.contract_id})`;
+    const mailHtml = `
+      <div style="font-family: 'Montserrat', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+        <h2 style="color: #f27620; font-weight: 700; text-align: center; margin-bottom: 5px;">HawkStone Városi Mászóklub</h2>
+        <h3 style="color: #fff; font-size: 15px; text-align: center; margin-top: 0; text-transform: uppercase; letter-spacing: 0.05em;">Elállási ügy – Admin értesítő</h3>
+        <p style="font-size: 15px; color: #94a3b8;">Kedves <strong style="color:#fff;">${withdrawal.customer_name}</strong>!</p>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 18px; margin: 20px 0; font-size: 14px; color: #94a3b8;">
+          <p style="margin: 0 0 6px;">Elállás azonosítója: <strong style="color:#fff;">#${withdrawal.contract_id}</strong></p>
+          <p style="margin: 0;">Jegy ID: <strong style="color:#fff;">#${withdrawal.ticket_id}</strong></p>
+        </div>
+        <div style="background: rgba(242,118,32,0.06); border-left: 3px solid #f27620; padding: 16px 18px; border-radius: 6px; font-size: 14px; line-height: 1.7; color: #e2e8f0; white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        <hr style="border:0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+        <p style="font-size: 12px; color: #64748b; text-align: center;">Üdvözlettel,<br><strong>HawkStone Mászóklub Adminisztráció</strong></p>
+      </div>
+    `;
+
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+        to: withdrawal.customer_email,
+        subject: mailSubject,
+        html: mailHtml
+      });
+      console.log(`[EMAIL] Admin message sent to ${withdrawal.customer_email}`);
+    } else {
+      console.log(`[EMAIL MOCK] Admin message would be sent to: ${withdrawal.customer_email}`);
+      console.log(`Subject: ${mailSubject}`);
+      console.log(`Message: ${message}`);
+    }
+
+    // Save note
+    await dbRun('UPDATE withdrawals SET admin_note = ? WHERE id = ?', [message, withdrawalId]);
+
+    res.json({ success: true, message: 'Üzenet elküldve.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba az üzenet küldésekor: ' + error.message });
   }
 });
 

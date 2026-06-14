@@ -3163,6 +3163,30 @@ function getWeeksData() {
 }
 
 // ---------------- ADMIN WITHDRAWALS LOG (EU 2023/2673) ----------------
+
+// Format UTC datetime string to Hungarian local time (Europe/Budapest)
+function formatHungarianDateTime(utcStr) {
+  if (!utcStr) return '-';
+  // SQLite CURRENT_TIMESTAMP returns "YYYY-MM-DD HH:MM:SS" in UTC
+  // Add 'Z' suffix so JS parses it as UTC
+  const normalized = utcStr.includes('T') ? utcStr : utcStr.replace(' ', 'T') + 'Z';
+  try {
+    const d = new Date(normalized);
+    return d.toLocaleString('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch (_) {
+    return utcStr.substring(0, 19);
+  }
+}
+
 async function loadAdminWithdrawals() {
   const container = document.getElementById('admin-withdrawals-list');
   if (!container) return;
@@ -3179,70 +3203,254 @@ async function loadAdminWithdrawals() {
       return;
     }
 
-    let html = `
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-          <thead>
-            <tr style="border-bottom: 2px solid var(--border-color); color: var(--primary);">
-              <th style="padding: 12px 8px;">Fogyasztó Neve / E-mail</th>
-              <th style="padding: 12px 8px;">Azonosító (Megadott)</th>
-              <th style="padding: 12px 8px;">Jegy/Bérlet</th>
-              <th style="padding: 12px 8px;">Vételár (becsült)</th>
-              <th style="padding: 12px 8px; text-align: center;">Maradvány alkalmak</th>
-              <th style="padding: 12px 8px;">Vásárlás dátuma</th>
-              <th style="padding: 12px 8px;">Elállás időpontja</th>
-              <th style="padding: 12px 8px; text-align: center;">Státusz</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
+    const refundLabels = {
+      'PENDING':  { label: 'Folyamatban', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
+      'REFUNDED': { label: 'Visszatérítve', color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)' },
+      'REJECTED': { label: 'Elutasítva', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.25)' },
+      'UNDER_REVIEW': { label: 'Vizsgálat alatt', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
+    };
+
+    let html = `<div style="display: flex; flex-direction: column; gap: 16px;">`;
 
     data.forEach(w => {
       let typeLabel = '';
       let priceText = '';
-      if (w.ticket_type === 'NAPI') {
-        typeLabel = 'Napijegy';
-        priceText = '2 800 Ft';
-      } else if (w.ticket_type === 'TIZ_ALKALMAS') {
-        typeLabel = '10 Alkalmas Bérlet';
-        priceText = '22 000 Ft';
-      } else if (w.ticket_type === 'HAVI') {
-        typeLabel = 'Korlátlan Havi';
-        priceText = '28 000 Ft';
-      }
+      if (w.ticket_type === 'NAPI') { typeLabel = 'Napijegy'; priceText = '2 800 Ft'; }
+      else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22 000 Ft'; }
+      else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet'; priceText = '28 000 Ft'; }
 
-      const formattedTime = w.withdrawal_time ? w.withdrawal_time.replace('T', ' ').substring(0, 19) : '-';
+      const refundKey = w.refund_status || 'PENDING';
+      const rf = refundLabels[refundKey] || refundLabels['PENDING'];
+      const formattedWithdrawal = formatHungarianDateTime(w.withdrawal_time);
+      const purchaseDisplay = w.purchase_date ? w.purchase_date.substring(0, 10) : '-';
 
       html += `
-        <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-          <td style="padding: 12px 8px;">
-            <strong style="color: #fff;">${w.customer_name}</strong><br>
-            <span style="font-size: 11px; color: var(--text-muted);">${w.customer_email}</span>
-          </td>
-          <td style="padding: 12px 8px; font-family: monospace;">${w.contract_id}</td>
-          <td style="padding: 12px 8px;">
-            <strong>${typeLabel}</strong> (ID: #${w.ticket_id})
-          </td>
-          <td style="padding: 12px 8px;">${priceText}</td>
-          <td style="padding: 12px 8px; font-weight: 600; text-align:center;">${w.sessions_remaining}</td>
-          <td style="padding: 12px 8px;">${w.purchase_date}</td>
-          <td style="padding: 12px 8px; color: var(--primary); font-weight: 500;">${formattedTime}</td>
-          <td style="padding: 12px 8px; text-align: center;">
-            <span class="badge badge-green" style="font-size: 10px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16,185,129,0.2); color: var(--success);">${w.status}</span>
-          </td>
-        </tr>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; transition: border-color 0.2s;" onmouseover="this.style.borderColor='rgba(242,118,32,0.35)'" onmouseout="this.style.borderColor='var(--border-color)'">
+          
+          <!-- Left: Customer & ticket info -->
+          <div style="flex: 1; min-width: 220px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
+              <span style="font-size: 15px; font-weight: 700; color: #fff;">${w.customer_name}</span>
+              <span style="font-size: 11px; background: ${rf.bg}; border: 1px solid ${rf.border}; color: ${rf.color}; padding: 3px 9px; border-radius: 20px; font-weight: 600;">${rf.label}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${w.customer_email}</div>
+            <div style="font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px;">
+              <span>🎫 <strong style="color:#fff;">${typeLabel}</strong> &nbsp;|&nbsp; ID: <code style="font-size:12px; color: var(--primary);">#${w.ticket_id}</code></span>
+              <span>💰 Vételár (becsült): <strong style="color:#fff;">${priceText}</strong></span>
+              <span>📅 Vásárlás: <strong style="color:#fff;">${purchaseDisplay}</strong></span>
+              <span>⏱️ Elállás: <strong style="color: var(--primary);">${formattedWithdrawal}</strong></span>
+              ${w.admin_note ? `<span style="margin-top:6px; font-size:11px; color:#94a3b8; font-style:italic;">📝 Megjegyzés: ${w.admin_note.substring(0,80)}${w.admin_note.length > 80 ? '...' : ''}</span>` : ''}
+            </div>
+          </div>
+
+          <!-- Right: Contract ID + Actions -->
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 180px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-align: right;">
+              Szerz. azonosító:<br><code style="font-size:12px; color:#fff;">${w.contract_id}</code>
+            </div>
+            <button onclick="openWithdrawalInvestigationModal(${JSON.stringify(w).replace(/"/g, '&quot;')})" class="btn btn-primary btn-sm" style="padding: 9px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+              🔍 Vizsgálat indítása
+            </button>
+          </div>
+        </div>
       `;
     });
 
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-
+    html += `</div>`;
     container.innerHTML = html;
+
   } catch (err) {
     container.innerHTML = `<p style="text-align:center; color: var(--danger); padding: 20px;">Hiba történt az elállások betöltésekor: ${err.message}</p>`;
+  }
+}
+
+// Open investigation modal for a withdrawal record
+function openWithdrawalInvestigationModal(w) {
+  // Remove existing modal if any
+  const existing = document.getElementById('withdrawal-investigation-modal');
+  if (existing) existing.remove();
+
+  let typeLabel = '';
+  let priceText = '';
+  if (w.ticket_type === 'NAPI') { typeLabel = 'Egyszeri Napijegy'; priceText = '2 800 Ft'; }
+  else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22 000 Ft'; }
+  else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet (30 nap)'; priceText = '28 000 Ft'; }
+
+  const formattedWithdrawal = formatHungarianDateTime(w.withdrawal_time);
+  const purchaseDisplay = w.purchase_date ? w.purchase_date.substring(0, 10) : '-';
+  const expiresDisplay = w.ticket_expires_date ? w.ticket_expires_date.substring(0, 10) : '-';
+
+  const refundLabels = {
+    'PENDING':  { label: 'Folyamatban', color: '#f59e0b' },
+    'REFUNDED': { label: 'Visszatérítve', color: '#10b981' },
+    'REJECTED': { label: 'Elutasítva', color: '#ef4444' },
+    'UNDER_REVIEW': { label: 'Vizsgálat alatt', color: '#6366f1' },
+  };
+  const rf = refundLabels[w.refund_status || 'PENDING'] || refundLabels['PENDING'];
+
+  const modal = document.createElement('div');
+  modal.id = 'withdrawal-investigation-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);padding:20px;';
+  modal.innerHTML = `
+    <div style="background: #0f1117; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.7);">
+      
+      <!-- Header -->
+      <div style="padding: 24px 28px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h3 style="margin:0; font-size:18px; font-weight:700; color:#fff; font-family:'Montserrat',sans-serif;">🔍 Elállás Vizsgálata</h3>
+          <p style="margin:4px 0 0; font-size:12px; color: var(--text-muted);">Elállás #${w.id} &nbsp;·&nbsp; Szerz. azonosító: <code style="color:var(--primary)">${w.contract_id}</code></p>
+        </div>
+        <button onclick="document.getElementById('withdrawal-investigation-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 24px 28px; display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Customer info -->
+        <div>
+          <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Fogyasztó adatai</p>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px; font-size:13px; color: var(--text-secondary); display: flex; flex-direction: column; gap:5px;">
+            <span>👤 <strong style="color:#fff;">${w.customer_name}</strong></span>
+            <span>✉️ ${w.customer_email}</span>
+            <span>🔖 Felhasználó ID: #${w.user_id}</span>
+          </div>
+        </div>
+
+        <!-- Ticket info -->
+        <div>
+          <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Jegy adatai</p>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px; font-size:13px; color: var(--text-secondary); display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <span>🎫 Típus: <strong style="color:#fff;">${typeLabel}</strong></span>
+            <span>🆔 Jegy ID: <code style="color:var(--primary);">#${w.ticket_id}</code></span>
+            <span>💰 Becsült vételár: <strong style="color:#fff;">${priceText}</strong></span>
+            <span>🔢 Felhasználatlan: <strong style="color:#fff;">${w.sessions_remaining} alkalom</strong></span>
+            <span>📅 Vásárlás: <strong style="color:#fff;">${purchaseDisplay}</strong></span>
+            <span>⏳ Lejárat: <strong style="color:#fff;">${expiresDisplay}</strong></span>
+          </div>
+        </div>
+
+        <!-- Withdrawal timing -->
+        <div>
+          <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Elállás időbélyege</p>
+          <div style="background: rgba(242,118,32,0.06); border: 1px solid rgba(242,118,32,0.2); border-radius: 10px; padding: 14px 16px; font-size:13px; color: var(--text-secondary); display: flex; flex-direction: column; gap:5px;">
+            <span>⏱️ Magyar idő: <strong style="color: var(--primary); font-size:15px;">${formattedWithdrawal}</strong></span>
+            <span style="font-size:11px; color: var(--text-muted);">Az EU fogyasztóvédelmi rendelet (2023/2673) értelmében a nyilatkozat tartós adathordozón (e-mailben) visszaigazolásra került.</span>
+          </div>
+        </div>
+
+        <!-- Current refund status -->
+        <div>
+          <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Visszatérítési státusz</p>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span style="font-size:13px; font-weight:700; color:${rf.color};">● ${rf.label}</span>
+            <select id="modal-refund-status-${w.id}" style="background:#1a1d2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;flex:1;min-width:160px;">
+              <option value="PENDING" ${(w.refund_status||'PENDING')==='PENDING'?'selected':''}>Folyamatban (Pending)</option>
+              <option value="UNDER_REVIEW" ${w.refund_status==='UNDER_REVIEW'?'selected':''}>Vizsgálat alatt</option>
+              <option value="REFUNDED" ${w.refund_status==='REFUNDED'?'selected':''}>Visszatérítve</option>
+              <option value="REJECTED" ${w.refund_status==='REJECTED'?'selected':''}>Elutasítva</option>
+            </select>
+          </div>
+          ${w.admin_note ? `<p style="margin:10px 0 0; font-size:12px; color:#94a3b8; font-style:italic; background:rgba(255,255,255,0.02); border-radius:8px; padding:10px;">📝 Utolsó megjegyzés: ${w.admin_note}</p>` : ''}
+        </div>
+
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="padding: 18px 28px 24px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+        <button onclick="openWithdrawalMessageModal(${w.id}, '${w.customer_name.replace(/'/g,"\\'")}', '${w.customer_email}', '${w.contract_id}')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#818cf8;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:7px;" onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">
+          ✉️ Üzenet írása
+        </button>
+        <button onclick="initiateWithdrawalRefund(${w.id})" style="background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(16,185,129,0.3);" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.3)'">
+          💸 Visszatérítés indítása
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+// Initiate refund: update status to REFUNDED
+async function initiateWithdrawalRefund(withdrawalId) {
+  const selectEl = document.getElementById(`modal-refund-status-${withdrawalId}`);
+  const newStatus = selectEl ? selectEl.value : 'REFUNDED';
+
+  try {
+    const res = await fetch(`/api/admin/withdrawals/${withdrawalId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ refund_status: newStatus === 'PENDING' ? 'REFUNDED' : newStatus })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast('Visszatérítési státusz frissítve!', 'success');
+    document.getElementById('withdrawal-investigation-modal')?.remove();
+    await loadAdminWithdrawals();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Open message modal
+function openWithdrawalMessageModal(withdrawalId, customerName, customerEmail, contractId) {
+  const existing = document.getElementById('withdrawal-message-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'withdrawal-message-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);padding:20px;';
+  modal.innerHTML = `
+    <div style="background: #0f1117; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; width: 100%; max-width: 520px; box-shadow: 0 24px 80px rgba(0,0,0,0.8);">
+      <div style="padding: 22px 26px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h3 style="margin:0; font-size:16px; font-weight:700; color:#fff; font-family:'Montserrat',sans-serif;">✉️ Üzenet a fogyasztónak</h3>
+          <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">Küldés: <strong style="color:#fff;">${customerName}</strong> &lt;${customerEmail}&gt;</p>
+        </div>
+        <button onclick="document.getElementById('withdrawal-message-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 11px;cursor:pointer;font-size:13px;">✕</button>
+      </div>
+      <div style="padding: 22px 26px; display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <label style="font-size:12px; color:var(--primary); font-weight:600; display:block; margin-bottom:6px;">Tárgy (opcionális)</label>
+          <input id="msg-subject-${withdrawalId}" type="text" placeholder="HawkStone – Elállási ügy értesítő (#${contractId})" style="width:100%;background:#1a1d2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:10px 12px;font-size:13px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--primary); font-weight:600; display:block; margin-bottom:6px;">Üzenet szövege *</label>
+          <textarea id="msg-body-${withdrawalId}" rows="6" placeholder="Írja ide az üzenetet a fogyasztónak..." style="width:100%;background:#1a1d2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:10px 12px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+        </div>
+      </div>
+      <div style="padding: 14px 26px 22px; border-top: 1px solid rgba(255,255,255,0.08); display:flex; gap:10px; justify-content:flex-end;">
+        <button onclick="document.getElementById('withdrawal-message-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:9px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:600;">Mégse</button>
+        <button onclick="sendWithdrawalMessage(${withdrawalId})" style="background:linear-gradient(135deg,#6366f1,#4f46e5);border:none;color:#fff;border-radius:9px;padding:10px 22px;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(99,102,241,0.35);">📤 Küldés</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+// Send admin message to customer
+async function sendWithdrawalMessage(withdrawalId) {
+  const subjectEl = document.getElementById(`msg-subject-${withdrawalId}`);
+  const bodyEl = document.getElementById(`msg-body-${withdrawalId}`);
+  const message = bodyEl?.value?.trim();
+  if (!message) { showToast('Az üzenet szövege kötelező!', 'error'); return; }
+
+  const btn = document.querySelector('#withdrawal-message-modal button[onclick*="sendWithdrawalMessage"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Küldés...'; }
+
+  try {
+    const res = await fetch(`/api/admin/withdrawals/${withdrawalId}/message`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ subject: subjectEl?.value?.trim() || '', message })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast('Üzenet sikeresen elküldve!', 'success');
+    document.getElementById('withdrawal-message-modal')?.remove();
+  } catch (err) {
+    showToast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Küldés'; }
   }
 }
 
@@ -3596,6 +3804,10 @@ window.handleBillingSubmit = handleBillingSubmit;
 window.loadAdminBookings = loadAdminBookings;
 window.cancelAdminBooking = cancelAdminBooking;
 window.loadAdminWithdrawals = loadAdminWithdrawals;
+window.openWithdrawalInvestigationModal = openWithdrawalInvestigationModal;
+window.initiateWithdrawalRefund = initiateWithdrawalRefund;
+window.openWithdrawalMessageModal = openWithdrawalMessageModal;
+window.sendWithdrawalMessage = sendWithdrawalMessage;
 window.resetScannerAfterSuccess = resetScannerAfterSuccess;
 window.toggleCamera = toggleCamera;
 
