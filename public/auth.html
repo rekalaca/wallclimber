@@ -50,8 +50,25 @@
             <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
             <span class="password-toggle-eye" onclick="togglePasswordVisibility('login-password')">👁️</span>
           </div>
+          <div style="text-align: right; margin-top: 8px;">
+            <a href="#" onclick="showForgotPasswordForm(event)" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;">Elfelejtettem a jelszavam</a>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Bejelentkezés</button>
+      </form>
+
+      <!-- Forgot Password Form -->
+      <form id="forgot-form" onsubmit="handleForgotPassword(event)" style="display: none;">
+        <h3 style="font-size: 18px; color: #ffffff; margin-bottom: 15px; text-align: center; font-family: 'Outfit', sans-serif;">Jelszó visszaállítása</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; text-align: center;">Kérjük, add meg a regisztrált e-mail címedet. A rendszer egy ideiglenes jelszót küld neked, amivel be tudsz lépni.</p>
+        <div class="form-group">
+          <label class="form-label" for="forgot-email">E-mail cím</label>
+          <input type="email" id="forgot-email" class="form-control" placeholder="peter@domain.hu" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Ideiglenes jelszó igénylése</button>
+        <div style="text-align: center; margin-top: 15px;">
+          <a href="#" onclick="switchAuthTab('login')" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">Vissza a bejelentkezéshez</a>
+        </div>
       </form>
 
       <!-- Register Form -->
@@ -81,10 +98,10 @@
         <div class="form-group">
           <label class="form-label" for="reg-password">Jelszó</label>
           <div style="position: relative;">
-            <input type="password" id="reg-password" class="form-control" placeholder="Min. 8 karakter, kis/nagybetű, spec. karakter" required minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}">
+            <input type="password" id="reg-password" class="form-control" placeholder="Min. 8 karakter, kis/nagybetű, szám, spec. karakter" required minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}">
             <span class="password-toggle-eye" onclick="togglePasswordVisibility('reg-password')">👁️</span>
           </div>
-          <small class="password-hint">A jelszónak legalább 8 karakterből kell állnia, és tartalmaznia kell legalább egy kisbetűt, egy nagybetűt és egy speciális karaktert.</small>
+          <small class="password-hint">A jelszónak legalább 8 karakterből kell állnia, és tartalmaznia kell legalább egy kisbetűt, egy nagybetűt, egy számot és egy speciális karaktert.</small>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-password-confirm">Jelszó újra</label>
@@ -92,6 +109,12 @@
             <input type="password" id="reg-password-confirm" class="form-control" placeholder="Jelszó ismétlése" required>
             <span class="password-toggle-eye" onclick="togglePasswordVisibility('reg-password-confirm')">👁️</span>
           </div>
+        </div>
+        <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px; margin-top: 15px; margin-bottom: 15px;">
+          <input type="checkbox" id="reg-accept" required style="margin-top: 4px; cursor: pointer;">
+          <label for="reg-accept" style="font-size: 13px; color: var(--text-secondary); cursor: pointer; line-height: 1.4; user-select: none;">
+            Megértettem és elfogadom az <a href="adatvedelem.html" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Adatkezelési Tájékoztatót</a> és a <a href="hasznalati-szabalyok.html" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Mászófal használati szabályokat</a>.
+          </label>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Regisztráció végrehajtása</button>
       </form>
@@ -102,9 +125,11 @@
     <div class="container">
       <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
       <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
-        <a href="#" class="footer-link">Adatkezelési Tájékoztató</a> | 
-        <a href="#" class="footer-link">Impresszum</a> | 
-        <a href="#" class="footer-link">ÁSZF</a>
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> | 
+        <a href="hasznalati-szabalyok.html" class="footer-link">Mászófal használati szabályok</a> | 
+        <a href="impresszum.html" class="footer-link">Impresszum</a> | 
+        <a href="aszf.html" class="footer-link">ÁSZF</a> | 
+        <a href="withdrawal.html" class="footer-link">Elállás a szerződéstől</a>
       </p>
       <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
     </div>
@@ -119,6 +144,9 @@
       const tabRegister = document.getElementById('tab-register');
       const formLogin = document.getElementById('login-form');
       const formRegister = document.getElementById('register-form');
+      const formForgot = document.getElementById('forgot-form');
+
+      if (formForgot) formForgot.style.display = 'none';
 
       if (tab === 'login') {
         tabLogin.classList.add('active');
@@ -130,6 +158,44 @@
         tabRegister.classList.add('active');
         formLogin.style.display = 'none';
         formRegister.style.display = 'block';
+      }
+    }
+
+    function showForgotPasswordForm(e) {
+      if (e) e.preventDefault();
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const formLogin = document.getElementById('login-form');
+      const formRegister = document.getElementById('register-form');
+      const formForgot = document.getElementById('forgot-form');
+
+      if (tabLogin) tabLogin.classList.remove('active');
+      if (tabRegister) tabRegister.classList.remove('active');
+      if (formLogin) formLogin.style.display = 'none';
+      if (formRegister) formRegister.style.display = 'none';
+      if (formForgot) formForgot.style.display = 'block';
+    }
+
+    async function handleForgotPassword(e) {
+      if (e) e.preventDefault();
+      const email = document.getElementById('forgot-email').value;
+
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Hiba történt a jelszó visszaállítása során');
+
+        showToast('Ideiglenes jelszó sikeresen elküldve az e-mail címére!', 'success');
+        document.getElementById('forgot-form').reset();
+        setTimeout(() => {
+          switchAuthTab('login');
+        }, 1500);
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 
@@ -152,7 +218,9 @@
         
         showToast('Sikeres bejelentkezés! Átirányítás...');
         setTimeout(() => {
-          if (data.user.role === 'STAFF') {
+          if (data.mustChangePassword) {
+            window.location.href = 'dashboard.html?forceChangePassword=true';
+          } else if (data.user.role === 'STAFF') {
             window.location.href = 'scanner.html';
           } else {
             window.location.href = 'dashboard.html';
@@ -187,10 +255,16 @@
         return;
       }
 
+      // Check if rules are accepted
+      if (!document.getElementById('reg-accept').checked) {
+        showToast('A regisztrációhoz el kell fogadni a szabályzatokat!', 'error');
+        return;
+      }
+
       // Regular Registration Password Strength Validation (Client-Side with simplified Regex)
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
       if (!passwordRegex.test(password)) {
-        showToast('A jelszó nem felel meg a biztonsági követelményeknek!', 'error');
+        showToast('A jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.', 'error');
         return;
       }
 

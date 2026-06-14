@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elállás a szerződéstől | HawkStone</title>
+  <link rel="stylesheet" href="style.css?v=20260530_v14">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="max-width: 650px; margin: 40px auto 80px auto;">
+    
+    <div style="margin-bottom: 30px; text-align: center;">
+      <h2 style="font-size: 26px; color: var(--primary); margin-bottom: 10px;">Szerződéstől Való Elállás</h2>
+      <p style="color: var(--text-secondary); font-size: 13px; max-width: 500px; margin: 0 auto;">
+        Az EU 2023/2673 irányelv alapján a vásárlástól számított 14 napon belül online elállási jog illet meg. Add meg az adataidat az elállási folyamat megkezdéséhez.
+      </p>
+    </div>
+
+    <!-- STEP 1: Lookup Form -->
+    <div id="withdrawal-step-lookup" class="glass-card">
+      <h3 style="font-size: 18px; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Azonosítás</h3>
+      <form id="lookup-form" onsubmit="handleLookup(event)">
+        <div class="form-group">
+          <label class="form-label" for="lookup-name">Fogyasztó neve (regisztrált név)</label>
+          <input type="text" id="lookup-name" class="form-control" placeholder="Kovács Péter" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="lookup-email">E-mail cím</label>
+          <input type="email" id="lookup-email" class="form-control" placeholder="peter@domain.hu" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="lookup-id">Szerződés, jegy, vagy rendelés (fizetés) azonosító</label>
+          <input type="text" id="lookup-id" class="form-control" placeholder="Pl. Jegy ID (szám) vagy Barion fizetési azonosító" required>
+          <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 5px;">
+            A vásárláskor kapott e-mailben szereplő jegy sorszámát vagy tranzakciós azonosítót add meg.
+          </small>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Keresés és ellenőrzés</button>
+      </form>
+    </div>
+
+    <!-- STEP 2: Selection & Confirmation Form (Hidden by default) -->
+    <div id="withdrawal-step-select" class="glass-card" style="display: none;">
+      <h3 style="font-size: 18px; color: #ffffff; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Elállás alá vonható termékek kiválasztása</h3>
+      
+      <div style="margin-bottom: 20px; font-size: 14px; color: var(--text-secondary); line-height: 1.5;">
+        <p>Vásárló: <strong id="display-user-name" style="color:#fff;"></strong> (<span id="display-user-email"></span>)</p>
+        <p>Megadott azonosító: <strong id="display-identifier" style="color:#fff;"></strong></p>
+      </div>
+
+      <div id="tickets-list-container" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
+        <!-- Filled dynamically by JavaScript -->
+      </div>
+
+      <!-- Consent and Two-Step Confirm -->
+      <div id="confirm-section" style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+        <div class="form-group" style="display: flex; align-items: flex-start; gap: 10px;">
+          <input type="checkbox" id="consent-check" style="margin-top: 4px; transform: scale(1.1); cursor:pointer;" onchange="toggleInitiateBtn()">
+          <label for="consent-check" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; cursor:pointer; user-select:none;">
+            Kijelentem, hogy a kiválasztott szolgáltatási szerződésekből el kívánok állni. Tudomásul veszem, hogy a nyilatkozat megerősítése után a kapcsolódó belépőkártyák és QR-kódok azonnali hatállyal véglegesen érvénytelenítésre kerülnek.
+          </label>
+        </div>
+
+        <!-- First Action Button -->
+        <button id="initiate-withdrawal-btn" onclick="showConfirmDialog()" class="btn btn-danger" style="width: 100%; margin-top: 10px;" disabled>
+          Elállási folyamat indítása
+        </button>
+        
+        <!-- Two-Step Confirmation Box (Hidden) -->
+        <div id="confirm-dialog-box" style="display: none; background: rgba(239, 68, 68, 0.05); border: 1px dashed var(--danger); border-radius: var(--radius); padding: 20px; margin-top: 20px; text-align: center;">
+          <h4 style="color: var(--danger); font-size: 16px; margin-bottom: 10px; font-weight:700;">Biztosan megerősíted az elállást?</h4>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; line-height: 1.5;">
+            Az elállás végleges. A QR-kódok érvénytelenítése után a mászóterembe történő belépés nem lesz lehetséges ezekkel a jegyekkel. A visszatérítést 14 napon belül végrehajtjuk.
+          </p>
+          <div style="display: flex; gap: 15px; justify-content: center;">
+            <!-- REQUIRED BUTTON TEXT: "elállás megerősítése" -->
+            <button id="confirm-withdrawal-btn" onclick="submitWithdrawal()" class="btn btn-danger btn-sm" style="font-weight: 700; text-transform: uppercase;">
+              elállás megerősítése
+            </button>
+            <button onclick="hideConfirmDialog()" class="btn btn-secondary btn-sm">
+              Mégse
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Success Receipt (Hidden by default) -->
+    <div id="withdrawal-step-success" class="glass-card" style="display: none; border-color: var(--success);">
+      <div style="text-align: center; margin-bottom: 25px;">
+        <span style="font-size: 50px;">✅</span>
+        <h3 style="font-size: 22px; color: var(--success); margin-top: 10px; margin-bottom: 5px;">Elállás Sikeresen Rögzítve</h3>
+        <p style="color: var(--text-secondary); font-size: 13px;">Az átvételi elismervényt tartós adathordozón (e-mail) megküldtük.</p>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; font-size: 14px; line-height: 1.6; margin-bottom: 25px;">
+        <p style="margin-bottom: 8px; color: var(--text-secondary);">Fogyasztó neve: <strong id="success-display-name" style="color: #fff;"></strong></p>
+        <p style="margin-bottom: 8px; color: var(--text-secondary);">Visszaigazoló e-mail: <strong id="success-display-email" style="color: #fff;"></strong></p>
+        <p style="margin-bottom: 8px; color: var(--text-secondary);">Rögzítés pontos ideje: <strong id="success-display-time" style="color: var(--primary);"></strong></p>
+        <p style="margin-bottom: 10px; color: var(--text-secondary);">Érintett visszavont jegyek azonosítói:</p>
+        <ul id="success-display-tickets" style="padding-left: 20px; color: #fff;">
+          <!-- Filled dynamically -->
+        </ul>
+      </div>
+
+      <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; text-align: justify; margin-bottom: 20px;">
+        Köszönjük az együttműködésedet. A tranzakciót és a visszatérítést a jogszabályoknak megfelelően feldolgozzuk, és az online fizetési csatornánkon (Barion) keresztül a vételárat 14 napon belül jóváírjuk.
+      </p>
+
+      <a href="index.html" class="btn btn-secondary" style="width: 100%;">Vissza a Főoldalra</a>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> | 
+        <a href="hasznalati-szabalyok.html" class="footer-link">Mászófal használati szabályok</a> | 
+        <a href="impresszum.html" class="footer-link">Impresszum</a> | 
+        <a href="aszf.html" class="footer-link">ÁSZF</a> | 
+        <a href="withdrawal.html" class="footer-link">Elállás a szerződéstől</a>
+      </p>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom: 8px;">Minden jog fenntartva. Biztonságos mászást kívánunk!</p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <script>
+    let lookupResult = null;
+    let identifierValue = '';
+
+    async function handleLookup(e) {
+      e.preventDefault();
+      const name = document.getElementById('lookup-name').value;
+      const email = document.getElementById('lookup-email').value;
+      const identifier = document.getElementById('lookup-id').value;
+
+      try {
+        const res = await fetch('/api/withdrawal/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, identifier })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || 'Hiba a lekérdezés során');
+        }
+
+        lookupResult = data;
+        identifierValue = identifier;
+
+        // Populate and show Step 2
+        document.getElementById('display-user-name').textContent = data.user.name;
+        document.getElementById('display-user-email').textContent = data.user.email;
+        document.getElementById('display-identifier').textContent = identifier;
+
+        const listContainer = document.getElementById('tickets-list-container');
+        listContainer.innerHTML = '';
+
+        data.tickets.forEach(ticket => {
+          let typeLabel = '';
+          if (ticket.ticket_type === 'NAPI') typeLabel = 'Napijegy (Egyszeri)';
+          else if (ticket.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 Alkalmas Bérlet';
+          else if (ticket.ticket_type === 'HAVI') typeLabel = 'Korlátlan Havi Bérlet';
+
+          const card = document.createElement('div');
+          // Add custom classes or inline styled glass card style
+          card.style.background = 'rgba(255, 255, 255, 0.02)';
+          card.style.border = '1px solid var(--border-color)';
+          card.style.borderRadius = '8px';
+          card.style.padding = '15px';
+          card.style.display = 'flex';
+          card.style.justifyContent = 'space-between';
+          card.style.alignItems = 'center';
+          card.style.gap = '15px';
+          
+          if (!ticket.eligible) {
+            card.style.opacity = '0.6';
+          }
+
+          let checkboxOrError = '';
+          if (ticket.eligible) {
+            checkboxOrError = `
+              <input type="checkbox" name="selected-tickets" value="${ticket.id}" 
+                     style="width: 20px; height: 20px; cursor: pointer;" onchange="toggleInitiateBtn()">
+            `;
+          } else {
+            checkboxOrError = `
+              <span style="font-size: 11px; color: var(--danger); font-weight: 600; text-align: right; max-width: 150px;">
+                ⚠️ Nem elállható: ${ticket.reason}
+              </span>
+            `;
+          }
+
+          card.innerHTML = `
+            <div>
+              <h4 style="font-size: 15px; color: #ffffff; margin-bottom: 4px;">${typeLabel}</h4>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Azonosító: #${ticket.id}</p>
+              <p style="color: var(--text-muted); font-size: 11px;">
+                Vásárlás dátuma: ${ticket.purchase_date} | Hátralévő alkalmak: ${ticket.sessions_remaining}
+              </p>
+            </div>
+            <div>
+              ${checkboxOrError}
+            </div>
+          `;
+
+          listContainer.appendChild(card);
+        });
+
+        document.getElementById('withdrawal-step-lookup').style.display = 'none';
+        document.getElementById('withdrawal-step-select').style.display = 'block';
+        showToast('Keresés sikeres! Kérjük jelöld ki a bérletet/jegyet.');
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function toggleInitiateBtn() {
+      const consent = document.getElementById('consent-check').checked;
+      const checkedBoxes = document.querySelectorAll('input[name="selected-tickets"]:checked');
+      const btn = document.getElementById('initiate-withdrawal-btn');
+      
+      btn.disabled = !(consent && checkedBoxes.length > 0);
+    }
+
+    function showConfirmDialog() {
+      document.getElementById('confirm-dialog-box').style.display = 'block';
+      document.getElementById('initiate-withdrawal-btn').style.display = 'none';
+      document.getElementById('consent-check').disabled = true;
+      document.querySelectorAll('input[name="selected-tickets"]').forEach(cb => cb.disabled = true);
+    }
+
+    function hideConfirmDialog() {
+      document.getElementById('confirm-dialog-box').style.display = 'none';
+      document.getElementById('initiate-withdrawal-btn').style.display = 'block';
+      document.getElementById('consent-check').disabled = false;
+      document.querySelectorAll('input[name="selected-tickets"]').forEach(cb => cb.disabled = false);
+    }
+
+    async function submitWithdrawal() {
+      const name = document.getElementById('lookup-name').value;
+      const email = document.getElementById('lookup-email').value;
+      
+      const checkedBoxes = document.querySelectorAll('input[name="selected-tickets"]:checked');
+      const ticketIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+      try {
+        const res = await fetch('/api/withdrawal/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, identifier: identifierValue, ticketIds })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Hiba az elállás rögzítése során');
+        }
+
+        // Show success screen
+        document.getElementById('success-display-name').textContent = data.customerName;
+        document.getElementById('success-display-email').textContent = data.customerEmail;
+        document.getElementById('success-display-time').textContent = data.withdrawalTime;
+
+        const ticketsUl = document.getElementById('success-display-tickets');
+        ticketsUl.innerHTML = '';
+        data.tickets.forEach(ticket => {
+          const li = document.createElement('li');
+          let typeText = ticket.type === 'NAPI' ? 'Napijegy' : (ticket.type === 'TIZ_ALKALMAS' ? '10 Alkalmas Bérlet' : 'Korlátlan Havi Bérlet');
+          li.innerHTML = `<strong>${typeText}</strong> (ID: #${ticket.id}) - Érvénytelenítve`;
+          ticketsUl.appendChild(li);
+        });
+
+        document.getElementById('withdrawal-step-select').style.display = 'none';
+        document.getElementById('withdrawal-step-success').style.display = 'block';
+        showToast('Elállás sikeresen rögzítve és visszaigazolva!', 'success');
+
+      } catch (err) {
+        showToast(err.message, 'error');
+        hideConfirmDialog();
+      }
+    }
+  </script>
+  <script src="app.js?v=20260530_v14"></script>
+</body>
+</html>

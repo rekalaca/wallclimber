@@ -126,9 +126,18 @@ async function initDB() {
       role TEXT DEFAULT 'USER',
       is_verified INTEGER DEFAULT 0,
       verification_token TEXT,
+      must_change_password INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: Add must_change_password column if it doesn't exist on existing DBs
+  try {
+    await dbRun("ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0");
+    console.log("[DATABASE MIGRATION] Added column 'must_change_password' to 'users' table.");
+  } catch (err) {
+    // Ignore error if column already exists
+  }
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS locations (
@@ -360,9 +369,9 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Server-Side Password Complexity check (aligned with client-side pattern)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
     if (!passwordRegex.test(password)) {
-      return res.status(400).json({ error: 'A jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű és speciális karakter szükséges.' });
+      return res.status(400).json({ error: 'A jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.' });
     }
 
     const existingUser = await dbGet('SELECT id FROM users WHERE email = ?', [email]);
@@ -462,6 +471,110 @@ app.get('/api/auth/verify', async (req, res) => {
   }
 });
 
+function generateTempPassword() {
+  const lowercase = "abcdefghijkmnopqrstuvwxyz";
+  const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const numbers = "23456789";
+  const special = "!@#$%^&*";
+  let pass = "";
+  // Ensure at least one of each to meet complexity requirements
+  pass += lowercase[Math.floor(Math.random() * lowercase.length)];
+  pass += uppercase[Math.floor(Math.random() * uppercase.length)];
+  pass += numbers[Math.floor(Math.random() * numbers.length)];
+  pass += special[Math.floor(Math.random() * special.length)];
+  
+  const all = lowercase + uppercase + numbers + special;
+  for (let i = 0; i < 6; i++) {
+    pass += all[Math.floor(Math.random() * all.length)];
+  }
+  // Shuffle the password
+  return pass.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email megadása kötelező!' });
+    }
+
+    const user = await dbGet('SELECT id, name, email FROM users WHERE email = ?', [email]);
+    if (!user) {
+      return res.status(400).json({ error: 'Ezzel az e-mail címmel nem létezik regisztrált felhasználó!' });
+    }
+
+    const tempPassword = generateTempPassword();
+    const tempHash = await bcrypt.hash(tempPassword, 10);
+
+    // Save temporary password hash and flag force reset
+    await dbRun('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [tempHash, user.id]);
+
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const domain = `${protocol}://${host}`;
+    const loginLink = `${domain}/auth.html`;
+
+    // Send email using real SMTP or print log mockup
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+          to: user.email,
+          subject: 'HawkStone - Ideiglenes jelszó igénylése',
+          text: `Kedves ${user.name}!\n\nKérésedre generáltunk egy új ideiglenes jelszót.\n\nIdeiglenes jelszó: ${tempPassword}\n\nKérjük, lépj be az alábbi linken, majd változtasd meg a jelszavadat a profilodban:\n${loginLink}\n\nÜdvözlettel,\nHawkStone Csapata`,
+          html: `
+            <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+              <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
+              <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center;">Kedves ${user.name}!</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; text-align: center;">Kérésedre generáltunk számodra egy új ideiglenes jelszót, amivel be tudsz lépni a fiókodba.</p>
+              
+              <!-- Temporary Password Info Card -->
+              <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 10px; margin: 25px 0; text-align: center;">
+                <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 14px;">Ideiglenes jelszó:</p>
+                <div style="font-family: 'Courier New', monospace; font-size: 24px; color: #ff6b00; font-weight: 700; letter-spacing: 2px; background: rgba(255, 107, 0, 0.08); display: inline-block; padding: 10px 25px; border-radius: 8px; border: 1px dashed rgba(255, 107, 0, 0.3); margin-bottom: 15px;">
+                  ${tempPassword}
+                </div>
+                <p style="margin: 0; font-size: 12px; color: #ef4444; font-weight: 600;">Figyelem! Az első sikeres belépés után a rendszer azonnal kötelezni fog a jelszó megváltoztatására!</p>
+              </div>
+
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="${loginLink}" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Belépés a fiókba</a>
+              </div>
+              
+              <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+              <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
+            </div>
+          `,
+          attachments: [{
+            filename: 'mail_header.png',
+            path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
+            cid: 'mail_header_image'
+          }]
+        });
+        console.log(`[EMAIL] Temporary password email sent successfully to ${email}`);
+      } catch (mailError) {
+        console.error('[EMAIL ERROR] Failed to send email via SMTP, logging fallback instead:', mailError);
+        console.log(`\n==================================================`);
+        console.log(`[EMAIL MOCK FALLBACK] Temp password sent to: ${email}`);
+        console.log(`Temp Password: ${tempPassword}`);
+        console.log(`Link: ${loginLink}`);
+        console.log(`==================================================\n`);
+      }
+    } else {
+      console.log(`\n==================================================`);
+      console.log(`[EMAIL MOCK] Temp password sent to: ${email}`);
+      console.log(`Subject: HawkStone - Ideiglenes jelszó igénylése`);
+      console.log(`Temp Password: ${tempPassword}`);
+      console.log(`Link: ${loginLink}`);
+      console.log(`==================================================\n`);
+    }
+
+    res.json({ message: 'Ideiglenes jelszó generálása sikeres! Kérjük, ellenőrizze az e-mail fiókját.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a jelszó visszaállítása során: ' + error.message });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -475,7 +588,7 @@ app.post('/api/auth/login', async (req, res) => {
       if (adminUser) {
         const userPayload = { id: adminUser.id, email: adminUser.email, name: adminUser.name, role: adminUser.role, card_type: adminUser.card_type };
         const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({ token, user: userPayload });
+        return res.json({ token, user: userPayload, mustChangePassword: false });
       }
     }
 
@@ -497,7 +610,7 @@ app.post('/api/auth/login', async (req, res) => {
     const userPayload = { id: user.id, email: user.email, name: user.name, role: user.role, card_type: user.card_type };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ token, user: userPayload });
+    res.json({ token, user: userPayload, mustChangePassword: user.must_change_password === 1 });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a bejelentkezés során: ' + error.message });
   }
@@ -505,7 +618,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role FROM users WHERE id = ?', [req.user.id]);
+    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, must_change_password FROM users WHERE id = ?', [req.user.id]);
     if (!user) return res.status(444).json({ error: 'Felhasználó nem található!' });
 
     // Fetch user's active/unused tickets
@@ -541,6 +654,38 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
     res.json({ user, tickets, bookings, logs });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a profil betöltésekor: ' + error.message });
+  }
+});
+
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'A régi és az új jelszó megadása is kötelező!' });
+    }
+
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (!user) {
+      return res.status(404).json({ error: 'Felhasználó nem található!' });
+    }
+
+    const validPassword = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'A jelenlegi jelszó helytelen!' });
+    }
+
+    // Validate complexity of new password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ error: 'Az új jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await dbRun('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [newHash, req.user.id]);
+
+    res.json({ message: 'Jelszó sikeresen megváltoztatva!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a jelszó módosítása során: ' + error.message });
   }
 });
 
@@ -1871,7 +2016,7 @@ app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['STAFF
 // Update user details (name, email, phone, license_number, card_type, role)
 app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
-    const { name, email, phone, license_number, card_type, role } = req.body;
+    const { name, email, phone, license_number, card_type, role, password } = req.body;
     if (!name || !email || !phone || !card_type || !role) {
       return res.status(400).json({ error: 'Minden kötelező mező kitöltése kötelező!' });
     }
@@ -1894,6 +2039,15 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
       [name, email, phone, license_number || '', card_type, role, req.params.id]
     );
 
+    if (password && password.trim().length > 0) {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({ error: 'A megadott új jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.' });
+      }
+      const passwordHash = await bcrypt.hash(password, 10);
+      await dbRun('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [passwordHash, req.params.id]);
+    }
+
     res.json({ message: 'Felhasználó adatai sikeresen frissítve!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1905,6 +2059,15 @@ app.delete('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), as
   try {
     if (parseInt(req.params.id) === req.user.id) {
       return res.status(400).json({ error: 'Nem törölheted a saját adminisztrátori fiókodat!' });
+    }
+
+    const targetUser = await dbGet('SELECT role FROM users WHERE id = ?', [req.params.id]);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'A felhasználó nem található!' });
+    }
+
+    if (targetUser.role === 'ADMIN') {
+      return res.status(400).json({ error: 'Biztonsági okokból adminisztrátori fiókot nem lehet törölni!' });
     }
 
     await dbRun('DELETE FROM users WHERE id = ?', [req.params.id]);

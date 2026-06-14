@@ -38,102 +38,150 @@
       <p style="color:var(--text-secondary); text-align:center;">Profil adatok betöltése...</p>
     </div>
 
-    <div class="grid-2">
-      <!-- Left Column: Tickets and Purchases -->
-      <div>
-        <!-- Buy Tickets -->
-        <div class="glass-card" style="margin-bottom: 30px;">
-          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Jegy- és Bérletvásárlás</h3>
-          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Válassz egyet az alábbi jegytípusok közül. A vásárlás gombra kattintva a rendszer azonnal kiállítja a digitális jegyet és az egyedi QR kódot.</p>
-          
-          <div style="display:flex; flex-direction:column; gap:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
-              <div>
-                <strong style="display:block;">Egyszeri Napijegy</strong>
-                <span style="font-size:12px; color:var(--text-secondary);">2 800 Ft | 30 napig érvényes</span>
-              </div>
-              <button onclick="buyTicket('NAPI')" class="btn btn-primary btn-sm">Vásárlás</button>
-            </div>
+    <!-- Dashboard Sub-Tabs -->
+    <div id="dashboard-tab-bar" style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+      <button id="db-tab-overview" onclick="switchDashboardView('overview')" class="btn btn-primary btn-sm" style="font-weight: 600;">Áttekintés</button>
+      <button id="db-tab-password" onclick="switchDashboardView('password')" class="btn btn-secondary btn-sm" style="font-weight: 600;">Jelszó módosítása</button>
+    </div>
+
+    <!-- Overview Section -->
+    <div id="dashboard-overview-section">
+      <div class="grid-2">
+        <!-- Left Column: Tickets and Purchases -->
+        <div>
+          <!-- Buy Tickets -->
+          <div class="glass-card" style="margin-bottom: 30px;">
+            <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Jegy- és Bérletvásárlás</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Válassz egyet az alábbi jegytípusok közül. A vásárlás gombra kattintva a rendszer azonnal kiállítja a digitális jegyet és az egyedi QR kódot.</p>
             
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
-              <div>
-                <strong style="display:block;">10 Alkalmas Bérlet</strong>
-                <span style="font-size:12px; color:var(--text-secondary);">22 000 Ft | 30 napig / 10 alkalomra érvényes</span>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block;">Egyszeri Napijegy</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);">2 800 Ft | 30 napig érvényes</span>
+                </div>
+                <button onclick="buyTicket('NAPI')" class="btn btn-primary btn-sm">Vásárlás</button>
               </div>
-              <button onclick="buyTicket('TIZ_ALKALMAS')" class="btn btn-primary btn-sm">Vásárlás</button>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block;">10 Alkalmas Bérlet</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);">22 000 Ft | 30 napig / 10 alkalomra érvényes</span>
+                </div>
+                <button onclick="buyTicket('TIZ_ALKALMAS')" class="btn btn-primary btn-sm">Vásárlás</button>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block;">30 Napos Korlátlan Bérlet</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);">28 000 Ft | 30 napos korlátlan belépés</span>
+                </div>
+                <button onclick="buyTicket('HAVI')" class="btn btn-primary btn-sm">Vásárlás</button>
+              </div>
             </div>
-            
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
-              <div>
-                <strong style="display:block;">30 Napos Korlátlan Bérlet</strong>
-                <span style="font-size:12px; color:var(--text-secondary);">28 000 Ft | 30 napos korlátlan belépés</span>
-              </div>
-              <button onclick="buyTicket('HAVI')" class="btn btn-primary btn-sm">Vásárlás</button>
+          </div>
+
+          <!-- Active Passes list -->
+          <div class="glass-card">
+            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Megvásárolt Jegyek & Bérletek</h3>
+            <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
+              <button id="ticket-tab-active" onclick="switchTicketTab('active')" class="btn btn-primary btn-sm">Érvényes jegyeim</button>
+              <button id="ticket-tab-expired" onclick="switchTicketTab('expired')" class="btn btn-secondary btn-sm">Lejárt / Felhasznált</button>
+            </div>
+            <div class="ticket-list" id="dashboard-tickets">
+              <p style="color:var(--text-muted);">Jegyek betöltése...</p>
+            </div>
+          </div>
+
+          <!-- Entry Logs History -->
+          <div class="glass-card" style="margin-top: 30px;">
+            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Belépési Előzmények Naplója</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px;">
+              A megvásárolt jegyeid és bérleteid leolvasásainak (belepéseinek) naplója helyszínek szerint.
+            </p>
+            <div id="dashboard-entry-logs" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+              <p style="color:var(--text-muted);">Előzmények betöltése...</p>
             </div>
           </div>
         </div>
 
-        <!-- Active Passes list -->
-        <div class="glass-card">
-          <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Megvásárolt Jegyek & Bérletek</h3>
-          <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button id="ticket-tab-active" onclick="switchTicketTab('active')" class="btn btn-primary btn-sm">Érvényes jegyeim</button>
-            <button id="ticket-tab-expired" onclick="switchTicketTab('expired')" class="btn btn-secondary btn-sm">Lejárt / Felhasznált</button>
-          </div>
-          <div class="ticket-list" id="dashboard-tickets">
-            <p style="color:var(--text-muted);">Jegyek betöltése...</p>
-          </div>
-        </div>
+        <!-- Right Column: Booking and Appointments -->
+        <div>
+          <!-- Book slot form & calendar -->
+          <div class="glass-card" style="margin-bottom: 30px;">
+            <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Időpont Bejelentkezés / Foglalás</h3>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="booking-location">Mászófal helyszín</label>
+                <select id="booking-location" class="form-control">
+                  <option value="">Válassz helyszínt...</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="booking-date">Dátum</label>
+                <input type="date" id="booking-date" class="form-control">
+              </div>
+            </div>
 
-        <!-- Entry Logs History -->
-        <div class="glass-card" style="margin-top: 30px;">
-          <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Belépési Előzmények Naplója</h3>
-          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px;">
-            A megvásárolt jegyeid és bérleteid leolvasásainak (belepéseinek) naplója helyszínek szerint.
-          </p>
-          <div id="dashboard-entry-logs" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-            <p style="color:var(--text-muted);">Előzmények betöltése...</p>
+            <h4 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px; letter-spacing:0.05em;">Szabad idősávok a választott napon</h4>
+            <div class="schedule-list" id="booking-slots-container">
+              <p style="color:var(--text-muted);">Kérjük, válassz helyszínt és dátumot a szabad helyek listázásához.</p>
+            </div>
+          </div>
+
+          <!-- My upcoming bookings list -->
+          <div class="glass-card">
+            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Saját Helyfoglalásaim</h3>
+            <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
+              <button id="booking-tab-upcoming" onclick="switchBookingTab('upcoming')" class="btn btn-primary btn-sm">Közelgő foglalások</button>
+              <button id="booking-tab-past" onclick="switchBookingTab('past')" class="btn btn-secondary btn-sm">Múltbéli foglalások</button>
+            </div>
+            <div class="schedule-list" id="dashboard-bookings">
+              <p style="color:var(--text-muted);">Foglalások betöltése...</p>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Right Column: Booking and Appointments -->
-      <div>
-        <!-- Book slot form & calendar -->
-        <div class="glass-card" style="margin-bottom: 30px;">
-          <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Időpont Bejelentkezés / Foglalás</h3>
-          
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="booking-location">Mászófal helyszín</label>
-              <select id="booking-location" class="form-control">
-                <option value="">Válassz helyszínt...</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="booking-date">Dátum</label>
-              <input type="date" id="booking-date" class="form-control">
-            </div>
-          </div>
-
-          <h4 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px; letter-spacing:0.05em;">Szabad idősávok a választott napon</h4>
-          <div class="schedule-list" id="booking-slots-container">
-            <p style="color:var(--text-muted);">Kérjük, válassz helyszínt és dátumot a szabad helyek listázásához.</p>
-          </div>
-        </div>
-
-        <!-- My upcoming bookings list -->
-        <div class="glass-card">
-          <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--primary);">Saját Helyfoglalásaim</h3>
-          <div class="tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button id="booking-tab-upcoming" onclick="switchBookingTab('upcoming')" class="btn btn-primary btn-sm">Közelgő foglalások</button>
-            <button id="booking-tab-past" onclick="switchBookingTab('past')" class="btn btn-secondary btn-sm">Múltbéli foglalások</button>
-          </div>
-          <div class="schedule-list" id="dashboard-bookings">
-            <p style="color:var(--text-muted);">Foglalások betöltése...</p>
-          </div>
-        </div>
+    <!-- Password Change Section -->
+    <div id="dashboard-password-section" class="glass-card" style="display: none; max-width: 500px; margin: 0 auto 40px auto;">
+      <div id="password-force-warning" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <h4 style="color: #ef4444; margin: 0 0 5px 0; font-family: 'Outfit', sans-serif;">Kötelező jelszómódosítás!</h4>
+        <p style="color: var(--text-secondary); font-size: 13px; margin: 0;">Biztonsági okokból kérjük, adj meg egy új egyedi jelszót, mielőtt folytatnád a rendszer használatát!</p>
       </div>
+
+      <h3 style="font-size: 20px; color: var(--primary); margin-bottom: 20px; text-align: center; font-family: 'Outfit', sans-serif;">Jelszó módosítása</h3>
+      
+      <form id="change-password-form" onsubmit="handleChangePasswordSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="old-password">Jelenlegi jelszó</label>
+          <div style="position: relative;">
+            <input type="password" id="old-password" class="form-control" required placeholder="••••••••">
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('old-password')">👁️</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="new-password">Új jelszó</label>
+          <div style="position: relative;">
+            <input type="password" id="new-password" class="form-control" required placeholder="••••••••" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}">
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('new-password')">👁️</span>
+          </div>
+          <small class="password-hint">A jelszónak legalább 8 karakterből kell állnia, és tartalmaznia kell legalább egy kisbetűt, egy nagybetűt, egy számot és egy speciális karaktert.</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="new-password-confirm">Új jelszó megerősítése</label>
+          <div style="position: relative;">
+            <input type="password" id="new-password-confirm" class="form-control" required placeholder="••••••••">
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('new-password-confirm')">👁️</span>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Mentés és frissítés</button>
+      </form>
     </div>
 
   </main>
@@ -215,9 +263,11 @@
     <div class="container">
       <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
       <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
-        <a href="#" class="footer-link">Adatkezelési Tájékoztató</a> | 
-        <a href="#" class="footer-link">Impresszum</a> | 
-        <a href="#" class="footer-link">ÁSZF</a>
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> | 
+        <a href="hasznalati-szabalyok.html" class="footer-link">Mászófal használati szabályok</a> | 
+        <a href="impresszum.html" class="footer-link">Impresszum</a> | 
+        <a href="aszf.html" class="footer-link">ÁSZF</a> | 
+        <a href="withdrawal.html" class="footer-link">Elállás a szerződéstől</a>
       </p>
       <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
     </div>

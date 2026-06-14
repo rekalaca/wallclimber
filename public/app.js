@@ -101,6 +101,7 @@ function renderHeader() {
       <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
       <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
       <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
+      <li><a href="admin.html#withdrawals" class="nav-link ${activeClass('admin.html', '#withdrawals')}">Elállások</a></li>
       <li><a href="dashboard.html" class="nav-link ${activeClass('dashboard.html')}">Profilom</a></li>
       <li><a href="index.html" class="nav-link">Weboldal ↗</a></li>
     `;
@@ -725,6 +726,21 @@ async function loadProfileAndDashboard() {
     const data = await res.json();
     const { user, tickets, bookings, logs } = data;
     
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceParam = urlParams.get('forceChangePassword') === 'true';
+    if (user.must_change_password === 1 || forceParam) {
+      window.forcedPasswordChangeMode = true;
+      setTimeout(() => {
+        switchDashboardView('password');
+        const tabBar = document.getElementById('dashboard-tab-bar');
+        const forceWarning = document.getElementById('password-force-warning');
+        if (tabBar) tabBar.style.display = 'none';
+        if (forceWarning) forceWarning.style.display = 'block';
+      }, 50);
+    } else {
+      window.forcedPasswordChangeMode = false;
+    }
+    
     // Save data to window for tab switching
     window.dashboardTickets = tickets;
     window.dashboardBookings = bookings;
@@ -944,6 +960,20 @@ function renderDashboardTickets(filter) {
       `;
     }
 
+    const purchaseDate = new Date(t.purchase_date);
+    const todayDate = new Date(today);
+    const timeDiff = todayDate.getTime() - purchaseDate.getTime();
+    const diffDays = timeDiff / (1000 * 3600 * 24);
+    
+    let withdrawalBtnHtml = '';
+    if (t.status === 'ACTIVE' && diffDays <= 14) {
+      withdrawalBtnHtml = `
+        <a href="withdrawal.html?id=${t.id}" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">
+          Elállás a szerződéstől
+        </a>
+      `;
+    }
+
     ticketCard.innerHTML = `
       <div class="ticket-info">
         <div class="ticket-info-details">
@@ -954,11 +984,12 @@ function renderDashboardTickets(filter) {
           <p style="margin-top: 4px;">${usageText}</p>
           <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}</p>
         </div>
-        <div style="margin-top: auto; padding-top: 15px;">
+        <div style="margin-top: auto; padding-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
           <button onclick="downloadRulesPDF(${t.id})" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             PDF jegy & szabályzat
           </button>
+          ${withdrawalBtnHtml}
         </div>
       </div>
       ${qrSectionHtml}
@@ -1929,6 +1960,7 @@ async function initAdminPanel() {
   await loadAdminSlots();
   await loadNewsAnnouncements();
   await loadAdminBookings();
+  await loadAdminWithdrawals();
 
   // News Form submission
   const newsForm = document.getElementById('admin-news-form');
@@ -1946,6 +1978,8 @@ async function initAdminPanel() {
     if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
   } else if (hash === '#bookings') {
     if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
+  } else if (hash === '#withdrawals') {
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('withdrawals');
   }
 
   // Global hash change listener for admin page tabs
@@ -1959,6 +1993,8 @@ async function initAdminPanel() {
       if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
     } else if (currentHash === '#bookings') {
       if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
+    } else if (currentHash === '#withdrawals') {
+      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('withdrawals');
     }
     renderHeader();
   });
@@ -2314,6 +2350,11 @@ async function deleteUserFromSubpage(userId) {
     return;
   }
 
+  if (currentViewedUser && currentViewedUser.role === 'ADMIN') {
+    showToast('Biztonsági okokból adminisztrátori fiókot nem lehet törölni!', 'error');
+    return;
+  }
+
   if (!confirm('Biztosan törlöd ezt a felhasználót és minden hozzá tartozó adatot (jegyek, foglalások)?')) return;
   
   try {
@@ -2343,18 +2384,35 @@ async function handleSubpageEditUserSubmit(e) {
   const license_number = document.getElementById('subpage-edit-user-license').value;
   const card_type = document.getElementById('subpage-edit-user-card').value;
   const role = document.getElementById('subpage-edit-user-role').value;
+  const password = document.getElementById('subpage-edit-user-password').value;
+  
+  const payload = { name, email, phone, license_number, card_type, role };
+  
+  if (password && password.trim().length > 0) {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      showToast('A megadott új jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.', 'error');
+      return;
+    }
+    payload.password = password;
+  }
   
   try {
     const res = await fetch(`/api/admin/users/${id}`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ name, email, phone, license_number, card_type, role })
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
     
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Mentési hiba');
     
     showToast('Felhasználó adatai sikeresen frissítve!');
+    const passInput = document.getElementById('subpage-edit-user-password');
+    if (passInput) passInput.value = '';
     
     // Refresh subpage details
     openUserDetailsModal(parseInt(id));
@@ -3046,6 +3104,90 @@ function getWeeksData() {
   ];
 }
 
+// ---------------- ADMIN WITHDRAWALS LOG (EU 2023/2673) ----------------
+async function loadAdminWithdrawals() {
+  const container = document.getElementById('admin-withdrawals-list');
+  if (!container) return;
+
+  container.innerHTML = '<p style="text-align:center; color: var(--text-muted); padding: 20px;">Elállások lekérése...</p>';
+
+  try {
+    const res = await fetch('/api/admin/withdrawals', { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Hiba a naplózott elállások lekérésekor.');
+    const data = await res.json();
+
+    if (data.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color: var(--text-muted); padding: 20px;">Nincsenek rögzített elállások a rendszerben.</p>';
+      return;
+    }
+
+    let html = `
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border-color); color: var(--primary);">
+              <th style="padding: 12px 8px;">Fogyasztó Neve / E-mail</th>
+              <th style="padding: 12px 8px;">Azonosító (Megadott)</th>
+              <th style="padding: 12px 8px;">Jegy/Bérlet</th>
+              <th style="padding: 12px 8px;">Vételár (becsült)</th>
+              <th style="padding: 12px 8px; text-align: center;">Maradvány alkalmak</th>
+              <th style="padding: 12px 8px;">Vásárlás dátuma</th>
+              <th style="padding: 12px 8px;">Elállás időpontja</th>
+              <th style="padding: 12px 8px; text-align: center;">Státusz</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    data.forEach(w => {
+      let typeLabel = '';
+      let priceText = '';
+      if (w.ticket_type === 'NAPI') {
+        typeLabel = 'Napijegy';
+        priceText = '2 800 Ft';
+      } else if (w.ticket_type === 'TIZ_ALKALMAS') {
+        typeLabel = '10 Alkalmas Bérlet';
+        priceText = '22 000 Ft';
+      } else if (w.ticket_type === 'HAVI') {
+        typeLabel = 'Korlátlan Havi';
+        priceText = '28 000 Ft';
+      }
+
+      const formattedTime = w.withdrawal_time ? w.withdrawal_time.replace('T', ' ').substring(0, 19) : '-';
+
+      html += `
+        <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+          <td style="padding: 12px 8px;">
+            <strong style="color: #fff;">${w.customer_name}</strong><br>
+            <span style="font-size: 11px; color: var(--text-muted);">${w.customer_email}</span>
+          </td>
+          <td style="padding: 12px 8px; font-family: monospace;">${w.contract_id}</td>
+          <td style="padding: 12px 8px;">
+            <strong>${typeLabel}</strong> (ID: #${w.ticket_id})
+          </td>
+          <td style="padding: 12px 8px;">${priceText}</td>
+          <td style="padding: 12px 8px; font-weight: 600; text-align:center;">${w.sessions_remaining}</td>
+          <td style="padding: 12px 8px;">${w.purchase_date}</td>
+          <td style="padding: 12px 8px; color: var(--primary); font-weight: 500;">${formattedTime}</td>
+          <td style="padding: 12px 8px; text-align: center;">
+            <span class="badge badge-green" style="font-size: 10px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16,185,129,0.2); color: var(--success);">${w.status}</span>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<p style="text-align:center; color: var(--danger); padding: 20px;">Hiba történt az elállások betöltésekor: ${err.message}</p>`;
+  }
+}
+
 let currentBookingsLocationId = null;
 let currentBookingsLocationName = '';
 
@@ -3395,6 +3537,84 @@ window.closeBillingModal = closeBillingModal;
 window.handleBillingSubmit = handleBillingSubmit;
 window.loadAdminBookings = loadAdminBookings;
 window.cancelAdminBooking = cancelAdminBooking;
+window.loadAdminWithdrawals = loadAdminWithdrawals;
 window.resetScannerAfterSuccess = resetScannerAfterSuccess;
 window.toggleCamera = toggleCamera;
+
+function switchDashboardView(view) {
+  const tabOverview = document.getElementById('db-tab-overview');
+  const tabPassword = document.getElementById('db-tab-password');
+  const secOverview = document.getElementById('dashboard-overview-section');
+  const secPassword = document.getElementById('dashboard-password-section');
+
+  if (!secOverview || !secPassword) return;
+
+  if (view === 'overview') {
+    if (tabOverview) tabOverview.className = 'btn btn-primary btn-sm';
+    if (tabPassword) tabPassword.className = 'btn btn-secondary btn-sm';
+    secOverview.style.display = 'block';
+    secPassword.style.display = 'none';
+  } else {
+    if (tabOverview) tabOverview.className = 'btn btn-secondary btn-sm';
+    if (tabPassword) tabPassword.className = 'btn btn-primary btn-sm';
+    secOverview.style.display = 'none';
+    secPassword.style.display = 'block';
+  }
+}
+window.switchDashboardView = switchDashboardView;
+
+async function handleChangePasswordSubmit(e) {
+  if (e) e.preventDefault();
+  const oldPassword = document.getElementById('old-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const newPasswordConfirm = document.getElementById('new-password-confirm').value;
+
+  if (newPassword !== newPasswordConfirm) {
+    showToast('Az új jelszó és a megerősítés nem egyezik meg!', 'error');
+    return;
+  }
+
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    showToast('Az új jelszó nem felel meg a biztonsági követelményeknek! Legalább 8 karakter, kisbetű, nagybetű, szám és speciális karakter szükséges.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hiba a jelszómódosítás során');
+
+    showToast('Jelszó sikeresen megváltoztatva!', 'success');
+    document.getElementById('change-password-form').reset();
+    
+    if (window.forcedPasswordChangeMode) {
+      window.forcedPasswordChangeMode = false;
+      const tabBar = document.getElementById('dashboard-tab-bar');
+      const forceWarning = document.getElementById('password-force-warning');
+      if (tabBar) tabBar.style.display = 'flex';
+      if (forceWarning) forceWarning.style.display = 'none';
+      
+      // Clean URL parameter
+      if (history.pushState) {
+        const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.pushState({ path: newurl }, '', newurl);
+      }
+    }
+
+    switchDashboardView('overview');
+    // Reload profile to update local state
+    loadProfileAndDashboard();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+window.handleChangePasswordSubmit = handleChangePasswordSubmit;
 

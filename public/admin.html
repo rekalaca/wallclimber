@@ -44,6 +44,7 @@
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
       <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
       <div id="tab-bookings" class="auth-tab" onclick="switchAdminTab('bookings')">Foglalások</div>
+      <div id="tab-withdrawals" class="auth-tab" onclick="switchAdminTab('withdrawals')">Elállások</div>
     </div>
 
     <!-- Tab Slots Content -->
@@ -242,6 +243,14 @@
                     <option value="ADMIN">ADMIN (Rendszergazda)</option>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label class="form-label" for="subpage-edit-user-password">Új jelszó (opcionális)</label>
+                  <div style="position: relative;">
+                    <input type="password" id="subpage-edit-user-password" class="form-control" placeholder="Hagyja üresen, ha nem változtatja meg">
+                    <span class="password-toggle-eye" onclick="togglePasswordVisibility('subpage-edit-user-password')">👁️</span>
+                  </div>
+                  <small class="password-hint">Ha megadsz új jelszót, annak legalább 8 karakterből kell állnia, és tartalmaznia kell kisbetűt, nagybetűt, számot és speciális karaktert.</small>
+                </div>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                   <button type="submit" class="btn btn-primary" style="flex: 1;">Mentés</button>
                   <button type="button" onclick="switchSubpageToView()" class="btn btn-secondary" style="flex: 1;">Mégse</button>
@@ -392,15 +401,30 @@
         </div>
       </div>
     </div>
+    
+    <!-- Tab Withdrawals Content -->
+    <div id="admin-withdrawals-content" style="display: none;">
+      <div class="glass-card">
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Fogyasztói Elállási Igények (EU 2023/2673)</h3>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
+          Itt találhatók a tagok által az online elállási gombbal visszavont bérletek és jegyek naplóbejegyzései. A visszatérítést 14 napon belül kell teljesíteni.
+        </p>
+        <div id="admin-withdrawals-list">
+          <p style="color:var(--text-muted);">Elállási igények betöltése...</p>
+        </div>
+      </div>
+    </div>
   </main>
 
   <footer>
     <div class="container">
       <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
       <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
-        <a href="#" class="footer-link">Adatkezelési Tájékoztató</a> | 
-        <a href="#" class="footer-link">Impresszum</a> | 
-        <a href="#" class="footer-link">ÁSZF</a>
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> | 
+        <a href="hasznalati-szabalyok.html" class="footer-link">Mászófal használati szabályok</a> | 
+        <a href="impresszum.html" class="footer-link">Impresszum</a> | 
+        <a href="aszf.html" class="footer-link">ÁSZF</a> | 
+        <a href="withdrawal.html" class="footer-link">Elállás a szerződéstől</a>
       </p>
       <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
     </div>
@@ -416,14 +440,16 @@
       const tabUsers = document.getElementById('tab-users');
       const tabNews = document.getElementById('tab-news');
       const tabBookings = document.getElementById('tab-bookings');
+      const tabWithdrawals = document.getElementById('tab-withdrawals');
       
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
       const contentNews = document.getElementById('admin-news-content');
       const contentBookings = document.getElementById('admin-bookings-content');
+      const contentWithdrawals = document.getElementById('admin-withdrawals-content');
       
-      if (!tabSlots || !tabUsers || !tabNews || !tabBookings || 
-          !contentSlots || !contentUsers || !contentNews || !contentBookings) return;
+      if (!tabSlots || !tabUsers || !tabNews || !tabBookings || !tabWithdrawals ||
+          !contentSlots || !contentUsers || !contentNews || !contentBookings || !contentWithdrawals) return;
 
       // Update URL hash without reload
       if (history.pushState) {
@@ -433,8 +459,8 @@
       }
 
       // Deactivate all
-      [tabSlots, tabUsers, tabNews, tabBookings].forEach(t => t.classList.remove('active'));
-      [contentSlots, contentUsers, contentNews, contentBookings].forEach(c => c.style.display = 'none');
+      [tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].forEach(t => t.classList.remove('active'));
+      [contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].forEach(c => c.style.display = 'none');
 
       if (tab === 'slots') {
         tabSlots.classList.add('active');
@@ -450,6 +476,12 @@
         contentBookings.style.display = 'block';
         if (typeof window.loadAdminBookings === 'function') {
           window.loadAdminBookings();
+        }
+      } else if (tab === 'withdrawals') {
+        tabWithdrawals.classList.add('active');
+        contentWithdrawals.style.display = 'block';
+        if (typeof window.loadAdminWithdrawals === 'function') {
+          window.loadAdminWithdrawals();
         }
       }
     }
