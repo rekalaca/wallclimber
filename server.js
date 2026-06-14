@@ -1050,6 +1050,11 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
     const host = req.headers.host;
     const domain = `${protocol}://${host}`;
 
+    // For Barion callbacks, always use the public production URL.
+    // If the request comes from localhost, Barion cannot reach it → CallbackFailed.
+    // BARION_CALLBACK_DOMAIN should be set in .env (e.g. https://webpage-tau-roan.vercel.app)
+    const callbackDomain = process.env.BARION_CALLBACK_DOMAIN || domain;
+
     const paymentRequest = {
       POSKey: BARION_POS_KEY,
       PaymentType: 'Immediate',
@@ -1057,7 +1062,7 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
       FundingSources: ['All'],
       PaymentRequestId: `hawk_${Date.now()}_${req.user.id}`,
       RedirectUrl: `${domain}/dashboard.html`,
-      CallbackUrl: `${domain}/api/barion/callback`,
+      CallbackUrl: `${callbackDomain}/api/barion/callback`,
       Currency: 'HUF',
       Locale: 'hu-HU',
       SendPaymentMail: true,
