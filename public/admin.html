@@ -34,8 +34,8 @@
   <main class="container" style="padding: 40px 20px 80px 20px;">
     
     <div style="margin-bottom: 40px; text-align: center;">
-      <h2 style="font-size: 24px; color: var(--primary); margin-bottom: 10px;">Adminisztrációs Panel</h2>
-      <p style="color: var(--text-secondary); font-size: 13px; max-width: 600px; margin: 0 auto;">Itt végezheted a heti órarendek és a regisztrált felhasználók biztonsági minősítésének (Zöld/Piros kártya) adminisztrálását.</p>
+      <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; font-weight: 800;">Adminisztrációs Panel</h2>
+      <h3 id="admin-active-tab-title" style="font-size: 18px; color: #ffffff; text-transform: uppercase; margin-top: 12px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Montserrat', sans-serif;">HETI ÓRAREND KEZELÉS</h3>
     </div>
 
     <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
@@ -436,6 +436,15 @@
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
 
     function switchAdminTab(tab) {
+      const activeTitleEl = document.getElementById('admin-active-tab-title');
+      if (activeTitleEl) {
+        if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
+        else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
+        else if (tab === 'news') activeTitleEl.textContent = 'ÜZENŐFAL KEZELÉSE';
+        else if (tab === 'bookings') activeTitleEl.textContent = 'FOGLALÁSOK';
+        else if (tab === 'withdrawals') activeTitleEl.textContent = 'ELÁLLÁSOK';
+      }
+
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
       const tabNews = document.getElementById('tab-news');
