@@ -2006,6 +2006,18 @@ app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['STAFF
       return res.status(400).json({ error: 'Érvénytelen kártyatípus!' });
     }
 
+    // Validation for ZÖLD card type: check if they have a valid sport climber license number
+    if (cardType === 'ZÖLD') {
+      const user = await dbGet('SELECT license_number FROM users WHERE id = ?', [req.params.id]);
+      if (!user || !user.license_number || !user.license_number.trim()) {
+        return res.status(400).json({ error: 'Zöld kártya minősítéshez kötelező sportmászó engedélyszám megadása!' });
+      }
+      const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜÓŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
+      if (!licenseRegex.test(user.license_number.trim())) {
+        return res.status(400).json({ error: 'A felhasználó sportmászó engedélyszámának formátuma érvénytelen! (Elvárt pl. SMV-00001 vagy GSE9999/2025)' });
+      }
+    }
+
     await dbRun('UPDATE users SET card_type = ? WHERE id = ?', [cardType, req.params.id]);
     res.json({ message: 'Felhasználó mászókártya státusza sikeresen frissítve!' });
   } catch (error) {
@@ -2027,6 +2039,33 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
 
     if (!['USER', 'STAFF', 'ADMIN'].includes(role)) {
       return res.status(400).json({ error: 'Érvénytelen szerepkör!' });
+    }
+
+    // Check target user before updating
+    const targetUser = await dbGet('SELECT email, role FROM users WHERE id = ?', [req.params.id]);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'A felhasználó nem található!' });
+    }
+
+    // Protection for Admin Főnök (admin@hawkstone.hu) email and role
+    if (targetUser.email === 'admin@hawkstone.hu') {
+      if (role !== 'ADMIN') {
+        return res.status(400).json({ error: 'Az Admin Főnök szerepköre nem módosítható!' });
+      }
+      if (email !== 'admin@hawkstone.hu') {
+        return res.status(400).json({ error: 'Az Admin Főnök email címe nem módosítható!' });
+      }
+    }
+
+    // Validation for ZÖLD card type: check if they have a valid sport climber license number
+    if (card_type === 'ZÖLD') {
+      if (!license_number || !license_number.trim()) {
+        return res.status(400).json({ error: 'Zöld kártya minősítéshez kötelező sportmászó engedélyszám megadása!' });
+      }
+      const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜÓŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
+      if (!licenseRegex.test(license_number.trim())) {
+        return res.status(400).json({ error: 'A megadott sportmászó engedélyszám formátuma érvénytelen! (Elvárt pl. SMV-00001 vagy GSE9999/2025)' });
+      }
     }
 
     const existingUser = await dbGet('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.params.id]);
@@ -2061,9 +2100,14 @@ app.delete('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), as
       return res.status(400).json({ error: 'Nem törölheted a saját adminisztrátori fiókodat!' });
     }
 
-    const targetUser = await dbGet('SELECT role FROM users WHERE id = ?', [req.params.id]);
+    const targetUser = await dbGet('SELECT email, role FROM users WHERE id = ?', [req.params.id]);
     if (!targetUser) {
       return res.status(404).json({ error: 'A felhasználó nem található!' });
+    }
+
+    // Protect Admin Főnök (admin@hawkstone.hu)
+    if (targetUser.email === 'admin@hawkstone.hu') {
+      return res.status(400).json({ error: 'Az Admin Főnök felhasználó nem törölhető az admin felületről!' });
     }
 
     if (targetUser.role === 'ADMIN') {

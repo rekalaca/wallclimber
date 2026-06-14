@@ -2109,6 +2109,17 @@ async function openUserDetailsModal(userId) {
     currentViewedUser = user;
     currentViewedUserLogs = logs;
     
+    // Hide delete button if editing oneself, Admin Főnök, or any user with ADMIN role
+    const deleteBtn = document.getElementById('subpage-delete-user-btn');
+    const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
+    if (deleteBtn) {
+      if (user.id === currentUserObj.id || user.email === 'admin@hawkstone.hu' || user.role === 'ADMIN') {
+        deleteBtn.style.display = 'none';
+      } else {
+        deleteBtn.style.display = 'block';
+      }
+    }
+    
     // Populate User basic details
     document.getElementById('subpage-user-name-title').textContent = user.name;
     document.getElementById('subpage-user-email').textContent = user.email;
@@ -2350,6 +2361,11 @@ async function deleteUserFromSubpage(userId) {
     return;
   }
 
+  if (currentViewedUser && currentViewedUser.email === 'admin@hawkstone.hu') {
+    showToast('Az Admin Főnök felhasználó nem törölhető az admin felületről!', 'error');
+    return;
+  }
+
   if (currentViewedUser && currentViewedUser.role === 'ADMIN') {
     showToast('Biztonsági okokból adminisztrátori fiókot nem lehet törölni!', 'error');
     return;
@@ -2385,6 +2401,19 @@ async function handleSubpageEditUserSubmit(e) {
   const card_type = document.getElementById('subpage-edit-user-card').value;
   const role = document.getElementById('subpage-edit-user-role').value;
   const password = document.getElementById('subpage-edit-user-password').value;
+  
+  // Validation for ZÖLD card type
+  if (card_type === 'ZÖLD') {
+    if (!license_number || !license_number.trim()) {
+      showToast('Zöld kártya minősítéshez kötelező sportmászó engedélyszám megadása!', 'error');
+      return;
+    }
+    const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜÓŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
+    if (!licenseRegex.test(license_number.trim())) {
+      showToast('A megadott sportmászó engedélyszám formátuma érvénytelen! (Elvárt pl. SMV-00001 vagy GSE9999/2025)', 'error');
+      return;
+    }
+  }
   
   const payload = { name, email, phone, license_number, card_type, role };
   
