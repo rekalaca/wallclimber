@@ -1225,13 +1225,16 @@ footer p {
   }
 }
 
-/* Tooltip for safety cards */
-.badge {
+/* Tooltip for safety cards and other elements */
+.badge, .has-tooltip {
   position: relative;
+}
+
+.badge {
   cursor: help;
 }
 
-.badge::after {
+.badge::after, .has-tooltip::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: 125%;
@@ -1257,7 +1260,9 @@ footer p {
 }
 
 .badge:hover::after,
-.badge.show-tooltip::after {
+.badge.show-tooltip::after,
+.has-tooltip:hover::after,
+.has-tooltip.show-tooltip::after {
   opacity: 1;
   transform: translateX(-50%) scale(1);
 }

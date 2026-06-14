@@ -960,18 +960,26 @@ function renderDashboardTickets(filter) {
       `;
     }
 
-    const purchaseDate = new Date(t.purchase_date);
-    const todayDate = new Date(today);
-    const timeDiff = todayDate.getTime() - purchaseDate.getTime();
-    const diffDays = timeDiff / (1000 * 3600 * 24);
+    const purchaseTime = new Date(t.purchase_date).getTime();
+    const nowTime = new Date().getTime();
+    const timeDiffMs = nowTime - purchaseTime;
+    const diffDays = timeDiffMs / (1000 * 3600 * 24);
     
     let withdrawalBtnHtml = '';
-    if (t.status === 'ACTIVE' && diffDays <= 14) {
-      withdrawalBtnHtml = `
-        <a href="withdrawal.html?id=${t.id}" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">
-          Elállás a szerződéstől
-        </a>
-      `;
+    if (t.status === 'ACTIVE') {
+      if (diffDays <= 14) {
+        withdrawalBtnHtml = `
+          <a href="withdrawal.html?id=${t.id}" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">
+            Elállás a szerződéstől
+          </a>
+        `;
+      } else {
+        withdrawalBtnHtml = `
+          <a href="#" onclick="event.preventDefault()" class="btn btn-secondary btn-sm has-tooltip" style="padding: 10px 15px; width: fit-content; color: var(--text-muted); border-color: rgba(255, 255, 255, 0.1); cursor: not-allowed; opacity: 0.5;" data-tooltip="Az elállási határidő (14 nap) lejárt. Online elállásra már nincs lehetőség ehhez a jegyhez/bérlethez.">
+            Elállás a szerződéstől
+          </a>
+        `;
+      }
     }
 
     ticketCard.innerHTML = `

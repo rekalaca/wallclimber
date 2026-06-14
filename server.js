@@ -943,7 +943,7 @@ async function processBarionPayment(paymentId, domain) {
     const ticketType = localPayment.ticket_type;
 
     const today = new Date();
-    const purchaseDate = today.toISOString().split('T')[0];
+    const purchaseDate = today.toISOString();
     
     const expires = new Date();
     expires.setDate(today.getDate() + 30);
@@ -1182,7 +1182,7 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
     }
 
     const today = new Date();
-    const purchaseDate = today.toISOString().split('T')[0];
+    const purchaseDate = today.toISOString();
     
     // Calculate expiration date (30 days validity for all)
     const expires = new Date();
@@ -1402,7 +1402,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
          to: climber.email,
          subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
          html: `
            <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
              <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
@@ -1427,7 +1427,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
                  </tr>
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Vásárlás időpontja:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.purchase_date}</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.purchase_date.substring(0, 10)}</td>
                  </tr>
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Lejárat dátuma:</td>
@@ -2353,7 +2353,7 @@ app.post('/api/withdrawal/lookup', async (req, res) => {
         AND (
           CAST(t.id AS TEXT) = ? 
           OR t.qr_code_uuid = ? 
-          OR t.purchase_date = (
+          OR date(t.purchase_date) = (
             SELECT date(created_at) 
             FROM barion_payments 
             WHERE payment_id = ? AND user_id = ?
@@ -2385,10 +2385,10 @@ app.post('/api/withdrawal/lookup', async (req, res) => {
           reason = `A jegy státusza nem teszi lehetővé az elállást (${ticket.status})`;
         }
       } else {
-        const purchaseDate = new Date(ticket.purchase_date);
-        const currentDate = new Date(todayStr);
-        const timeDiff = currentDate.getTime() - purchaseDate.getTime();
-        const diffDays = timeDiff / (1000 * 3600 * 24);
+        const purchaseTime = new Date(ticket.purchase_date).getTime();
+        const nowTime = new Date().getTime();
+        const timeDiffMs = nowTime - purchaseTime;
+        const diffDays = timeDiffMs / (1000 * 3600 * 24);
 
         if (diffDays > 14) {
           eligible = false;
@@ -2459,10 +2459,10 @@ app.post('/api/withdrawal/confirm', async (req, res) => {
         continue;
       }
 
-      const purchaseDate = new Date(ticket.purchase_date);
-      const currentDate = new Date(todayStr);
-      const timeDiff = currentDate.getTime() - purchaseDate.getTime();
-      const diffDays = timeDiff / (1000 * 3600 * 24);
+      const purchaseTime = new Date(ticket.purchase_date).getTime();
+      const nowTime = new Date().getTime();
+      const timeDiffMs = nowTime - purchaseTime;
+      const diffDays = timeDiffMs / (1000 * 3600 * 24);
 
       if (diffDays > 14) {
         invalidReasons.push(`Jegy #${ticket.id}: 14 nap letelt.`);
@@ -2517,43 +2517,62 @@ app.post('/api/withdrawal/confirm', async (req, res) => {
       processedDetails.push(`
         <li style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
           <strong>${typeLabel}</strong> (Azonosító: #${ticket.id})<br>
-          <span style="color:#64748b; font-size:12px;">Vásárolva: ${ticket.purchase_date} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
+          <span style="color:#64748b; font-size:12px;">Vásárolva: ${ticket.purchase_date.substring(0, 10)} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
         </li>
       `);
     }
 
     // Send transaction email
-    const mailSubject = 'Visszaigazolás szerződéstől való elállásról - HawkStone';
-    const mailText = `Kedves ${user.name}!\n\nEzúton igazoljuk, hogy ${hungarianTimeStr} időpontban elállási nyilatkozatot nyújtottál be az alábbi vásárlásra (szerződésazonosító: ${identifier}).\n\nÉrintett jegyek/bérletek:\n${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}\n\nA jegyek/bérletek érvénytelenítése megtörtént. A vételár visszatérítéséről 14 napon belül intézkedünk.\n\nÜdvözlettel,\nHawkStone Csapata`;
+    const mailSubject = 'Átvételi elismervény – Elállási nyilatkozat beérkezése';
+    const mailText = `Kedves ${user.name}!
+
+Tájékoztatjuk, hogy az alábbi szolgáltatástól/rendeléstől való elállási nyilatkozata sikeresen beérkezett a HawkStone Városi Mászóklub rendszerébe.
+
+Az elállás részletei:
+Rendelés azonosítója: #${identifier}
+Vásárló neve: ${user.name}
+Vásárló e-mail címe: ${email.trim()}
+Nyilatkozat beérkezésének pontos ideje: ${hungarianTimeStr}
+
+Érintett szolgáltatások:
+${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}
+
+Mi történik ezután?
+Munkatársaink megvizsgálják az elállás jogosságát (pl. fel nem használt alkalmak ellenőrzése). Amennyiben az elállás megfelel az ÁSZF-ben foglalt feltételeknek, a vételárat 14 napon belül visszatérítjük arra a bankkártyára, amellyel a vásárlás történt.
+
+Üdvözlettel,
+HawkStone Mászóklub`;
 
     const mailHtml = `
       <div style="font-family: 'Montserrat', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-        <h2 style="color: #f27620; font-weight: 700; margin-bottom: 20px; text-align: center;">Elállási Nyilatkozat Visszaigazolás</h2>
+        <h2 style="color: #f27620; font-weight: 700; margin-bottom: 5px; text-align: center;">Átvételi elismervény</h2>
+        <h3 style="color: #ffffff; font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 20px; margin-top: 0; text-transform: uppercase; letter-spacing: 0.05em;">Elállási nyilatkozat beérkezése</h3>
         <p style="font-size: 15px; line-height: 1.6; color: #94a3b8;">Kedves <strong>${user.name}</strong>!</p>
         <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 20px;">
-          Köszönjük, hogy benyújtottad elállási nyilatkozatodat. Ezúton igazoljuk, hogy a nyilatkozat beérkezett és feldolgozásra került:
+          Tájékoztatjuk, hogy az alábbi szolgáltatástól/rendeléstől való elállási nyilatkozata sikeresen beérkezett a HawkStone Városi Mászóklub rendszerébe.
         </p>
         
         <div style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
-          <p style="margin: 0 0 8px 0; color: #94a3b8;">Beérkezés ideje: <strong style="color: #ffffff;">${hungarianTimeStr}</strong></p>
-          <p style="margin: 0 0 15px 0; color: #94a3b8;">Szerződés/Rendelés azonosító: <strong style="color: #ffffff;">${identifier}</strong></p>
+          <p style="margin: 0 0 8px 0; color: #94a3b8;">Rendelés azonosítója: <strong style="color: #ffffff;">#${identifier}</strong></p>
+          <p style="margin: 0 0 8px 0; color: #94a3b8;">Vásárló neve: <strong style="color: #ffffff;">${user.name}</strong></p>
+          <p style="margin: 0 0 8px 0; color: #94a3b8;">Vásárló e-mail címe: <strong style="color: #ffffff;">${email.trim()}</strong></p>
+          <p style="margin: 0 0 15px 0; color: #94a3b8;">Nyilatkozat beérkezésének pontos ideje: <strong style="color: #ffffff;">${hungarianTimeStr}</strong></p>
+          
           <p style="margin: 0 0 10px 0; color: #f27620; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing:0.05em;">Visszavont szolgáltatások:</p>
           <ul style="margin: 0; padding-left: 0; list-style:none; color: #ffffff;">
             ${processedDetails.join('')}
           </ul>
         </div>
 
-        <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 15px;">
-          A fenti jegyek és bérletek, valamint a hozzájuk kapcsolódó QR-kódok azonnali hatállyal <strong>érvénytelenné váltak</strong>, azok beléptetésre többé nem alkalmasak.
-        </p>
+        <h4 style="color: #f27620; font-size: 15px; margin: 20px 0 10px 0; font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Mi történik ezután?</h4>
         <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px;">
-          A jogszabályoknak megfelelően a vételár visszatérítéséről (vagy részleges visszatérítésről) az elállás bejelentésétől számított 14 napon belül intézkedünk.
+          Munkatársaink megvizsgálják az elállás jogosságát (pl. fel nem használt alkalmak ellenőrzése). Amennyiben az elállás megfelel az ÁSZF-ben foglalt feltételeknek, a vételárat 14 napon belül visszatérítjük arra a bankkártyára, amellyel a vásárlás történt.
         </p>
 
         <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
         <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0; line-height: 1.4;">
-          Ez egy automatikus, tartós adathordozón küldött visszaigazolás az EU 2023/2673 irányelvnek megfelelően.<br><br>
-          Üdvözlettel,<br><strong>HawkStone Csapata</strong>
+          Ez egy automatikus, tartós adathordozón küldött visszaigazolás az új fogyasztóvédelmi előírásoknak megfelelően.<br><br>
+          Üdvözlettel,<br><strong>HawkStone Mászóklub</strong>
         </p>
       </div>
     `;
