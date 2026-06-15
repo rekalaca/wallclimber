@@ -513,38 +513,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Diagnostics Endpoint for deployment debugging
-app.get('/api/diagnostics', async (req, res) => {
-  try {
-    const envVars = {
-      PORT: process.env.PORT,
-      DATABASE_URL_SET: !!process.env.DATABASE_URL,
-      DATABASE_URL_VAL: process.env.DATABASE_URL ? (process.env.DATABASE_URL.substring(0, 15) + '...') : null,
-      DATABASE_AUTH_TOKEN_SET: !!process.env.DATABASE_AUTH_TOKEN,
-      BARION_POS_KEY_SET: !!process.env.BARION_POS_KEY,
-      BARION_CALLBACK_DOMAIN: process.env.BARION_CALLBACK_DOMAIN,
-      isCloudDB: isCloudDB
-    };
-    
-    let dbStatus = 'testing...';
-    try {
-      const result = await dbGet("SELECT 1 as test");
-      dbStatus = (result && (result.test === 1 || result.rowsAffected !== undefined)) ? 'OK' : 'Invalid result';
-    } catch (dbErr) {
-      dbStatus = 'Error: ' + dbErr.message;
-    }
-    
-    res.json({
-      success: true,
-      env: envVars,
-      keys: Object.keys(process.env),
-      database: dbStatus,
-      timestamp: new Date().toISOString()
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Verification Endpoint
 app.get('/api/auth/verify', async (req, res) => {
