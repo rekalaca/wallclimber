@@ -361,8 +361,6 @@ async function initDB() {
   }
 }
 
-initDB().catch(console.error);
-
 // Migrate existing phone numbers from 06... to +36... format
 async function migratePhoneNumbers() {
   try {
@@ -378,7 +376,13 @@ async function migratePhoneNumbers() {
     console.error('[DB MIGRATION] Phone normalization failed:', e.message);
   }
 }
-migratePhoneNumbers();
+
+// Bypassing database initializations and migrations on Vercel
+// since it runs in a serverless environment where DB schema is already migrated in the cloud
+if (!process.env.VERCEL) {
+  initDB().catch(console.error);
+  migratePhoneNumbers();
+}
 
 // Helper function to generate unique QR string
 function generateUUID() {
