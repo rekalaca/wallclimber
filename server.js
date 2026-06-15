@@ -974,17 +974,16 @@ async function processBarionPayment(paymentId, domain) {
   console.log(`[BARION] Checked state for payment ${paymentId}. Status: ${stateData.Status}`);
 
   if (stateData.Status === 'Succeeded') {
-    // Double check processed status again inside a sequential block (fake lock/concurrency safety)
-    const doubleCheck = await dbGet('SELECT processed FROM barion_payments WHERE payment_id = ?', [paymentId]);
-    if (doubleCheck && doubleCheck.processed === 1) {
-      return { success: true, alreadyProcessed: true };
-    }
-
-    // Set processed = 1 and status = Succeeded
-    await dbRun(
-      'UPDATE barion_payments SET status = ?, processed = 1 WHERE payment_id = ?',
+    // Set processed = 1 and status = Succeeded only if it was 0 (concurrency lock)
+    const updateResult = await dbRun(
+      'UPDATE barion_payments SET status = ?, processed = 1 WHERE payment_id = ? AND processed = 0',
       ['Succeeded', paymentId]
     );
+
+    if (updateResult.changes === 0) {
+      console.log(`[BARION] Payment ${paymentId} was already processed by a concurrent request.`);
+      return { success: true, alreadyProcessed: true };
+    }
 
     const userId = localPayment.user_id;
     const ticketType = localPayment.ticket_type;
@@ -1197,10 +1196,10 @@ app.post('/api/barion/verify-payment', authenticateToken, async (req, res) => {
 });
 
 // Barion Webhook IPN Callback
-// IMPORTANT: Respond with 200 OK immediately, BEFORE any async processing.
-// Barion has a short timeout for callbacks — if we wait for DB + API + email,
-// it will mark the callback as failed (CallbackFailed), even if it succeeded.
-app.post('/api/barion/callback', (req, res) => {
+// We must await the execution of processBarionPayment BEFORE sending the response.
+// If we return 200 OK immediately and do fire-and-forget processing, serverless environments (like Vercel)
+// will freeze execution, leading to truncated connections or 502/504 errors on Barion's end (CallbackFailed).
+app.post('/api/barion/callback', async (req, res) => {
   const paymentId = (req.body && (req.body.PaymentId || req.body.paymentId)) || 
                     (req.query && (req.query.PaymentId || req.query.paymentId));
   if (!paymentId) {
@@ -1208,27 +1207,28 @@ app.post('/api/barion/callback', (req, res) => {
     return res.status(400).send('Missing paymentId');
   }
 
-  console.log('[BARION CALLBACK] Received IPN for payment:', paymentId, '— responding 200 OK immediately.');
+  console.log('[BARION CALLBACK] Received IPN for payment:', paymentId, '— processing payment state.');
 
-  // Respond to Barion immediately so it does not retry / mark as CallbackFailed
-  res.status(200).send('OK');
-
-  // Process the payment asynchronously in the background (fire-and-forget)
   const protocol = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers.host;
   const domain = `${protocol}://${host}`;
 
-  processBarionPayment(paymentId, domain).then(result => {
+  try {
+    const result = await processBarionPayment(paymentId, domain);
     if (result.alreadyProcessed) {
       console.log(`[BARION CALLBACK] Payment ${paymentId} was already processed — no action needed.`);
     } else if (result.success) {
-      console.log(`[BARION CALLBACK] Payment ${paymentId} successfully processed in background.`);
+      console.log(`[BARION CALLBACK] Payment ${paymentId} successfully processed.`);
     } else {
       console.log(`[BARION CALLBACK] Payment ${paymentId} not succeeded — status: ${result.status}`);
     }
-  }).catch(err => {
-    console.error(`[BARION CALLBACK ERROR] Background processing failed for payment ${paymentId}:`, err.message);
-  });
+    // Respond with 200 OK after successful processing
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error(`[BARION CALLBACK ERROR] Processing failed for payment ${paymentId}:`, err.message);
+    // Return 500 error so Barion knows it failed and will retry
+    res.status(500).send('Error processing callback: ' + err.message);
+  }
 });
 
 // ---------------- TICKETS ----------------
