@@ -537,6 +537,7 @@ app.get('/api/diagnostics', async (req, res) => {
     res.json({
       success: true,
       env: envVars,
+      keys: Object.keys(process.env),
       database: dbStatus,
       timestamp: new Date().toISOString()
     });
