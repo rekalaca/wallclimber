@@ -481,10 +481,19 @@
     <!-- Tab Withdrawals Content -->
     <div id="admin-withdrawals-content" style="display: none;">
       <div class="glass-card">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Fogyasztói Elállási Igények (EU 2023/2673)</h3>
+        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px; font-family: 'Montserrat', sans-serif; font-weight: 700;">Fogyasztói Elállási Igények (EU 2023/2673)</h3>
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
           Itt találhatók a tagok által az online elállási gombbal visszavont bérletek és jegyek naplóbejegyzései. A visszatérítést 14 napon belül kell teljesíteni.
         </p>
+
+        <!-- Tab selector for withdrawals -->
+        <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 30px;">
+          <div class="withdrawals-filter-tabs" style="display: flex; gap: 4px; background: rgba(255, 255, 255, 0.02); padding: 4px; border-radius: 10px; border: 1px solid var(--border-color); max-width: 320px; width: 100%;">
+            <button id="withdrawal-tab-pending" onclick="switchWithdrawalFilter('pending')" class="btn btn-primary btn-sm" style="flex: 1; margin-bottom: 0; border-radius: 6px; font-weight: 600; padding: 8px 12px; font-size: 13px;">Folyamatban</button>
+            <button id="withdrawal-tab-completed" onclick="switchWithdrawalFilter('completed')" class="btn btn-secondary btn-sm" style="flex: 1; margin-bottom: 0; border-radius: 6px; font-weight: 600; padding: 8px 12px; font-size: 13px;">Kivizsgálva</button>
+          </div>
+        </div>
+
         <div id="admin-withdrawals-list">
           <p style="color:var(--text-muted);">Elállási igények betöltése...</p>
         </div>

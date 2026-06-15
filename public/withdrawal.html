@@ -199,12 +199,13 @@
             `;
           }
 
+          const formattedDate = ticket.purchase_date ? new Date(ticket.purchase_date).toLocaleString('hu-HU') : '-';
           card.innerHTML = `
             <div>
               <h4 style="font-size: 15px; color: #ffffff; margin-bottom: 4px;">${typeLabel}</h4>
               <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Azonosító: #${ticket.id}</p>
               <p style="color: var(--text-muted); font-size: 11px;">
-                Vásárlás dátuma: ${ticket.purchase_date} | Hátralévő alkalmak: ${ticket.sessions_remaining}
+                Vásárlás dátuma: ${formattedDate} | Hátralévő alkalmak: ${ticket.sessions_remaining}
               </p>
             </div>
             <div>

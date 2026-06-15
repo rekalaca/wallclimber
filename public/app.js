@@ -108,7 +108,6 @@ function renderHeader() {
       <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
       <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
       <li><a href="admin.html#withdrawals" class="nav-link ${activeClass('admin.html', '#withdrawals')}">Elállások</a></li>
-      <li><a href="dashboard.html" class="nav-link ${activeClass('dashboard.html')}">Profilom</a></li>
       <li><a href="index.html" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
@@ -135,34 +134,60 @@ function renderHeader() {
   const userName = user.name || 'Fiókom';
 
   if (token) {
-    authSection = `
-      <div class="nav-auth">
-        <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
-        <div class="profile-header-widget">
-          <a href="dashboard.html" class="profile-trigger-link">
-            <div class="profile-avatar-circle">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
+    if (isConfiguredAdmin) {
+      authSection = `
+        <div class="nav-auth" style="display: flex; align-items: center; gap: 15px;">
+          <a href="dashboard.html" class="profile-trigger-link" style="font-size: 14px; font-weight: 600; text-decoration: none; color: var(--text-secondary); transition: var(--transition);" onmouseover="this.style.color='var(--primary)';" onmouseout="this.style.color='var(--text-secondary)';" id="admin-profile-text-link">Profilom</a>
+          <div class="profile-header-widget" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 15px;">
+            <a href="dashboard.html" class="profile-trigger-link">
+              <div class="profile-avatar-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <span class="profile-subtext" title="${userName}">${userName}</span>
+            </a>
+            <button class="logout-icon-btn" onclick="logout()" title="Kijelentkezés" aria-label="Kijelentkezés">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
               </svg>
-            </div>
-            <span class="profile-subtext" title="${userName}">${userName}</span>
-          </a>
-          <button class="logout-icon-btn" onclick="logout()" title="Kijelentkezés" aria-label="Kijelentkezés">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      authSection = `
+        <div class="nav-auth">
+          <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
           </button>
+          <div class="profile-header-widget">
+            <a href="dashboard.html" class="profile-trigger-link">
+              <div class="profile-avatar-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <span class="profile-subtext" title="${userName}">${userName}</span>
+            </a>
+            <button class="logout-icon-btn" onclick="logout()" title="Kijelentkezés" aria-label="Kijelentkezés">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
 
     authSectionMobile = `
       <div class="nav-auth-mobile">
@@ -205,21 +230,34 @@ function renderHeader() {
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
-        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
-          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
-        </a>
-
-        <!-- Hamburger Icon for Mobile -->
-        <button class="hamburger-btn" id="hamburger-toggle" aria-label="Menü megnyitása">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
+        ${isConfiguredAdmin ? `
+          <div class="admin-nav-left" style="display: flex; align-items: center; gap: 15px; height: 100%;">
+            <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
+              <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
+            </a>
+            <div class="admin-menu-trigger-wrapper" style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 8px; transition: var(--transition);" onmouseover="this.style.borderColor='var(--primary)';" onmouseout="this.style.borderColor='var(--border-color)';" id="admin-menu-trigger">
+              <span style="font-family:'Montserrat', sans-serif; font-weight:700; font-size:12px; color:#ffffff; letter-spacing:0.05em; text-transform:uppercase;">MENÜ</span>
+              <button class="hamburger-btn" style="display: flex; background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; pointer-events: none;" aria-label="Menü megnyitása">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+              </button>
+            </div>
+          </div>
+        ` : `
+          <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
+            <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
+          </a>
+          <!-- Hamburger Icon for Mobile -->
+          <button class="hamburger-btn" id="hamburger-toggle" aria-label="Menü megnyitása">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+        `}
 
         <!-- Menu overlay background -->
         <div class="menu-overlay" id="menu-overlay"></div>
 
         <!-- Navigation Menu -->
         <ul class="nav-menu" id="nav-menu">
-          <!-- Close Button in Menu (Mobile only) -->
+          <!-- Close Button in Menu (Mobile / Admin Drawer Close) -->
           <button class="menu-close-btn" id="menu-close" aria-label="Menü bezárása">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
@@ -233,19 +271,21 @@ function renderHeader() {
       </nav>
     </div>
 
-    <!-- Search Bar Dropdown -->
-    <div class="search-dropdown-bar" id="search-dropdown-bar">
-      <div class="search-bar-inner">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="text" placeholder="Keresés a mászófalak, hírek vagy órarendek között..." id="header-search-input" oninput="handleHeaderSearch(this.value)" />
-        <button class="search-clear-btn" onclick="clearHeaderSearch()" aria-label="Keresés törlése">&times;</button>
+    ${isConfiguredAdmin ? '' : `
+      <!-- Search Bar Dropdown -->
+      <div class="search-dropdown-bar" id="search-dropdown-bar">
+        <div class="search-bar-inner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" placeholder="Keresés a mászófalak, hírek vagy órarendek között..." id="header-search-input" oninput="handleHeaderSearch(this.value)" />
+          <button class="search-clear-btn" onclick="clearHeaderSearch()" aria-label="Keresés törlése">&times;</button>
+        </div>
+        <div class="search-results-dropdown" id="search-results-dropdown" style="display:none;"></div>
       </div>
-      <div class="search-results-dropdown" id="search-results-dropdown" style="display:none;"></div>
-    </div>
+    `}
   `;
 
   // Hamburger Menu toggle events
-  const hamburger = document.getElementById('hamburger-toggle');
+  const hamburger = document.getElementById('hamburger-toggle') || document.getElementById('admin-menu-trigger');
   const closeBtn = document.getElementById('menu-close');
   const navMenu = document.getElementById('nav-menu');
   const overlay = document.getElementById('menu-overlay');
@@ -988,16 +1028,17 @@ function renderDashboardTickets(filter) {
       }
     }
 
-    ticketCard.innerHTML = `
-      <div class="ticket-info">
-        <div class="ticket-info-details">
-          <h4 style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
-            ${hungarianType} 
-            <span class="badge ${statusLabelClass}" style="font-size:9px; padding:3px 8px;">${statusText}</span>
-          </h4>
-          <p style="margin-top: 4px;">${usageText}</p>
-          <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}</p>
-        </div>
+          const purchaseDisplay = t.purchase_date ? new Date(t.purchase_date).toLocaleString('hu-HU') : '-';
+          ticketCard.innerHTML = `
+            <div class="ticket-info">
+              <div class="ticket-info-details">
+                <h4 style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                  ${hungarianType} 
+                  <span class="badge ${statusLabelClass}" style="font-size:9px; padding:3px 8px;">${statusText}</span>
+                </h4>
+                <p style="margin-top: 4px;">${usageText}</p>
+                <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${purchaseDisplay} | Lejárat: ${t.expires_date}</p>
+              </div>
         <div style="margin-top: auto; padding-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
           <button onclick="downloadRulesPDF(${t.id})" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -2303,18 +2344,19 @@ function renderSubpageTicketsList(filter) {
     ticketDiv.style.borderRadius = '8px';
     ticketDiv.style.padding = '8px 12px';
     ticketDiv.style.fontSize = '12px';
-    ticketDiv.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3px;">
-        <strong style="color:#ffffff;">${typeLabel}</strong>
-        <span class="badge ${t.status === 'ACTIVE' ? 'badge-green' : 'badge-secondary'}" style="font-size:10px; padding: 2px 6px;">
-          ${t.status === 'ACTIVE' ? 'Aktív' : (t.status === 'USED' ? 'Elhasznált' : 'Lejárt')}
-        </span>
-      </div>
-      <div style="color:var(--text-secondary); font-size:11px;">
-        Vásárlás: ${t.purchase_date} | Lejárat: ${t.expires_date}<br>
-        Egyenleg: <strong>${sessionsLabel}</strong>
-      </div>
-    `;
+      const purchaseDisplay = t.purchase_date ? new Date(t.purchase_date).toLocaleString('hu-HU') : '-';
+      ticketDiv.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3px;">
+          <strong style="color:#ffffff;">${typeLabel}</strong>
+          <span class="badge ${t.status === 'ACTIVE' ? 'badge-green' : 'badge-secondary'}" style="font-size:10px; padding: 2px 6px;">
+            ${t.status === 'ACTIVE' ? 'Aktív' : (t.status === 'USED' ? 'Elhasznált' : 'Lejárt')}
+          </span>
+        </div>
+        <div style="color:var(--text-secondary); font-size:11px;">
+          Vásárlás: ${purchaseDisplay} | Lejárat: ${t.expires_date}<br>
+          Egyenleg: <strong>${sessionsLabel}</strong>
+        </div>
+      `;
     ticketsContainer.appendChild(ticketDiv);
   });
 }
@@ -3208,6 +3250,9 @@ function formatHungarianDateTime(utcStr) {
   }
 }
 
+window.currentWithdrawalFilter = 'pending';
+window.adminWithdrawals = [];
+
 async function loadAdminWithdrawals() {
   const container = document.getElementById('admin-withdrawals-list');
   if (!container) return;
@@ -3219,70 +3264,108 @@ async function loadAdminWithdrawals() {
     if (!res.ok) throw new Error('Hiba a naplózott elállások lekérésekor.');
     const data = await res.json();
 
-    if (data.length === 0) {
-      container.innerHTML = '<p style="text-align:center; color: var(--text-muted); padding: 20px;">Nincsenek rögzített elállások a rendszerben.</p>';
-      return;
-    }
-
-    const refundLabels = {
-      'PENDING':  { label: 'Folyamatban', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
-      'REFUNDED': { label: 'Visszatérítve', color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)' },
-      'REJECTED': { label: 'Elutasítva', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.25)' },
-      'UNDER_REVIEW': { label: 'Vizsgálat alatt', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
-    };
-
-    let html = `<div style="display: flex; flex-direction: column; gap: 16px;">`;
-
-    data.forEach(w => {
-      let typeLabel = '';
-      let priceText = '';
-      if (w.ticket_type === 'NAPI') { typeLabel = 'Napijegy'; priceText = '2 800 Ft'; }
-      else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22 000 Ft'; }
-      else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet'; priceText = '28 000 Ft'; }
-
-      const refundKey = w.refund_status || 'PENDING';
-      const rf = refundLabels[refundKey] || refundLabels['PENDING'];
-      const formattedWithdrawal = formatHungarianDateTime(w.withdrawal_time);
-      const purchaseDisplay = w.purchase_date ? w.purchase_date.substring(0, 10) : '-';
-
-      html += `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; transition: border-color 0.2s;" onmouseover="this.style.borderColor='rgba(242,118,32,0.35)'" onmouseout="this.style.borderColor='var(--border-color)'">
-          
-          <!-- Left: Customer & ticket info -->
-          <div style="flex: 1; min-width: 220px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
-              <span style="font-size: 15px; font-weight: 700; color: #fff;">${w.customer_name}</span>
-              <span style="font-size: 11px; background: ${rf.bg}; border: 1px solid ${rf.border}; color: ${rf.color}; padding: 3px 9px; border-radius: 20px; font-weight: 600;">${rf.label}</span>
-            </div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${w.customer_email}</div>
-            <div style="font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px;">
-              <span>🎫 <strong style="color:#fff;">${typeLabel}</strong> &nbsp;|&nbsp; ID: <code style="font-size:12px; color: var(--primary);">#${w.ticket_id}</code></span>
-              <span>💰 Vételár (becsült): <strong style="color:#fff;">${priceText}</strong></span>
-              <span>📅 Vásárlás: <strong style="color:#fff;">${purchaseDisplay}</strong></span>
-              <span>⏱️ Elállás: <strong style="color: var(--primary);">${formattedWithdrawal}</strong></span>
-              ${w.admin_note ? `<span style="margin-top:6px; font-size:11px; color:#94a3b8; font-style:italic;">📝 Megjegyzés: ${w.admin_note.substring(0,80)}${w.admin_note.length > 80 ? '...' : ''}</span>` : ''}
-            </div>
-          </div>
-
-          <!-- Right: Contract ID + Actions -->
-          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 180px;">
-            <div style="font-size: 11px; color: var(--text-muted); text-align: right;">
-              Szerz. azonosító:<br><code style="font-size:12px; color:#fff;">${w.contract_id}</code>
-            </div>
-            <button onclick="openWithdrawalInvestigationModal(${JSON.stringify(w).replace(/"/g, '&quot;')})" class="btn btn-primary btn-sm" style="padding: 9px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-              🔍 Vizsgálat indítása
-            </button>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-    container.innerHTML = html;
-
+    window.adminWithdrawals = data;
+    renderAdminWithdrawals();
   } catch (err) {
     container.innerHTML = `<p style="text-align:center; color: var(--danger); padding: 20px;">Hiba történt az elállások betöltésekor: ${err.message}</p>`;
   }
+}
+
+function renderAdminWithdrawals() {
+  const container = document.getElementById('admin-withdrawals-list');
+  if (!container || !window.adminWithdrawals) return;
+
+  const currentFilter = window.currentWithdrawalFilter || 'pending';
+  
+  // Filter the withdrawals:
+  // 'pending' -> w.refund_status is PENDING or UNDER_REVIEW or missing
+  // 'completed' -> w.refund_status is REFUNDED or REJECTED
+  const filtered = window.adminWithdrawals.filter(w => {
+    const status = w.refund_status || 'PENDING';
+    if (currentFilter === 'pending') {
+      return status === 'PENDING' || status === 'UNDER_REVIEW';
+    } else {
+      return status === 'REFUNDED' || status === 'REJECTED';
+    }
+  });
+
+  const tabPending = document.getElementById('withdrawal-tab-pending');
+  const tabCompleted = document.getElementById('withdrawal-tab-completed');
+  if (tabPending && tabCompleted) {
+    if (currentFilter === 'pending') {
+      tabPending.className = 'btn btn-primary btn-sm';
+      tabCompleted.className = 'btn btn-secondary btn-sm';
+    } else {
+      tabPending.className = 'btn btn-secondary btn-sm';
+      tabCompleted.className = 'btn btn-primary btn-sm';
+    }
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<p style="text-align:center; color: var(--text-muted); padding: 40px 20px;">Nincsenek ${currentFilter === 'pending' ? 'folyamatban lévő' : 'kivizsgált'} elállási igények.</p>`;
+    return;
+  }
+
+  const refundLabels = {
+    'PENDING':  { label: 'Folyamatban', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
+    'REFUNDED': { label: 'Visszatérítve', color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)' },
+    'REJECTED': { label: 'Elutasítva', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.25)' },
+    'UNDER_REVIEW': { label: 'Vizsgálat alatt', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
+  };
+
+  let html = `<div style="display: flex; flex-direction: column; gap: 16px;">`;
+
+  filtered.forEach(w => {
+    let typeLabel = '';
+    let priceText = '';
+    if (w.ticket_type === 'NAPI') { typeLabel = 'Napijegy'; priceText = '2 800 Ft'; }
+    else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22 000 Ft'; }
+    else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet'; priceText = '28 000 Ft'; }
+
+    const refundKey = w.refund_status || 'PENDING';
+    const rf = refundLabels[refundKey] || refundLabels['PENDING'];
+    const formattedWithdrawal = formatHungarianDateTime(w.withdrawal_time);
+    const purchaseDisplay = w.purchase_date ? new Date(w.purchase_date).toLocaleDateString('hu-HU') : '-';
+
+    html += `
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; transition: border-color 0.2s;" onmouseover="this.style.borderColor='rgba(242,118,32,0.35)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        
+        <!-- Left: Customer & ticket info -->
+        <div style="flex: 1; min-width: 220px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
+            <span style="font-size: 15px; font-weight: 700; color: #fff;">${w.customer_name}</span>
+            <span style="font-size: 11px; background: ${rf.bg}; border: 1px solid ${rf.border}; color: ${rf.color}; padding: 3px 9px; border-radius: 20px; font-weight: 600;">${rf.label}</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${w.customer_email}</div>
+          <div style="font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px;">
+            <span>🎫 <strong style="color:#fff;">${typeLabel}</strong> &nbsp;|&nbsp; ID: <code style="font-size:12px; color: var(--primary);">#${w.ticket_id}</code></span>
+            <span>💰 Vételár (becsült): <strong style="color:#fff;">${priceText}</strong></span>
+            <span>📅 Vásárlás: <strong style="color:#fff;">${purchaseDisplay}</strong></span>
+            <span>⏱️ Elállás: <strong style="color: var(--primary);">${formattedWithdrawal}</strong></span>
+            ${w.admin_note ? `<span style="margin-top:6px; font-size:11px; color:#94a3b8; font-style:italic;">📝 Megjegyzés: ${w.admin_note.substring(0,80)}${w.admin_note.length > 80 ? '...' : ''}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Right: Contract ID + Actions -->
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 180px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-align: right;">
+            Szerz. azonosító:<br><code style="font-size:12px; color:#fff;">${w.contract_id}</code>
+          </div>
+          <button onclick="openWithdrawalInvestigationModal(${JSON.stringify(w).replace(/"/g, '&quot;')})" class="btn btn-primary btn-sm" style="padding: 9px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            🔍 Vizsgálat indítása
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function switchWithdrawalFilter(filter) {
+  window.currentWithdrawalFilter = filter;
+  renderAdminWithdrawals();
 }
 
 // Open investigation modal for a withdrawal record
@@ -3833,6 +3916,8 @@ window.resetScannerAfterSuccess = resetScannerAfterSuccess;
 window.toggleCamera = toggleCamera;
 window.handleCRMSearch = handleCRMSearch;
 window.clearCRMSearch = clearCRMSearch;
+window.switchWithdrawalFilter = switchWithdrawalFilter;
+window.renderAdminWithdrawals = renderAdminWithdrawals;
 
 function switchDashboardView(view) {
   const tabOverview = document.getElementById('db-tab-overview');
@@ -4060,5 +4145,10 @@ function clearCRMSearch() {
   document.getElementById('crm-search-form').reset();
   document.getElementById('crm-results-area').style.display = 'none';
   document.getElementById('crm-empty-state').style.display = 'block';
+}
+
+function switchWithdrawalFilter(filter) {
+  window.currentWithdrawalFilter = filter;
+  renderAdminWithdrawals();
 }
 

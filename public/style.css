@@ -2375,3 +2375,96 @@ header.admin-header {
     gap: 30px !important;
   }
 }
+
+/* ---- ADMIN HEADER SIDEBAR DRAWER ---- */
+.admin-body header .nav-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(15, 17, 26, 0.98);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-right: 1px solid var(--border-color);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 90px 30px calc(100px + env(safe-area-inset-bottom)) 30px;
+  gap: 20px;
+  transform: translateX(-100%);
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 999;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  display: flex;
+}
+
+.admin-body header .nav-menu.open {
+  transform: translateX(0);
+}
+
+.admin-body header .nav-menu li {
+  width: 100%;
+  list-style: none;
+}
+
+.admin-body header .nav-link {
+  display: block;
+  width: 100%;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  box-shadow: 
+    rgba(242, 118, 32, 0.15) 0px 10px 30px -10px, 
+    rgba(0, 0, 0, 0.3) 0px 15px 30px -15px, 
+    rgba(242, 118, 32, 0.25) 0px -2px 6px 0px inset;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.admin-body header .nav-link:hover {
+  transform: translateX(4px);
+  background: rgba(242, 118, 32, 0.04);
+  color: var(--primary);
+}
+
+.admin-body header .nav-link.active {
+  border-left-color: var(--primary);
+  background: rgba(242, 118, 32, 0.08);
+  color: var(--primary);
+}
+
+.admin-body .hamburger-btn {
+  display: flex !important;
+}
+
+.admin-body .menu-close-btn {
+  display: flex !important;
+}
+
+.admin-body .menu-title-mobile {
+  display: block !important;
+}
+
+/* Close spin animation for admin drawer */
+.admin-body header .nav-menu.open .menu-close-btn svg {
+  animation: adminSpin 1.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes adminSpin {
+  0% {
+    transform: rotate(0deg) scale(0.3);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(1080deg) scale(1);
+    opacity: 1;
+  }
+}
