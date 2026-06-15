@@ -35,6 +35,7 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database connection
@@ -183,9 +184,18 @@ async function initDB() {
       sessions_remaining INTEGER DEFAULT 0,
       qr_code_uuid TEXT NOT NULL UNIQUE,
       status TEXT DEFAULT 'ACTIVE',
+      payment_id TEXT,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: Add payment_id column to tickets table if it doesn't exist on existing DBs
+  try {
+    await dbRun("ALTER TABLE tickets ADD COLUMN payment_id TEXT");
+    console.log("[DATABASE MIGRATION] Added column 'payment_id' to 'tickets' table.");
+  } catch (err) {
+    // Ignore error if column already exists
+  }
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS entry_logs (
@@ -229,9 +239,36 @@ async function initDB() {
       amount INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       processed INTEGER DEFAULT 0,
+      invoice_number TEXT,
+      billing_name TEXT,
+      billing_zip TEXT,
+      billing_city TEXT,
+      billing_address TEXT,
+      billing_tax_number TEXT,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // Migrate existing barion_payments table - add columns if missing
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN invoice_number TEXT");
+    console.log("[DATABASE MIGRATION] Added column 'invoice_number' to 'barion_payments' table.");
+  } catch (_) { /* column already exists */ }
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_name TEXT");
+  } catch (_) {}
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_zip TEXT");
+  } catch (_) {}
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_city TEXT");
+  } catch (_) {}
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_address TEXT");
+  } catch (_) {}
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_tax_number TEXT");
+  } catch (_) {}
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS withdrawals (
@@ -967,8 +1004,8 @@ async function processBarionPayment(paymentId, domain) {
     const qrUuid = generateUUID();
 
     const result = await dbRun(
-      'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, ticketType, purchaseDate, expiresDate, sessions, qrUuid]
+      'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [userId, ticketType, purchaseDate, expiresDate, sessions, qrUuid, paymentId]
     );
 
     const ticketId = result.lastID;
@@ -996,6 +1033,12 @@ async function processBarionPayment(paymentId, domain) {
           if (invoiceResult && invoiceResult.success) {
             invoiceBuffer = invoiceResult.pdfBuffer;
             invoiceNumber = invoiceResult.szamlaszam;
+            // Save invoice number in database
+            await dbRun(
+              'UPDATE barion_payments SET invoice_number = ? WHERE payment_id = ?',
+              [invoiceNumber, paymentId]
+            );
+            console.log(`[SZAMLAZZ] Saved invoice number ${invoiceNumber} to database for payment ${paymentId}`);
           }
         }
         
@@ -1158,7 +1201,8 @@ app.post('/api/barion/verify-payment', authenticateToken, async (req, res) => {
 // Barion has a short timeout for callbacks — if we wait for DB + API + email,
 // it will mark the callback as failed (CallbackFailed), even if it succeeded.
 app.post('/api/barion/callback', (req, res) => {
-  const paymentId = req.body.PaymentId || req.query.paymentId || req.body.paymentId;
+  const paymentId = (req.body && (req.body.PaymentId || req.body.paymentId)) || 
+                    (req.query && (req.query.PaymentId || req.query.paymentId));
   if (!paymentId) {
     console.warn('[BARION CALLBACK] Received callback without paymentId');
     return res.status(400).send('Missing paymentId');
@@ -1417,7 +1461,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
          to: climber.email,
          subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI / FELMONDÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Tájékoztatjuk, hogy a 45/2014. (II. 26.) Korm. rendelet értelmében a vásárlással kifejezetten kérte a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszi, hogy az azonnali megkezdés miatt elállás (szerződés felmondás) esetén köteles megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe való belépéssel) elállási/felmondási jogát elveszíti. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}, melyet megadhatsz az elállási oldalon: ${domain}/withdrawal.html\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
          html: `
            <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
              <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
@@ -1457,9 +1501,10 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
 
              <!-- Withdrawal Info Box -->
              <div style="background: rgba(255, 107, 0, 0.05); border: 1px solid rgba(255, 107, 0, 0.2); padding: 15px 18px; border-radius: 8px; margin: 0 0 20px 0;">
-               <p style="margin: 0 0 6px 0; font-size: 13px; color: #ff6b00; font-weight: 700;">⚠️ Elállási jog (EU 2023/2673)</p>
-               <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">A vásárlástól számított <strong style="color:#fff;">14 napon belül</strong> online elállhatsz a szerződéstől. Az elálláshoz szükséges a fenti <strong style="color:#ff6b00;">Jegy azonosítója: #${ticket.id}</strong>, amelyet add meg az <a href="${domain}/withdrawal.html" style="color:#ff6b00;">elállási oldalon</a>.</p>
-             </div>
+                <p style="margin: 0 0 6px 0; font-size: 13px; color: #ff6b00; font-weight: 700;">⚠️ Elállási és Felmondási jog (45/2014. Korm. rendelet)</p>
+                <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">A vásárlástól számított <strong style="color:#fff;">14 napon belül</strong> online elállhatsz a szerződéstől (szolgáltatás megkezdése után felmondás). Az elálláshoz szükséges a fenti <strong style="color:#ff6b00;">Jegy azonosítója: #${ticket.id}</strong>, amelyet add meg az <a href="${domain}/withdrawal.html" style="color:#ff6b00;">elállási oldalon</a>.</p>
+                <p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4; border-top: 1px solid rgba(255,107,0,0.15); padding-top: 8px;"><em>Tájékoztatás: A vásárlással kifejezetten kérted a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszed, hogy elállás (szerződés felmondás) esetén köteles vagy megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe történő belépéssel) elállási jogodat elveszíted.</em></p>
+              </div>
  
              ${invoiceNumber ? `
              <!-- Invoice Box -->
@@ -1646,6 +1691,234 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
        success: false,
        error: error.message
      };
+   }
+ }
+
+ // Generate refund invoice (stornó or corrective) using Számlázz.hu
+ async function createSzamlazzRefundInvoice(payment, originalInvoiceNumber, climber, refundAmount, isFullStorno) {
+   const SZAMLAZZ_KEY = process.env.SZAMLAZZ_KEY;
+   if (!SZAMLAZZ_KEY) {
+     console.log('[SZAMLAZZ] Agent key (SZAMLAZZ_KEY) not configured. Skipping refund invoice generation.');
+     return null;
+   }
+
+   const today = new Date().toISOString().split('T')[0];
+   let xml = '';
+   let actionName = '';
+   let fileName = '';
+
+   if (isFullStorno) {
+     actionName = 'action-szamla_agent_st';
+     fileName = 'storno.xml';
+     xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xmlszamlast xmlns="http://www.szamlazz.hu/xmlszamlast" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.szamlazz.hu/xmlszamlast xmlszamlast.xsd">
+ <beallitasok>
+   <szamlaagentkulcs>${SZAMLAZZ_KEY}</szamlaagentkulcs>
+   <eszamla>true</eszamla>
+   <szamlaLetoltes>true</szamlaLetoltes>
+   <valaszVerzio>2</valaszVerzio>
+ </beallitasok>
+ <fejlec>
+   <szamlaszam>${originalInvoiceNumber}</szamlaszam>
+   <keltDatum>${today}</keltDatum>
+ </fejlec>
+</xmlszamlast>`;
+   } else {
+     actionName = 'action-xmlagentxmlfile';
+     fileName = 'request.xml';
+
+     let itemName = '';
+     if (payment.ticket_type === 'NAPI') {
+       itemName = 'Egyszeri Napijegy';
+     } else if (payment.ticket_type === 'TIZ_ALKALMAS') {
+       itemName = '10 Alkalmas Bérlet';
+     } else if (payment.ticket_type === 'HAVI') {
+       itemName = '30 Napos Korlátlan Bérlet';
+     } else {
+       itemName = 'HawkStone Szolgáltatás';
+     }
+
+     // Calculations for pro-rated refund with negative values
+     const price = -refundAmount;
+     const netto = (price / 1.27).toFixed(2);
+     const afa = (price - parseFloat(netto)).toFixed(2);
+
+     xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xmlszamla xmlns="http://www.szamlazz.hu/xmlszamla" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.szamlazz.hu/xmlszamla https://www.szamlazz.hu/szamla/docs/xsds/agent/xmlszamla.xsd">
+ <beallitasok>
+   <szamlaagentkulcs>${SZAMLAZZ_KEY}</szamlaagentkulcs>
+   <eszamla>true</eszamla>
+   <szamlaLetoltes>true</szamlaLetoltes>
+   <valaszVerzio>2</valaszVerzio>
+ </beallitasok>
+ <fejlec>
+   <keltDatum>${today}</keltDatum>
+   <teljesitesDatum>${today}</teljesitesDatum>
+   <fizetesiHataridoDatum>${today}</fizetesiHataridoDatum>
+   <fizmod>Bankkártya</fizmod>
+   <penznem>HUF</penznem>
+   <szamlaNyelve>hu</szamlaNyelve>
+   <megjegyzes>Helyesbítés elállás miatt. Eredeti számla: ${originalInvoiceNumber}</megjegyzes>
+   <helyesbitoszamla>true</helyesbitoszamla>
+   <helyesbitettSzamlaszam>${originalInvoiceNumber}</helyesbitettSzamlaszam>
+   <fizetve>true</fizetve>
+ </fejlec>
+ <elado>
+ </elado>
+ <vevo>
+   <nev><![CDATA[${payment.billing_name}]]></nev>
+   <irsz>${payment.billing_zip}</irsz>
+   <telepules><![CDATA[${payment.billing_city}]]></telepules>
+   <cim><![CDATA[${payment.billing_address}]]></cim>
+   <email>${climber.email}</email>
+   <sendEmail>false</sendEmail>
+   ${payment.billing_tax_number ? `<adoszam>${payment.billing_tax_number}</adoszam>` : ''}
+ </vevo>
+ <tetelek>
+   <tetel>
+     <megnevezes><![CDATA[Részleges elállás miatti visszatérítés - ${itemName}]]></megnevezes>
+     <mennyiseg>1.0</mennyiseg>
+     <mennyisegiEgyseg>db</mennyisegiEgyseg>
+     <nettoEgysegar>${netto}</nettoEgysegar>
+     <afakulcs>27</afakulcs>
+     <nettoErtek>${netto}</nettoErtek>
+     <afaErtek>${afa}</afaErtek>
+     <bruttoErtek>${price}</bruttoErtek>
+   </tetel>
+ </tetelek>
+</xmlszamla>`;
+   }
+
+   const boundary = '----SzamlazzAgentBoundary' + Math.random().toString(36).substring(2);
+   const bodyParts = [];
+   bodyParts.push(`--${boundary}\r\n`);
+   bodyParts.push(`Content-Disposition: form-data; name="${actionName}"; filename="${fileName}"\r\n`);
+   bodyParts.push(`Content-Type: text/xml\r\n\r\n`);
+   bodyParts.push(xml);
+   bodyParts.push(`\r\n--${boundary}--\r\n`);
+
+   const requestBody = bodyParts.join('');
+
+   try {
+     console.log(`[SZAMLAZZ] Sending refund invoice (${isFullStorno ? 'stornó' : 'helyesbítő'}) request for original invoice:`, originalInvoiceNumber);
+     
+     const response = await fetch('https://www.szamlazz.hu/szamla/', {
+       method: 'POST',
+       headers: {
+         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+         'Content-Length': Buffer.byteLength(requestBody).toString()
+       },
+       body: requestBody
+     });
+
+     const responseText = await response.text();
+
+     if (!response.ok) {
+       throw new Error(`Számlázz.hu HTTP Error: ${response.status}`);
+     }
+
+     const matchesSikeres = responseText.match(/<sikeres>(.*?)<\/sikeres>/);
+     const isSuccess = matchesSikeres && matchesSikeres[1] === 'true';
+
+     if (isSuccess) {
+       const matchesSzamlaszam = responseText.match(/<szamlaszam>(.*?)<\/szamlaszam>/);
+       const szamlaSzam = matchesSzamlaszam ? matchesSzamlaszam[1] : 'ISMERETLEN';
+       
+       const matchesPdf = responseText.match(/<pdf>([\s\S]*?)<\/pdf>/);
+       const pdfBase64 = matchesPdf ? matchesPdf[1] : null;
+
+       console.log(`[SZAMLAZZ] Refund invoice generated successfully. Invoice Number: ${szamlaSzam}`);
+       return {
+         success: true,
+         szamlaszam: szamlaSzam,
+         pdfBuffer: pdfBase64 ? Buffer.from(pdfBase64, 'base64') : null
+       };
+     } else {
+       const matchesHiba = responseText.match(/<hibauzenet>(.*?)<\/hibauzenet>/);
+       const errorMsg = matchesHiba ? matchesHiba[1] : 'Ismeretlen számlázási hiba';
+       console.error(`[SZAMLAZZ ERROR] Refund invoice generation failed: ${errorMsg}`);
+       return {
+         success: false,
+         error: errorMsg
+       };
+     }
+   } catch (error) {
+     console.error('[SZAMLAZZ EXCEPTION] Refund invoice request failed:', error);
+     return {
+       success: false,
+       error: error.message
+     };
+   }
+ }
+
+ // Send refund confirmation email to customer with refund invoice attached
+ async function sendRefundEmail(climber, ticket, refundAmount, invoiceBuffer = null, invoiceNumber = null, isFullStorno = false) {
+   try {
+     let HungarianType = '';
+     if (ticket.ticket_type === 'NAPI') HungarianType = 'Egyszeri Napijegy';
+     else if (ticket.ticket_type === 'TIZ_ALKALMAS') HungarianType = '10 Alkalmas Bérlet';
+     else if (ticket.ticket_type === 'HAVI') HungarianType = '30 Napos Korlátlan Bérlet';
+
+     const docType = isFullStorno ? 'Sztornó számla' : 'Helyesbítő számla';
+     const docTypeLower = isFullStorno ? 'sztornó számla (érvénytelenítés)' : 'helyesbítő számla';
+
+     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+       await transporter.sendMail({
+         from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+         to: climber.email,
+         subject: `HawkStone Visszatérítés és ${docType} - #${ticket.id}`,
+         text: `Kedves ${climber.name}!\n\nSajnálattal értesültünk róla, hogy az elállás mellett döntöttél, és mégsem veszed igénybe szolgáltatásainkat, de természetesen tiszteletben tartjuk a döntésedet.\n\nTájékoztatunk, hogy a(z) #${ticket.id} azonosítójú jegyedre/bérletedre vonatkozó elállási/felmondási igényedet sikeresen feldolgoztuk, és a visszatérítésről gondoskodtunk. A visszatérített összeg: ${refundAmount.toLocaleString('hu-HU')} Ft, melyet a Barion rendszerén keresztül visszautaltunk a fizetéshez használt bankkártyádra.\n\nA tranzakcióról kiállított ${docTypeLower} PDF bizonylatot csatoltuk ehhez az e-mailhez.\n\nBízunk benne, hogy a jövőben még találkozunk a falainkon!\n\nÜdvözlettel,\nHawkStone Csapata`,
+         html: `
+           <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+             <div style="text-align: center; margin-bottom: 25px;">
+               <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; font-size: 24px; margin: 0;">Sikeres visszatérítés</h2>
+               <p style="font-size: 14px; color: #94a3b8; margin-top: 8px; line-height: 1.5;">Sajnáljuk, hogy így döntöttél, és mégsem tartasz igényt a jegyedre/bérletedre, de tiszteletben tartjuk a döntésedet. Az elállási igényedet feldolgoztuk és a visszatérítésről gondoskodtunk.</p>
+             </div>
+
+             <!-- Refund Card -->
+             <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 10px; margin: 25px 0;">
+               <h3 style="margin: 0 0 15px 0; color: #ff6b00; font-family: 'Outfit', sans-serif; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">Visszatérítés Részletei</h3>
+               <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Jegy ID:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">#${ticket.id}</td>
+                 </tr>
+                 <tr>
+                   <td style="padding: 6px 0; color: #94a3b8;">Jegytípus:</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${HungarianType}</td>
+                 </tr>
+                 <tr style="background: rgba(239, 68, 68, 0.08); border-radius: 6px;">
+                   <td style="padding: 8px 6px; color: #ef4444; font-weight: 700;">💰 Visszatérített összeg:</td>
+                   <td style="padding: 8px 6px; color: #ef4444; text-align: right; font-weight: 700; font-size: 16px;">${refundAmount.toLocaleString('hu-HU')} Ft</td>
+                 </tr>
+               </table>
+             </div>
+
+             ${invoiceNumber ? `
+             <!-- Invoice Box -->
+             <div style="background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.2); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+               <p style="margin: 0; font-size: 14px; color: #2ecc71;"><strong>A kiállított ${docTypeLower} (${invoiceNumber}) elkészült és csatolva van ehhez a levélhez.</strong></p>
+             </div>` : ''}
+
+             <p style="font-size: 14px; color: #94a3b8; text-align: center; margin: 20px 0 10px 0;">Bízunk benne, hogy a jövőben még találkozunk a falainkon!</p>
+             <p style="font-size: 13px; line-height: 1.6; color: #94a3b8; text-align: center;">A visszautalt összeg jóváírási ideje a bankkártya-kibocsátódtól függően általában 1-5 munkanapot vesz igénybe.</p>
+             <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+             <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
+           </div>
+         `,
+         attachments: [
+           ...(invoiceBuffer ? [{
+             filename: `${isFullStorno ? 'Sztorno' : 'Helyesbito'}_Szamla_${invoiceNumber}.pdf`,
+             content: invoiceBuffer
+           }] : [])
+         ]
+       });
+       console.log(`[EMAIL] Refund confirmation email sent successfully to ${climber.email}`);
+     } else {
+       console.log(`[EMAIL MOCK] SMTP not configured. Refund email for ticket ${ticket.id} would be sent to ${climber.email}`);
+     }
+   } catch (err) {
+     console.error('[EMAIL ERROR] Failed to send refund email:', err);
    }
  }
  
@@ -2651,13 +2924,171 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['STAFF',
     const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [withdrawalId]);
     if (!withdrawal) return res.status(404).json({ error: 'Elállás nem található.' });
 
+    let triggeredBarionRefund = false;
+    let refundErrorMsg = null;
+    let ticket = null;
+    let refundInvoiceNumber = null;
+    let refundInvoiceError = null;
+    let refundInvoiceWarning = null;
+    let isFullStornoDoc = false;
+
+    if (refund_status === 'REFUNDED' && withdrawal.refund_status !== 'REFUNDED') {
+      ticket = await dbGet('SELECT * FROM tickets WHERE id = ?', [withdrawal.ticket_id]);
+      if (ticket && ticket.payment_id) {
+        const paymentId = ticket.payment_id;
+        
+        // Find payment amount and details
+        const payment = await dbGet('SELECT * FROM barion_payments WHERE payment_id = ?', [paymentId]);
+        if (payment) {
+          try {
+            if (!BARION_POS_KEY) {
+              throw new Error('A Barion nincs konfigurálva a szerveren.');
+            }
+
+            // A. Fetch payment state from Barion to get TransactionId and POSTransactionId
+            console.log(`[REFUND] Querying state for payment ${paymentId} from Barion...`);
+            const stateResponse = await fetch(`${BARION_BASE_URL}/v2/Payment/GetPaymentState?PosKey=${BARION_POS_KEY}&PaymentId=${paymentId}`);
+            const stateData = await stateResponse.json();
+
+            if (!stateResponse.ok || (stateData.Errors && stateData.Errors.length > 0)) {
+              const errorMsg = stateData.Errors && stateData.Errors[0] ? stateData.Errors[0].Title : 'Barion hiba';
+              throw new Error(`Nem sikerült lekérdezni a tranzakció részleteit a Bariontól: ${errorMsg}`);
+            }
+
+            if (stateData.Status !== 'Succeeded') {
+              throw new Error(`A fizetés státusza a Barionnál nem sikeres (${stateData.Status}), nem téríthető vissza.`);
+            }
+
+            if (!stateData.Transactions || stateData.Transactions.length === 0) {
+              throw new Error('Nem található tranzakció a Barion fizetésben.');
+            }
+
+            const transaction = stateData.Transactions[0];
+            const transactionId = transaction.TransactionId;
+            const posTransactionId = transaction.POSTransactionId;
+
+            // B. Calculate refund amount based on unused sessions
+            let refundAmount = payment.amount;
+            if (withdrawal.ticket_type === 'NAPI') {
+              refundAmount = withdrawal.sessions_remaining > 0 ? payment.amount : 0;
+            } else if (withdrawal.ticket_type === 'TIZ_ALKALMAS') {
+              const ratio = Math.max(0, Math.min(1, withdrawal.sessions_remaining / 10));
+              refundAmount = Math.round(payment.amount * ratio);
+            } else if (withdrawal.ticket_type === 'HAVI') {
+              // Proportional to remaining days out of 30 days validity
+              const purchaseDate = new Date(withdrawal.purchase_date);
+              const withdrawalDate = new Date(withdrawal.withdrawal_time);
+              const diffMs = withdrawalDate.getTime() - purchaseDate.getTime();
+              const diffDays = diffMs / (1000 * 3600 * 24);
+              const daysRemaining = Math.max(0, 30 - diffDays);
+              const ratio = Math.max(0, Math.min(1, daysRemaining / 30));
+              refundAmount = Math.round(payment.amount * ratio);
+            }
+
+            console.log(`[REFUND] Calculated refund amount: ${refundAmount} HUF (original: ${payment.amount} HUF, unused: ${withdrawal.sessions_remaining} sessions)`);
+
+            if (refundAmount <= 0) {
+              throw new Error('A kiszámolt visszatérítési összeg 0 Ft, nincs mit visszatéríteni.');
+            }
+
+            // C. Call Barion Refund API
+            console.log(`[REFUND] Sending Refund request to Barion for transaction ${transactionId} with amount ${refundAmount} HUF...`);
+            const refundResponse = await fetch(`${BARION_BASE_URL}/v2/Payment/Refund`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                POSKey: BARION_POS_KEY,
+                PaymentId: paymentId,
+                TransactionsToRefund: [
+                  {
+                    TransactionId: transactionId,
+                    POSTransactionId: posTransactionId,
+                    AmountToRefund: refundAmount,
+                    Comment: `Refund for withdrawal request #${withdrawalId}`
+                  }
+                ]
+              })
+            });
+
+            const refundData = await refundResponse.json();
+            if (!refundResponse.ok || (refundData.Errors && refundData.Errors.length > 0)) {
+              const errorMsg = refundData.Errors && refundData.Errors[0] ? refundData.Errors[0].Title : 'Visszatérítési hiba';
+              throw new Error(`Barion visszatérítés sikertelen: ${errorMsg}`);
+            }
+
+            console.log(`[REFUND] Successfully completed Barion refund for payment ${paymentId}. Refunded: ${refundAmount} HUF.`);
+            triggeredBarionRefund = true;
+
+            // Trigger refund invoicing
+            if (payment.invoice_number) {
+              try {
+                const climber = await dbGet('SELECT * FROM users WHERE id = ?', [payment.user_id]);
+                if (climber) {
+                  const isFullStorno = (refundAmount === payment.amount);
+                  isFullStornoDoc = isFullStorno;
+                  console.log(`[REFUND INVOICE] Triggering Számlázz.hu refund invoice. isFullStorno = ${isFullStorno}`);
+                  const refundInvoiceResult = await createSzamlazzRefundInvoice(payment, payment.invoice_number, climber, refundAmount, isFullStorno);
+                  if (refundInvoiceResult && refundInvoiceResult.success) {
+                    refundInvoiceNumber = refundInvoiceResult.szamlaszam;
+                    // Send refund email
+                    await sendRefundEmail(climber, ticket || { id: withdrawal.ticket_id, ticket_type: withdrawal.ticket_type }, refundAmount, refundInvoiceResult.pdfBuffer, refundInvoiceResult.szamlaszam, isFullStorno);
+                  } else {
+                    refundInvoiceError = refundInvoiceResult ? refundInvoiceResult.error : 'ismeretlen hiba';
+                  }
+                }
+              } catch (invErr) {
+                console.error('[REFUND INVOICE ERROR]: Failed to generate/send refund invoice:', invErr);
+                refundInvoiceError = invErr.message;
+              }
+            } else {
+              refundInvoiceWarning = 'Nem található eredeti számlaszám az adatbázisban, ezért a sztornó/helyesbítő számlát manuálisan kell kiállítani.';
+            }
+          } catch (err) {
+            console.error('[REFUND ERROR]:', err);
+            refundErrorMsg = err.message;
+          }
+        } else {
+          console.warn(`[REFUND] Payment record not found in database for payment_id: ${paymentId}`);
+        }
+      } else {
+        console.log(`[REFUND] Ticket #${withdrawal.ticket_id} is not associated with a Barion payment_id. Proceeding with manual/offline status update.`);
+      }
+    }
+
+    if (refundErrorMsg) {
+      // Save error message to admin note and abort
+      const errorNote = `[VISSZATÉRÍTÉSI HIBA] ${new Date().toISOString().substring(0, 16).replace('T', ' ')}: ${refundErrorMsg}\n` + (admin_note || withdrawal.admin_note || '');
+      await dbRun(
+        'UPDATE withdrawals SET admin_note = ? WHERE id = ?',
+        [errorNote, withdrawalId]
+      );
+      return res.status(400).json({ error: refundErrorMsg });
+    }
+
     const newRefundStatus = refund_status || withdrawal.refund_status;
-    const newNote = admin_note !== undefined ? admin_note : (withdrawal.admin_note || '');
+    
+    let finalNote = admin_note !== undefined ? admin_note : (withdrawal.admin_note || '');
+    if (triggeredBarionRefund) {
+      finalNote = `[BARION VISSZATÉRÍTÉS] Sikeresen visszautalva a felhasználónak. (${new Date().toLocaleString('hu-HU')})\n` + finalNote;
+      if (refundInvoiceNumber) {
+        const docName = isFullStornoDoc ? 'sztornó' : 'helyesbítő';
+        finalNote = `[SZÁMLÁZÁS] Sikeresen kiállítva a ${docName} számla (${refundInvoiceNumber}).\n` + finalNote;
+      } else if (refundInvoiceError) {
+        finalNote = `[SZÁMLÁZÁSI HIBA] A sztornó/helyesbítő számla kiállítása sikertelen: ${refundInvoiceError}\n` + finalNote;
+      } else if (refundInvoiceWarning) {
+        finalNote = `[SZÁMLÁZÁS FIGYELMEZTETÉS] ${refundInvoiceWarning}\n` + finalNote;
+      }
+    } else if (refund_status === 'REFUNDED' && (!ticket || !ticket.payment_id)) {
+      finalNote = `[MANUÁLIS VISSZATÉRÍTÉS] Manuálisan elszámolva (nem Barionos fizetés).\n` + finalNote;
+    }
 
     await dbRun(
       'UPDATE withdrawals SET refund_status = ?, admin_note = ? WHERE id = ?',
-      [newRefundStatus, newNote, withdrawalId]
+      [newRefundStatus, finalNote, withdrawalId]
     );
+
     const updated = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [withdrawalId]);
     res.json({ success: true, withdrawal: updated });
   } catch (error) {

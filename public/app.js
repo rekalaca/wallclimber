@@ -1233,6 +1233,8 @@ window.selectedTicketType = null;
 function closeBillingModal() {
   const form = document.getElementById('billing-form');
   if (form) form.reset();
+  const checkbox = document.getElementById('immediate-commencement');
+  if (checkbox) checkbox.checked = false;
   const modal = document.getElementById('billing-modal-backdrop');
   if (modal) modal.classList.remove('open');
 }
@@ -1246,6 +1248,12 @@ async function handleBillingSubmit(event) {
   const billingCity = document.getElementById('billing-city').value.trim();
   const billingAddress = document.getElementById('billing-address').value.trim();
   const billingTaxNumber = document.getElementById('billing-tax-number').value.trim();
+  const immediateCheckbox = document.getElementById('immediate-commencement');
+
+  if (immediateCheckbox && !immediateCheckbox.checked) {
+    showToast('A szolgáltatás azonnali megkezdéséhez el kell fogadnod a nyilatkozatot!', 'error');
+    return;
+  }
 
   if (!billingName || !billingZip || !billingCity || !billingAddress) {
     showToast('Kérjük, minden kötelező számlázási mezőt tölts ki!', 'error');
