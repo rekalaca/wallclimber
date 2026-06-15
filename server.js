@@ -45,7 +45,7 @@ let localDb = null;
 
 if (process.env.DATABASE_URL) {
   try {
-    const { createClient } = require('@libsql/client/web');
+    const { createClient } = require('@libsql/client');
     let url = process.env.DATABASE_URL;
     if (url.startsWith('libsql://')) {
       url = url.replace('libsql://', 'https://');
@@ -62,9 +62,13 @@ if (process.env.DATABASE_URL) {
 }
 
 if (!isCloudDB) {
-  const dbPath = path.join(__dirname, 'database.db');
-  localDb = new sqlite3.Database(dbPath);
-  console.log('[DATABASE] Connecting to local database.db (SQLite3)...');
+  if (process.env.VERCEL) {
+    console.warn('[DATABASE] Running on Vercel but DATABASE_URL is not set! Database queries will fail.');
+  } else {
+    const dbPath = path.join(__dirname, 'database.db');
+    localDb = new sqlite3.Database(dbPath);
+    console.log('[DATABASE] Connecting to local database.db (SQLite3)...');
+  }
 }
 
 // Database helpers supporting both local SQLite and Turso (libSQL)
@@ -76,6 +80,9 @@ const dbRun = async (sql, params = []) => {
       changes: result.rowsAffected
     };
   } else {
+    if (!localDb) {
+      throw new Error('Adatbázis nincs konfigurálva ezen a környezeten.');
+    }
     return new Promise((resolve, reject) => {
       localDb.run(sql, params, function(err) {
         if (err) reject(err);
@@ -90,6 +97,9 @@ const dbAll = async (sql, params = []) => {
     const result = await dbClient.execute({ sql, args: params });
     return result.rows;
   } else {
+    if (!localDb) {
+      throw new Error('Adatbázis nincs konfigurálva ezen a környezeten.');
+    }
     return new Promise((resolve, reject) => {
       localDb.all(sql, params, (err, rows) => {
         if (err) reject(err);
@@ -104,6 +114,9 @@ const dbGet = async (sql, params = []) => {
     const result = await dbClient.execute({ sql, args: params });
     return result.rows[0] || null;
   } else {
+    if (!localDb) {
+      throw new Error('Adatbázis nincs konfigurálva ezen a környezeten.');
+    }
     return new Promise((resolve, reject) => {
       localDb.get(sql, params, (err, row) => {
         if (err) reject(err);
