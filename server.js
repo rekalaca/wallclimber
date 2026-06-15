@@ -2193,6 +2193,87 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['STAFF', 'ADMIN'
   }
 });
 
+// CRM advanced search across users and payments
+app.get('/api/admin/search', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { name, email, phone, paymentId } = req.query;
+
+    let userQuery = `
+      SELECT DISTINCT u.id, u.name, u.email, u.phone, u.license_number, u.card_type, u.role, u.created_at
+      FROM users u
+      LEFT JOIN tickets t ON u.id = t.user_id
+      LEFT JOIN barion_payments p ON u.id = p.user_id
+      LEFT JOIN withdrawals w ON u.id = w.user_id
+      WHERE 1=1
+    `;
+    let userParams = [];
+
+    if (name && name.trim()) {
+      userQuery += ` AND (u.name LIKE ? OR p.billing_name LIKE ? OR w.customer_name LIKE ?)`;
+      const val = `%${name.trim()}%`;
+      userParams.push(val, val, val);
+    }
+    if (email && email.trim()) {
+      userQuery += ` AND (u.email LIKE ? OR w.customer_email LIKE ?)`;
+      const val = `%${email.trim()}%`;
+      userParams.push(val, val);
+    }
+    if (phone && phone.trim()) {
+      userQuery += ` AND u.phone LIKE ?`;
+      userParams.push(`%${phone.trim()}%`);
+    }
+    if (paymentId && paymentId.trim()) {
+      userQuery += ` AND (t.payment_id LIKE ? OR p.payment_id LIKE ? OR p.invoice_number LIKE ? OR w.contract_id LIKE ?)`;
+      const val = `%${paymentId.trim()}%`;
+      userParams.push(val, val, val, val);
+    }
+
+    userQuery += ` ORDER BY u.name ASC LIMIT 50`;
+
+    let paymentQuery = `
+      SELECT DISTINCT p.payment_id, p.user_id, p.ticket_type, p.status, p.amount, p.created_at, p.invoice_number, p.billing_name,
+             u.name as user_name, u.email as user_email
+      FROM barion_payments p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN tickets t ON p.payment_id = t.payment_id
+      LEFT JOIN withdrawals w ON u.id = w.user_id
+      WHERE 1=1
+    `;
+    let paymentParams = [];
+
+    if (name && name.trim()) {
+      paymentQuery += ` AND (u.name LIKE ? OR p.billing_name LIKE ? OR w.customer_name LIKE ?)`;
+      const val = `%${name.trim()}%`;
+      paymentParams.push(val, val, val);
+    }
+    if (email && email.trim()) {
+      paymentQuery += ` AND (u.email LIKE ? OR w.customer_email LIKE ?)`;
+      const val = `%${email.trim()}%`;
+      paymentParams.push(val, val);
+    }
+    if (phone && phone.trim()) {
+      paymentQuery += ` AND u.phone LIKE ?`; // matched from users table u
+      paymentParams.push(`%${phone.trim()}%`);
+    }
+    if (paymentId && paymentId.trim()) {
+      paymentQuery += ` AND (p.payment_id LIKE ? OR p.invoice_number LIKE ? OR t.payment_id LIKE ? OR w.contract_id LIKE ?)`;
+      const val = `%${paymentId.trim()}%`;
+      paymentParams.push(val, val, val, val);
+    }
+
+    paymentQuery += ` ORDER BY p.created_at DESC LIMIT 50`;
+
+    const [users, payments] = await Promise.all([
+      dbAll(userQuery, userParams),
+      dbAll(paymentQuery, paymentParams)
+    ]);
+
+    res.json({ users, payments });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Bulk User Import
 app.post('/api/admin/users/import', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {

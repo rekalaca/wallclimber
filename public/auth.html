@@ -220,6 +220,8 @@
         setTimeout(() => {
           if (data.mustChangePassword) {
             window.location.href = 'dashboard.html?forceChangePassword=true';
+          } else if (data.user.role === 'ADMIN') {
+            window.location.href = 'admin.html';
           } else if (data.user.role === 'STAFF') {
             window.location.href = 'scanner.html';
           } else {

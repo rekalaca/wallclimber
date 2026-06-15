@@ -35,20 +35,96 @@
     
     <div style="margin-bottom: 40px; text-align: center;">
       <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; font-weight: 800;">Adminisztrációs Panel</h2>
-      <h3 id="admin-active-tab-title" style="font-size: 18px; color: #ffffff; text-transform: uppercase; margin-top: 12px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Montserrat', sans-serif;">HETI ÓRAREND KEZELÉS</h3>
+      <h3 id="admin-active-tab-title" style="font-size: 18px; color: #ffffff; text-transform: uppercase; margin-top: 12px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Montserrat', sans-serif;">ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ</h3>
     </div>
 
     <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
     <div class="auth-tabs" style="display: none;">
-      <div id="tab-slots" class="auth-tab active" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
+      <div id="tab-dashboard" class="auth-tab active" onclick="switchAdminTab('dashboard')">Kezdőlap</div>
+      <div id="tab-slots" class="auth-tab" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
       <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
       <div id="tab-bookings" class="auth-tab" onclick="switchAdminTab('bookings')">Foglalások</div>
       <div id="tab-withdrawals" class="auth-tab" onclick="switchAdminTab('withdrawals')">Elállások</div>
     </div>
 
+    <!-- Tab Dashboard (CRM Homepage) Content -->
+    <div id="admin-dashboard-content" style="display: block;">
+      <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+        <h3 style="font-size: 20px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px; font-family: 'Montserrat', sans-serif; font-weight: 700;">CRM Ügyfél & Tranzakció Kereső</h3>
+        
+        <form id="crm-search-form" onsubmit="handleCRMSearch(event)" style="margin-bottom: 15px;">
+          <div class="crm-search-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="crm-search-name" style="font-size: 13px;">Név (vagy számlázási név)</label>
+              <input type="text" id="crm-search-name" class="form-control" placeholder="pl. Kovács Péter" style="margin-bottom: 0;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="crm-search-email" style="font-size: 13px;">E-mail cím</label>
+              <input type="text" id="crm-search-email" class="form-control" placeholder="pl. peter@gmail.com" style="margin-bottom: 0;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="crm-search-phone" style="font-size: 13px;">Telefonszám</label>
+              <input type="text" id="crm-search-phone" class="form-control" placeholder="pl. +36201234567" style="margin-bottom: 0;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="crm-search-payment-id" style="font-size: 13px;">Fizetési azonosító / Bizonylatszám</label>
+              <input type="text" id="crm-search-payment-id" class="form-control" placeholder="pl. 6c5d1dfe... vagy E-HAWK-2026-17" style="margin-bottom: 0;">
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" onclick="clearCRMSearch()" class="btn btn-secondary" style="width: auto; padding: 10px 24px; font-weight: 600;">Szűrés törlése</button>
+            <button type="submit" class="btn btn-primary" style="width: auto; padding: 10px 30px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              Keresés futtatása
+            </button>
+          </div>
+        </form>
+
+        <div id="crm-results-area" style="display: none; border-top: 1px solid var(--border-color); padding-top: 25px; margin-top: 25px;">
+          <div class="crm-results-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <!-- Left side: Matching users -->
+            <div>
+              <h4 style="font-size: 16px; color: var(--primary); margin-bottom: 20px; text-transform: uppercase; font-family: 'Montserrat', sans-serif; font-weight: 700; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                👥 Talált Tagok (<span id="crm-users-count">0</span>)
+              </h4>
+              <div id="crm-users-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- User result items -->
+              </div>
+            </div>
+
+            <!-- Right side: Matching payments -->
+            <div>
+              <h4 style="font-size: 16px; color: var(--primary); margin-bottom: 20px; text-transform: uppercase; font-family: 'Montserrat', sans-serif; font-weight: 700; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                💳 Talált Tranzakciók (<span id="crm-payments-count">0</span>)
+              </h4>
+              <div id="crm-payments-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Payment result items -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Default view (Empty state / instructions) -->
+        <div id="crm-empty-state" style="text-align: center; padding: 40px 20px; border-top: 1px dashed var(--border-color); margin-top: 20px;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom: 15px; display: inline-block;">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="11" y1="8" x2="11" y2="14"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+          <h4 style="font-size: 16px; color: var(--text-primary); margin-bottom: 8px; font-family: 'Montserrat', sans-serif; font-weight: 600;">Nincs aktív keresés</h4>
+          <p style="font-size: 14px; color: var(--text-secondary); max-width: 500px; margin: 0 auto; line-height: 1.5;">Adj meg egy nevet, e-mail címet, telefonszámot vagy fizetési azonosítót a fenti mezőkben a tagok és Barion befizetések szűréséhez.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab Slots Content -->
-    <div id="admin-slots-content">
+    <div id="admin-slots-content" style="display: none;">
       <!-- Unified Schedule Slots Management -->
       <div class="glass-card" style="margin-bottom: 40px;">
         <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Heti Órarend Menedzsment (Eötvös, Kossuth, Zrínyi)</h3>
@@ -438,27 +514,30 @@
     function switchAdminTab(tab) {
       const activeTitleEl = document.getElementById('admin-active-tab-title');
       if (activeTitleEl) {
-        if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
+        if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
+        else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
         else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
         else if (tab === 'news') activeTitleEl.textContent = 'ÜZENŐFAL KEZELÉSE';
         else if (tab === 'bookings') activeTitleEl.textContent = 'FOGLALÁSOK';
         else if (tab === 'withdrawals') activeTitleEl.textContent = 'ELÁLLÁSOK';
       }
 
+      const tabDashboard = document.getElementById('tab-dashboard');
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
       const tabNews = document.getElementById('tab-news');
       const tabBookings = document.getElementById('tab-bookings');
       const tabWithdrawals = document.getElementById('tab-withdrawals');
       
+      const contentDashboard = document.getElementById('admin-dashboard-content');
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
       const contentNews = document.getElementById('admin-news-content');
       const contentBookings = document.getElementById('admin-bookings-content');
       const contentWithdrawals = document.getElementById('admin-withdrawals-content');
       
-      if (!tabSlots || !tabUsers || !tabNews || !tabBookings || !tabWithdrawals ||
-          !contentSlots || !contentUsers || !contentNews || !contentBookings || !contentWithdrawals) return;
+      if (!tabDashboard || !tabSlots || !tabUsers || !tabNews || !tabBookings || !tabWithdrawals ||
+          !contentDashboard || !contentSlots || !contentUsers || !contentNews || !contentBookings || !contentWithdrawals) return;
 
       // Update URL hash without reload
       if (history.pushState) {
@@ -468,10 +547,13 @@
       }
 
       // Deactivate all
-      [tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].forEach(t => t.classList.remove('active'));
-      [contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].forEach(c => c.style.display = 'none');
+      [tabDashboard, tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].forEach(t => t.classList.remove('active'));
+      [contentDashboard, contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].forEach(c => c.style.display = 'none');
 
-      if (tab === 'slots') {
+      if (tab === 'dashboard') {
+        tabDashboard.classList.add('active');
+        contentDashboard.style.display = 'block';
+      } else if (tab === 'slots') {
         tabSlots.classList.add('active');
         contentSlots.style.display = 'block';
       } else if (tab === 'users') {

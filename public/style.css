@@ -2316,3 +2316,62 @@ header.admin-header {
     max-height: none;
   }
 }
+
+/* ---- CRM SEARCH HOMEPAGE ---- */
+.crm-user-result-card, .crm-payment-result-card {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  transition: all var(--transition);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crm-user-result-card:hover, .crm-payment-result-card:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(242, 118, 32, 0.15);
+}
+
+.crm-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.crm-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.crm-card-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.crm-card-body p {
+  margin: 4px 0;
+}
+
+.crm-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 5px;
+}
+
+@media (max-width: 991px) {
+  .crm-results-grid {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+  }
+}

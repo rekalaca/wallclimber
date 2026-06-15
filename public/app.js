@@ -91,11 +91,17 @@ function renderHeader() {
     // Admin / Staff Specific Menu (Order requested by USER)
     const activeClass = (page, hash = '') => {
       const isPage = path.endsWith(page);
-      const isHash = hash ? window.location.hash === hash : !window.location.hash;
+      let isHash = false;
+      if (hash === '#dashboard') {
+        isHash = (window.location.hash === '#dashboard' || !window.location.hash);
+      } else {
+        isHash = hash ? window.location.hash === hash : !window.location.hash;
+      }
       return isPage && isHash ? 'active' : '';
     };
 
     navItems = `
+      <li><a href="admin.html#dashboard" class="nav-link ${activeClass('admin.html', '#dashboard')}">Kezdőlap</a></li>
       <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
       <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
       <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
@@ -1993,11 +1999,29 @@ async function initAdminPanel() {
     return;
   }
 
-  await loadAdminUsers();
-  await loadAdminSlots();
-  await loadNewsAnnouncements();
-  await loadAdminBookings();
-  await loadAdminWithdrawals();
+  // Switch tab instantly on load to prevent flickering showing the wrong default tab
+  const hash = window.location.hash || '#dashboard';
+  let initialTab = 'dashboard';
+  if (hash === '#users') initialTab = 'users';
+  else if (hash === '#news') initialTab = 'news';
+  else if (hash === '#schedule') initialTab = 'slots';
+  else if (hash === '#bookings') initialTab = 'bookings';
+  else if (hash === '#withdrawals') initialTab = 'withdrawals';
+
+  if (typeof window.switchAdminTab === 'function') {
+    window.switchAdminTab(initialTab);
+  }
+
+  // Load administrative data in parallel to avoid sequential blocks/flickers
+  Promise.all([
+    loadAdminUsers(),
+    loadAdminSlots(),
+    loadNewsAnnouncements(),
+    loadAdminBookings(),
+    loadAdminWithdrawals()
+  ]).catch(err => {
+    console.error('Error loading admin panel resources in parallel:', err);
+  });
 
   // News Form submission
   const newsForm = document.getElementById('admin-news-form');
@@ -2005,34 +2029,23 @@ async function initAdminPanel() {
     newsForm.addEventListener('submit', saveNewsAnnouncement);
   }
 
-  // Hash-based Tab activation on load
-  const hash = window.location.hash;
-  if (hash === '#users') {
-    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('users');
-  } else if (hash === '#news') {
-    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
-  } else if (hash === '#schedule') {
-    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
-  } else if (hash === '#bookings') {
-    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
-  } else if (hash === '#withdrawals') {
-    if (typeof window.switchAdminTab === 'function') window.switchAdminTab('withdrawals');
+  // CRM Search Form listener
+  const crmForm = document.getElementById('crm-search-form');
+  if (crmForm) {
+    crmForm.addEventListener('submit', handleCRMSearch);
   }
 
   // Global hash change listener for admin page tabs
   window.addEventListener('hashchange', () => {
-    const currentHash = window.location.hash;
-    if (currentHash === '#users') {
-      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('users');
-    } else if (currentHash === '#news') {
-      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('news');
-    } else if (currentHash === '#schedule') {
-      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('slots');
-    } else if (currentHash === '#bookings') {
-      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('bookings');
-    } else if (currentHash === '#withdrawals') {
-      if (typeof window.switchAdminTab === 'function') window.switchAdminTab('withdrawals');
-    }
+    const currentHash = window.location.hash || '#dashboard';
+    let tab = 'dashboard';
+    if (currentHash === '#users') tab = 'users';
+    else if (currentHash === '#news') tab = 'news';
+    else if (currentHash === '#schedule') tab = 'slots';
+    else if (currentHash === '#bookings') tab = 'bookings';
+    else if (currentHash === '#withdrawals') tab = 'withdrawals';
+
+    if (typeof window.switchAdminTab === 'function') window.switchAdminTab(tab);
     renderHeader();
   });
 }
@@ -3818,6 +3831,8 @@ window.openWithdrawalMessageModal = openWithdrawalMessageModal;
 window.sendWithdrawalMessage = sendWithdrawalMessage;
 window.resetScannerAfterSuccess = resetScannerAfterSuccess;
 window.toggleCamera = toggleCamera;
+window.handleCRMSearch = handleCRMSearch;
+window.clearCRMSearch = clearCRMSearch;
 
 function switchDashboardView(view) {
   const tabOverview = document.getElementById('db-tab-overview');
@@ -3895,4 +3910,155 @@ async function handleChangePasswordSubmit(e) {
   }
 }
 window.handleChangePasswordSubmit = handleChangePasswordSubmit;
+
+async function handleCRMSearch(event) {
+  if (event) event.preventDefault();
+  
+  const name = document.getElementById('crm-search-name').value;
+  const email = document.getElementById('crm-search-email').value;
+  const phone = document.getElementById('crm-search-phone').value;
+  const paymentId = document.getElementById('crm-search-payment-id').value;
+
+  // If all are empty, show warning
+  if (!name.trim() && !email.trim() && !phone.trim() && !paymentId.trim()) {
+    showToast('Kérjük, adj meg legalább egy keresési feltételt!', 'error');
+    return;
+  }
+
+  const resultsArea = document.getElementById('crm-results-area');
+  const emptyState = document.getElementById('crm-empty-state');
+  const usersList = document.getElementById('crm-users-list');
+  const paymentsList = document.getElementById('crm-payments-list');
+  const usersCount = document.getElementById('crm-users-count');
+  const paymentsCount = document.getElementById('crm-payments-count');
+
+  if (!resultsArea || !emptyState || !usersList || !paymentsList) return;
+
+  // Show results area, hide empty state, show loading indicator
+  resultsArea.style.display = 'block';
+  emptyState.style.display = 'none';
+  usersList.innerHTML = '<p style="color:var(--text-muted); font-size: 13px; text-align: center; padding: 20px; grid-column: 1/-1;">Keresés folyamatban...</p>';
+  paymentsList.innerHTML = '<p style="color:var(--text-muted); font-size: 13px; text-align: center; padding: 20px; grid-column: 1/-1;">Keresés folyamatban...</p>';
+  usersCount.textContent = '0';
+  paymentsCount.textContent = '0';
+
+  try {
+    const params = new URLSearchParams();
+    if (name.trim()) params.append('name', name.trim());
+    if (email.trim()) params.append('email', email.trim());
+    if (phone.trim()) params.append('phone', phone.trim());
+    if (paymentId.trim()) params.append('paymentId', paymentId.trim());
+
+    const res = await fetch(`/api/admin/search?${params.toString()}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) throw new Error('Hiba történt a keresés során!');
+
+    const { users, payments } = await res.json();
+
+    // Render Users
+    usersList.innerHTML = '';
+    usersCount.textContent = users.length;
+    if (users.length === 0) {
+      usersList.innerHTML = '<p style="color:var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">Nem található tag.</p>';
+    } else {
+      users.forEach(u => {
+        const card = document.createElement('div');
+        card.className = 'crm-user-result-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => {
+          if (typeof window.switchAdminTab === 'function') {
+            window.switchAdminTab('users');
+            setTimeout(() => {
+              if (typeof window.openUserDetailsModal === 'function') {
+                window.openUserDetailsModal(u.id);
+              }
+            }, 50);
+          }
+        };
+
+        const badgeClass = u.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red';
+        const roleBadge = u.role === 'ADMIN' ? 'badge-primary' : (u.role === 'STAFF' ? 'badge-secondary' : '');
+        const roleLabel = u.role === 'ADMIN' ? 'Admin' : (u.role === 'STAFF' ? 'Staff' : 'Mászó');
+
+        card.innerHTML = `
+          <div class="crm-card-header">
+            <div class="crm-card-title">${u.name}</div>
+            <div style="display:flex; gap:5px;">
+              <span class="badge ${badgeClass}" style="font-size:10px; padding:2px 6px;">${u.card_type}</span>
+              ${roleBadge ? `<span class="badge" style="background:#4f46e5; font-size:10px; padding:2px 6px;">${roleLabel}</span>` : ''}
+            </div>
+          </div>
+          <div class="crm-card-body">
+            <p><strong>E-mail:</strong> ${u.email}</p>
+            <p><strong>Telefon:</strong> ${u.phone || '-'}</p>
+            ${u.license_number ? `<p><strong>Engedély:</strong> ${u.license_number}</p>` : ''}
+          </div>
+          <div class="crm-card-footer">
+            <span style="font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase;">Megtekintés →</span>
+          </div>
+        `;
+        usersList.appendChild(card);
+      });
+    }
+
+    // Render Payments
+    paymentsList.innerHTML = '';
+    paymentsCount.textContent = payments.length;
+    if (payments.length === 0) {
+      paymentsList.innerHTML = '<p style="color:var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">Nem található tranzakció.</p>';
+    } else {
+      payments.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'crm-payment-result-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => {
+          if (typeof window.switchAdminTab === 'function') {
+            window.switchAdminTab('users');
+            setTimeout(() => {
+              if (typeof window.openUserDetailsModal === 'function') {
+                window.openUserDetailsModal(p.user_id);
+              }
+            }, 50);
+          }
+        };
+
+        const statusClass = p.status === 'SUCCEEDED' ? 'badge-green' : (p.status === 'FAILED' ? 'badge-red' : 'badge-yellow');
+        const formattedDate = new Date(p.created_at).toLocaleString('hu-HU');
+        const formattedAmount = new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(p.amount);
+
+        card.innerHTML = `
+          <div class="crm-card-header">
+            <div class="crm-card-title">${p.ticket_type}</div>
+            <span class="badge ${statusClass}" style="font-size:10px; padding:2px 6px;">${p.status}</span>
+          </div>
+          <div class="crm-card-body">
+            <p><strong>Tag neve:</strong> ${p.user_name} (${p.user_email})</p>
+            ${p.billing_name ? `<p><strong>Számlázási név:</strong> ${p.billing_name}</p>` : ''}
+            <p><strong>Összeg:</strong> ${formattedAmount}</p>
+            <p><strong>Dátum:</strong> ${formattedDate}</p>
+            <p><strong>Barion ID:</strong> <span style="font-family:monospace; font-size:11px; word-break: break-all;">${p.payment_id}</span></p>
+            ${p.invoice_number ? `<p><strong>Számlaszám:</strong> <span style="color:var(--primary); font-weight:600;">${p.invoice_number}</span></p>` : ''}
+          </div>
+          <div class="crm-card-footer">
+            <span style="font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase;">Tag profilja →</span>
+          </div>
+        `;
+        paymentsList.appendChild(card);
+      });
+    }
+
+  } catch (err) {
+    showToast(err.message, 'error');
+    usersList.innerHTML = '<p style="color:var(--danger); font-size: 13px; text-align: center; padding: 20px;">Hiba történt a tagok keresésekor.</p>';
+    paymentsList.innerHTML = '<p style="color:var(--danger); font-size: 13px; text-align: center; padding: 20px;">Hiba történt a tranzakciók keresésekor.</p>';
+  }
+}
+
+function clearCRMSearch() {
+  document.getElementById('crm-search-form').reset();
+  document.getElementById('crm-results-area').style.display = 'none';
+  document.getElementById('crm-empty-state').style.display = 'block';
+}
 
