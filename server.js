@@ -45,7 +45,7 @@ let localDb = null;
 
 if (process.env.DATABASE_URL) {
   try {
-    const { createClient } = require('@libsql/client');
+    const { createClient } = require('@libsql/client/web');
     let url = process.env.DATABASE_URL;
     if (url.startsWith('libsql://')) {
       url = url.replace('libsql://', 'https://');
