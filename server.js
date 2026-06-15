@@ -526,10 +526,18 @@ app.get('/api/diagnostics', async (req, res) => {
       isCloudDB: isCloudDB
     };
     
+    let dbStatus = 'testing...';
+    try {
+      const result = await dbGet("SELECT 1 as test");
+      dbStatus = (result && (result.test === 1 || result.rowsAffected !== undefined)) ? 'OK' : 'Invalid result';
+    } catch (dbErr) {
+      dbStatus = 'Error: ' + dbErr.message;
+    }
+    
     res.json({
       success: true,
       env: envVars,
-      database: 'Skipped query to prevent hang',
+      database: dbStatus,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
