@@ -51,8 +51,6 @@
     <!-- Tab Dashboard (CRM Homepage) Content -->
     <div id="admin-dashboard-content" style="display: block;">
       <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
-        <h3 style="font-size: 20px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px; font-family: 'Montserrat', sans-serif; font-weight: 700;">CRM Ügyfél & Tranzakció Kereső</h3>
-        
         <form id="crm-search-form" onsubmit="handleCRMSearch(event)" style="margin-bottom: 15px;">
           <div class="crm-search-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
             <div class="form-group" style="margin-bottom: 0;">
@@ -126,8 +124,7 @@
     <!-- Tab Slots Content -->
     <div id="admin-slots-content" style="display: none;">
       <!-- Unified Schedule Slots Management -->
-      <div class="glass-card" style="margin-bottom: 40px;">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Heti Órarend Menedzsment (Eötvös, Kossuth, Zrínyi)</h3>
+      <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
         
         <!-- Week Switching Buttons -->
         <div style="margin-bottom: 25px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;" id="admin-schedule-week-tabs">
@@ -207,31 +204,34 @@
     <!-- Tab Users Content -->
     <div id="admin-users-content" style="display: none;">
       <!-- User List View -->
-      <div id="admin-users-list-wrapper" class="glass-card">
-        <h3 style="font-size: 18px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Felhasználók kezelése</h3>
+      <div id="admin-users-list-wrapper" class="glass-card" style="padding: 30px;">
         
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
           <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 0; flex: 1; min-width: 280px;">
             Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).
           </p>
           
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div class="admin-users-controls">
             <!-- Bulk Export/Import Buttons -->
-            <button onclick="exportAllUsersToCSV()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 34px;">
-              📥 Tagok Exportálása
-            </button>
-            <button onclick="document.getElementById('import-users-csv').click()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; height: 34px;">
-              📤 Tagok Importálása
-            </button>
-            <input type="file" id="import-users-csv" style="display:none;" accept=".csv" onchange="importUsersFromCSVFile(this)">
+            <div class="admin-users-controls-buttons">
+              <button onclick="exportAllUsersToCSV()" class="btn btn-secondary btn-sm btn-export-import">
+                📥 Export
+              </button>
+              <button onclick="document.getElementById('import-users-csv').click()" class="btn btn-secondary btn-sm btn-export-import">
+                📤 Import
+              </button>
+              <input type="file" id="import-users-csv" style="display:none;" accept=".csv" onchange="importUsersFromCSVFile(this)">
+            </div>
             
-            <label for="admin-users-sort" style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; margin-bottom: 0; margin-left: 10px;">Rendezés:</label>
-            <select id="admin-users-sort" class="form-control" style="width: auto; padding: 4px 10px; font-size: 13px; height: auto; margin-bottom: 0;" onchange="sortAdminUsers()">
-              <option value="name-asc">Név szerint (A-Z)</option>
-              <option value="name-desc">Név szerint (Z-A)</option>
-              <option value="reg-desc">Regisztráció szerint (Új elől)</option>
-              <option value="reg-asc">Regisztráció szerint (Régi elől)</option>
-            </select>
+            <div class="admin-users-controls-sort">
+              <label for="admin-users-sort" class="admin-users-sort-label">Rendezés:</label>
+              <select id="admin-users-sort" class="form-control admin-users-sort-select" onchange="sortAdminUsers()">
+                <option value="name-asc">Név szerint (A-Z)</option>
+                <option value="name-desc">Név szerint (Z-A)</option>
+                <option value="reg-desc">Regisztráció szerint (Új elől)</option>
+                <option value="reg-asc">Regisztráció szerint (Régi elől)</option>
+              </select>
+            </div>
           </div>
         </div>
         
@@ -384,8 +384,7 @@
           
     <!-- Tab News Content -->
     <div id="admin-news-content" style="display: none;">
-      <div class="glass-card" style="margin-bottom: 40px;">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Üzenőfal (Hírek & Közlemények)</h3>
+      <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
         
         <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
           <!-- Add/Edit News Form -->
@@ -446,8 +445,7 @@
     <!-- Tab Bookings Content -->
     <div id="admin-bookings-content" style="display: none;">
       <!-- Grid of Location Cards -->
-      <div id="admin-bookings-locations-view" class="glass-card">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">Foglalások helyszínenként</h3>
+      <div id="admin-bookings-locations-view" class="glass-card" style="padding: 30px;">
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
           Válaszd ki az egyik helyszínt a foglalások részletes megtekintéséhez és kezeléséhez.
         </p>
@@ -480,8 +478,7 @@
     
     <!-- Tab Withdrawals Content -->
     <div id="admin-withdrawals-content" style="display: none;">
-      <div class="glass-card">
-        <h3 style="font-size: 22px; margin-bottom: 20px; color:#ffffff; border-bottom: 1px solid var(--border-color); padding-bottom:10px; font-family: 'Montserrat', sans-serif; font-weight: 700;">Fogyasztói Elállási Igények (EU 2023/2673)</h3>
+      <div class="glass-card" style="padding: 30px;">
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
           Itt találhatók a tagok által az online elállási gombbal visszavont bérletek és jegyek naplóbejegyzései. A visszatérítést 14 napon belül kell teljesíteni.
         </p>
@@ -587,6 +584,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20260614_v15"></script>
+  <script src="app.js?v=20260617_v16"></script>
 </body>
 </html>

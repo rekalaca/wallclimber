@@ -80,10 +80,10 @@
 
   <!-- Live Schedule Widget -->
   <section class="container" style="margin-bottom: 80px;">
-    <div class="glass-card" style="padding: 40px; border-color: var(--border-glow);">
+    <div class="glass-card schedule-widget-card" style="padding: 40px; border-color: var(--border-glow);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 30px; flex-wrap: wrap; gap:15px;">
         <div>
-          <h2 style="font-size: 28px; margin-bottom: 5px;">Online Órarend & Kapacitás</h2>
+          <h2 class="section-title-premium" style="margin-bottom: 5px;">ONLINE ÓRAREND & KAPACITÁS</h2>
           <p style="color: var(--text-secondary); font-size: 14px;">Nézd meg a falak telítettségét, és tervezd meg a mászást a zsúfoltság elkerülésére!</p>
         </div>
         <div class="date-picker-wrapper">
@@ -100,34 +100,59 @@
     </div>
   </section>
 
+  <!-- Slanted Separator Line -->
+  <div class="scroll-divider-container">
+    <div class="scroll-divider-line" id="scroll-divider"></div>
+  </div>
+
   <!-- Locations Info -->
   <section id="locations" class="container" style="margin-bottom: 80px;">
-    <h2 style="font-size: 32px; text-align: center; margin-bottom: 40px;">Mászófalaink</h2>
+    <h2 class="section-title-premium" style="text-align: center; margin-bottom: 40px;">MÁSZÓFALAINK</h2>
     <div class="grid-3">
-      <div class="glass-card">
-        <div style="font-size: 40px; margin-bottom: 15px;">🏫</div>
-        <h3 style="font-size: 20px; margin-bottom: 10px;">Eötvös Mászófal</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px;">A klub alapköve, technikás falakkal és boulder szekcióval. Kezdőktől a haladókig mindenkinek ajánlott.</p>
-        <span class="badge badge-secondary">Kapacitás: 15 fő</span>
+      <div class="glass-card wall-card">
+        <div class="wall-card-img-wrapper">
+          <img src="pictures/wall/Eotvos.jpg" alt="Eötvös Mászófal" class="wall-card-img">
+          <div class="wall-card-emoji">🏫</div>
+        </div>
+        <div class="wall-card-content">
+          <h3 style="font-size: 20px; margin-bottom: 10px;">Eötvös Mászófal</h3>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px; flex-grow: 1;">A klub alapköve, technikás falakkal és boulder szekcióval. Kezdőktől a haladókig mindenkinek ajánlott.</p>
+          <span class="badge badge-secondary" style="width: fit-content;">Kapacitás: 15 fő</span>
+        </div>
       </div>
-      <div class="glass-card">
-        <div style="font-size: 40px; margin-bottom: 15px;">🏛️</div>
-        <h3 style="font-size: 20px; margin-bottom: 10px;">Kossuth Mászófal</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px;">Főleg nehézségi utakra tervezett falmagasságok, beépített automata biztosítógépekkel (auto-belay) a magányos mászóknak.</p>
-        <span class="badge badge-secondary">Kapacitás: 15 fő</span>
+      <div class="glass-card wall-card">
+        <div class="wall-card-img-wrapper">
+          <img src="pictures/wall/Kossuth.jpg" alt="Kossuth Mászófal" class="wall-card-img">
+          <div class="wall-card-emoji">🏛️</div>
+        </div>
+        <div class="wall-card-content">
+          <h3 style="font-size: 20px; margin-bottom: 10px;">Kossuth Mászófal</h3>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px; flex-grow: 1;">Főleg nehézségi utakra tervezett falmagasságok, beépített automata biztosítógépekkel (auto-belay) a magányos mászóknak.</p>
+          <span class="badge badge-secondary" style="width: fit-content;">Kapacitás: 15 fő</span>
+        </div>
       </div>
-      <div class="glass-card">
-        <div style="font-size: 40px; margin-bottom: 15px;">🏰</div>
-        <h3 style="font-size: 20px; margin-bottom: 10px;">Zrínyi Mászófal</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px;">Kompakt, családias edzőterem, kifejezetten az erőnléti fejlesztésre, campusboard és rendszerfal edzésekre specializálva.</p>
-        <span class="badge badge-secondary">Kapacitás: 12 fő</span>
+      <div class="glass-card wall-card">
+        <div class="wall-card-img-wrapper">
+          <img src="pictures/wall/zrinyi.jpg" alt="Zrínyi Mászófal" class="wall-card-img">
+          <div class="wall-card-emoji">🏰</div>
+        </div>
+        <div class="wall-card-content">
+          <h3 style="font-size: 20px; margin-bottom: 10px;">Zrínyi Mászófal</h3>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 15px; flex-grow: 1;">Kompakt, családias edzőterem, kifejezetten az erőnléti fejlesztésre, campusboard és rendszerfal edzésekre specializálva.</p>
+          <span class="badge badge-secondary" style="width: fit-content;">Kapacitás: 12 fő</span>
+        </div>
       </div>
     </div>
   </section>
 
+  <!-- Slanted Separator Line (Reverse) -->
+  <div class="scroll-divider-container second-divider-container">
+    <div class="scroll-divider-line reverse"></div>
+  </div>
+
   <!-- Prices -->
   <section id="prices" class="container" style="margin-bottom: 80px;">
-    <h2 style="font-size: 32px; text-align: center; margin-bottom: 15px;">Egyszerű, Átlátható Árak</h2>
+    <h2 class="section-title-premium" style="text-align: center; margin-bottom: 40px;">ÁRAINK</h2>
     <p style="text-align: center; color: var(--text-secondary); max-width: 600px; margin: 0 auto 50px auto; font-size: 15px;">Válassz a mászási szokásaidnak megfelelő belépőt. Vásárolj online másodpercek alatt és lépj be a QR kódoddal!</p>
     
     <div class="grid-3">
@@ -170,30 +195,11 @@
     </div>
   </section>
 
-  <!-- Rules Section -->
-  <section id="rules" class="container" style="margin-bottom: 80px;">
-    <h2 style="font-size: 32px; text-align: center; margin-bottom: 40px; color: var(--primary);">Biztonsági Szabályzatunk</h2>
-    <div class="grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px;">
-      <div class="glass-card" style="padding: 30px;">
-        <h3 style="font-size: 20px; margin-bottom: 15px; color: #ffffff;">1. Zöld Kártya & Biztosítás</h3>
-        <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
-          A mászófalon kizárólag sikeres mászóvizsgával (<strong>Zöld Kártya</strong>) rendelkező tagok biztosíthatnak másokat. Ha nem rendelkezel Zöld Kártyával, kizárólag automata biztosítógépet (Kossuth fal) használhatsz, vagy szakképzett kísérővel mászhatsz.
-        </p>
-      </div>
-      <div class="glass-card" style="padding: 30px;">
-        <h3 style="font-size: 20px; margin-bottom: 15px; color: #ffffff;">2. Felszerelés & Magatartás</h3>
-        <p class="text-justify" style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
-          Minden mászónak kötelező a tanúsított, megfelelő állapotú mászóbeülő, kötél és biztosítóeszköz használata. A mászóterületen figyelj a fal alatt tartózkodókra, kerüld a veszélyes zónákat, és tartsd be a személyzet utasításait.
-        </p>
-      </div>
-    </div>
-  </section>
-
   <!-- Contact Section -->
-  <section id="contact" class="container" style="margin-bottom: 80px;">
-    <div class="glass-card" style="padding: 40px;">
-      <h2 style="font-size: 32px; text-align: center; margin-bottom: 30px; color: var(--primary);">Kapcsolat & Elérhetőség</h2>
-      <div class="grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+  <section id="contact" class="contact-full-width">
+    <div class="container">
+      <h2 class="section-title-premium" style="text-align: center; margin-bottom: 40px;">KAPCSOLAT & ELÉRHETŐSÉG</h2>
+      <div class="grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 40px; text-align: center;">
         <div>
           <h3 style="font-size: 20px; margin-bottom: 15px; color: #ffffff;">Központi Iroda</h3>
           <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">📍 Cím: 4400 Nyíregyháza, Sóstói út 31.</p>
@@ -231,6 +237,6 @@
   <script>
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
   </script>
-  <script src="app.js?v=20260530_v14"></script>
+  <script src="app.js?v=20260617_v16"></script>
 </body>
 </html>

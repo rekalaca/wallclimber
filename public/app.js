@@ -137,7 +137,6 @@ function renderHeader() {
     if (isConfiguredAdmin) {
       authSection = `
         <div class="nav-auth" style="display: flex; align-items: center; gap: 15px;">
-          <a href="dashboard.html" class="profile-trigger-link" style="font-size: 14px; font-weight: 600; text-decoration: none; color: var(--text-secondary); transition: var(--transition);" onmouseover="this.style.color='var(--primary)';" onmouseout="this.style.color='var(--text-secondary)';" id="admin-profile-text-link">Profilom</a>
           <div class="profile-header-widget" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 15px;">
             <a href="dashboard.html" class="profile-trigger-link">
               <div class="profile-avatar-circle">
@@ -230,26 +229,24 @@ function renderHeader() {
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
+        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
+          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
+        </a>
+
         ${isConfiguredAdmin ? `
-          <div class="admin-nav-left" style="display: flex; align-items: center; gap: 15px; height: 100%;">
-            <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
-              <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
-            </a>
-            <div class="admin-menu-trigger-wrapper" style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 8px; transition: var(--transition);" onmouseover="this.style.borderColor='var(--primary)';" onmouseout="this.style.borderColor='var(--border-color)';" id="admin-menu-trigger">
-              <span style="font-family:'Montserrat', sans-serif; font-weight:700; font-size:12px; color:#ffffff; letter-spacing:0.05em; text-transform:uppercase;">MENÜ</span>
-              <button class="hamburger-btn" style="display: flex; background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; pointer-events: none;" aria-label="Menü megnyitása">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-              </button>
-            </div>
+          <div class="menu-trigger-btn" id="admin-menu-trigger">
+            <span>MENÜ</span>
+            <button class="hamburger-btn" style="display: flex; background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; pointer-events: none;" aria-label="Menü megnyitása">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
           </div>
         ` : `
-          <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
-            <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
-          </a>
-          <!-- Hamburger Icon for Mobile -->
-          <button class="hamburger-btn" id="hamburger-toggle" aria-label="Menü megnyitása">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
+          <div class="menu-trigger-btn" id="hamburger-toggle">
+            <span>MENÜ</span>
+            <button class="hamburger-btn" style="display: flex; background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; pointer-events: none;" aria-label="Menü megnyitása">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+          </div>
         `}
 
         <!-- Menu overlay background -->
@@ -461,9 +458,34 @@ function initParallax() {
   updateParallax();
 }
 
+// ---------------- SCROLL DIVIDER ANIMATION ----------------
+function initScrollDivider() {
+  const containers = document.querySelectorAll('.scroll-divider-container');
+  if (!containers.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const divider = entry.target.querySelector('.scroll-divider-line');
+        if (divider) {
+          divider.classList.add('active');
+        }
+        observer.unobserve(entry.target);
+      }
+    });
+  }, {
+    threshold: 0.1
+  });
+
+  containers.forEach(container => {
+    observer.observe(container);
+  });
+}
+
 // ---------------- PUBLIC LANDING PAGE (INDEX) ----------------
 async function initPublicLanding() {
   initParallax();
+  initScrollDivider();
   const video = document.querySelector('.hero-video-bg');
   const heroContent = document.querySelector('.hero-content');
   const isMobileInit = window.innerWidth <= 768;
