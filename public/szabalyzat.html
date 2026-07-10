@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Házirend & Szabályzat | HawkStone</title>
+  <link rel="stylesheet" href="style.css?v=20260530_v14">
+  <style>
+    /* Premium styles for Szabályzat page */
+    .rules-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .rules-subtitle {
+      color: var(--text-secondary);
+      font-size: 15px;
+      font-weight: 400;
+    }
+    
+    /* Disclaimer style */
+    @keyframes pulse-red-shadow {
+      0% {
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.25);
+      }
+      50% {
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
+        border-color: rgba(239, 68, 68, 0.55);
+      }
+      100% {
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.25);
+      }
+    }
+    .disclaimer-box {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      animation: pulse-red-shadow 3s infinite ease-in-out;
+      position: relative;
+      overflow: hidden;
+    }
+    .disclaimer-icon {
+      font-size: 28px;
+      color: var(--danger);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 54px;
+      height: 54px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 50%;
+    }
+    .disclaimer-text {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.4;
+    }
+
+    /* Section style */
+    .rules-section-title {
+      font-size: 23px;
+      color: #ffffff;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Custom rules list */
+    .rules-list {
+      list-style: none;
+      display: grid;
+      gap: 16px;
+    }
+    .rules-item {
+      display: flex;
+      gap: 15px;
+      align-items: flex-start;
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 18px;
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+    .rules-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(242, 118, 32, 0.18);
+      transform: translateX(4px);
+    }
+    .rules-item-icon {
+      color: var(--primary);
+      font-size: 16px;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+    .rules-item-text {
+      font-size: 14.5px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .rules-item-text strong {
+      color: #ffffff;
+    }
+
+    /* Card System */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 25px;
+      margin-top: 20px;
+    }
+    .climb-card {
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-shadow: var(--glass-shadow);
+      transition: var(--transition);
+    }
+    .climb-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      opacity: 0.1;
+    }
+    
+    .card-green {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      box-shadow: var(--glass-shadow), 0 0 15px rgba(16, 185, 129, 0.08);
+    }
+    .card-green::after {
+      background: var(--success);
+    }
+    .card-green:hover {
+      border-color: rgba(16, 185, 129, 0.85);
+      box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.25), 0 0 25px rgba(16, 185, 129, 0.18);
+      transform: translateY(-4px);
+    }
+    
+    .card-red {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      box-shadow: var(--glass-shadow), 0 0 15px rgba(239, 68, 68, 0.08);
+    }
+    .card-red::after {
+      background: var(--danger);
+    }
+    .card-red:hover {
+      border-color: rgba(239, 68, 68, 0.85);
+      box-shadow: 0 12px 40px 0 rgba(239, 68, 68, 0.25), 0 0 25px rgba(239, 68, 68, 0.18);
+      transform: translateY(-4px);
+    }
+
+    .card-header-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+      width: fit-content;
+      z-index: 1;
+    }
+    .badge-green-card {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .badge-red-card {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    
+    .card-title {
+      font-size: 20px;
+      color: #ffffff;
+      margin-bottom: 12px;
+      z-index: 1;
+      font-weight: 700;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.6;
+      z-index: 1;
+      flex-grow: 1;
+    }
+    .card-rules-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1;
+    }
+    .card-rules-item {
+      display: flex;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .card-rules-item svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    /* Download Section styling */
+    .download-container {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 35px;
+      border-top: 1px solid var(--border-color);
+    }
+    .download-text {
+      color: var(--text-secondary);
+      font-size: 14.5px;
+      margin-bottom: 20px;
+    }
+    
+    /* Glass Download Button */
+    .btn-download-glass {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 36px;
+      background: rgba(242, 118, 32, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(242, 118, 32, 0.3);
+      border-radius: var(--radius-lg);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.25), 
+        inset 0 1px 1px rgba(255, 255, 255, 0.05),
+        inset 0 0 10px rgba(242, 118, 32, 0.1);
+      transition: var(--transition);
+    }
+    .btn-download-glass svg {
+      transition: var(--transition);
+    }
+    .btn-download-glass:hover {
+      background: rgba(242, 118, 32, 0.15);
+      border-color: rgba(242, 118, 32, 0.7);
+      box-shadow: 
+        0 12px 40px 0 rgba(242, 118, 32, 0.25), 
+        inset 0 1px 1px rgba(255, 255, 255, 0.1),
+        inset 0 0 15px rgba(242, 118, 32, 0.2);
+      color: #ffffff;
+      transform: translateY(-3px);
+    }
+    .btn-download-glass:hover svg {
+      transform: translateY(2px);
+    }
+    .btn-download-glass:active {
+      transform: translateY(-1px);
+    }
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .main-rules-card {
+      box-shadow: 
+        rgba(255, 255, 255, 0.08) 0px 50px 100px -20px, 
+        rgba(0, 0, 0, 0.65) 0px 30px 60px -30px, 
+        rgba(255, 255, 255, 0.15) 0px -2px 6px 0px inset;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="max-width: 850px; margin: 40px auto 80px auto;">
+    <div class="glass-card main-rules-card" style="padding: 40px;">
+      
+      <div class="rules-header">
+        <h1 class="section-title-premium" style="margin-bottom: 12px;">Házirend & Szabályzat</h1>
+        <p class="rules-subtitle">A HawkStone Városi Mászóklub általános házirendje és teremhasználati szabályzata</p>
+      </div>
+
+      <!-- Disclaimer Alert -->
+      <div class="disclaimer-box">
+        <div class="disclaimer-icon">⚠️</div>
+        <div class="disclaimer-text">
+          A mászótermet mindenki saját felelősségére veszi igénybe!
+        </div>
+      </div>
+
+      <!-- Section: Házirend -->
+      <section class="rules-section" style="margin-top: 45px;">
+        <h2 class="rules-section-title">HÁZIREND</h2>
+        <ul class="rules-list">
+          <li class="rules-item">
+            <div class="rules-item-icon">⚡</div>
+            <div class="rules-item-text">
+              A teremben csak azok tartózkodhatnak, akik <strong>elolvasták a házirendünket</strong>, és aláírásukkal igazolták azt, hogy tisztában vannak a szabályzattal, a mászás kockázataival és saját felelősségükre sportolnak a teremben.
+            </div>
+          </li>
+          <li class="rules-item">
+            <div class="rules-item-icon">👮</div>
+            <div class="rules-item-text">
+              A <strong>falmester utasításait mindig végre kell hajtani</strong>, hiszen elsősorban ő felel azért, hogy mindenki biztonságban használhassa a mászótermet! A biztonságos üzemeléshez azonban minden teremben tartózkodó személy odafigyelésére szükség van.
+            </div>
+          </li>
+          <li class="rules-item">
+            <div class="rules-item-icon">🚭</div>
+            <div class="rules-item-text">
+              A mászócsarnok egész területén <strong>tilos a dohányzás, illetve alkohol és kábítószer fogyasztás</strong>! A mindenkori falmester bármikor jogosult megtagadni a belépést olyan személyeknek, akik vélhetően ittas, kábító- vagy egyéb tudatmódosító szer hatása alatt állnak.
+            </div>
+          </li>
+          <li class="rules-item">
+            <div class="rules-item-icon">💼</div>
+            <div class="rules-item-text">
+              Az öltözőszekrényekben vagy a csarnok más területén elhelyezett <strong>értéktárgyakért felelősséget nem vállalunk</strong>!
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Section: Előkészületek -->
+      <section class="rules-section" style="margin-top: 45px;">
+        <h2 class="rules-section-title">ELŐKÉSZÜLETEK</h2>
+        <ul class="rules-list">
+          <li class="rules-item">
+            <div class="rules-item-icon">💍</div>
+            <div class="rules-item-text">
+              Mászás előtt <strong>minden ékszert le kell venni</strong>, különös tekintettel a komoly balesetveszélyt jelentő gyűrűre, karkötőre, karórára és bármire, ami mászás közben a fogásokba akadhat.
+            </div>
+          </li>
+          <li class="rules-item">
+            <div class="rules-item-icon">💇</div>
+            <div class="rules-item-text">
+              A <strong>hosszú hajat összefogva</strong> célszerű viselni, mert könnyen beakadhat a karabinerbe vagy a biztosítóeszközbe.
+            </div>
+          </li>
+          <li class="rules-item">
+            <div class="rules-item-icon">👟</div>
+            <div class="rules-item-text">
+              A mászófalat használni <strong>csak mászó- vagy más tiszta talpú (!) tornacipőben szabad</strong>! Zokniban, vagy mezítláb mászni higiéniai okokból szigorúan tilos.
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Section: Kártyarendszer -->
+      <section class="rules-section" style="margin-top: 45px;">
+        <h2 class="rules-section-title">MÁSZÓKÁRTYA RENDSZER ÉS BIZTOSÍTÁS</h2>
+        <p style="color: var(--text-secondary); font-size: 14.5px; line-height: 1.6; margin-bottom: 20px;">
+          A HawkStone mászóklub a biztonság érdekében kártyás minősítési rendszert alkalmaz. A kártyatípusok határozzák meg a tagok mászási és biztosítási jogosultságait:
+        </p>
+        
+        <div class="cards-grid">
+          <!-- Zöld Kártya -->
+          <div class="climb-card card-green">
+            <span class="card-header-badge badge-green-card">Zöld Kártya</span>
+            <h3 class="card-title">Zöld Kártyás Minősítés</h3>
+            <p class="card-desc">
+              Olyan tagok kaphatják meg, akik igazolt sportmászó vizsgával (vagy sikeres helyszíni felmérő vizsgával) rendelkeznek.
+            </p>
+            <ul class="card-rules-list">
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Önálló elölmászás (Lead) engedélyezett</span>
+              </li>
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Mások biztosítására teljes mértékben jogosult</span>
+              </li>
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Kísérőként felügyelhet piros kártyás tagokat</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Piros Kártya -->
+          <div class="climb-card card-red">
+            <span class="card-header-badge badge-red-card">Piros Kártya</span>
+            <h3 class="card-title">Piros Kártyás Minősítés</h3>
+            <p class="card-desc">
+              Alapértelmezett kártyatípus minden olyan tag részére, aki nem rendelkezik sportmászó vizsgával.
+            </p>
+            <ul class="card-rules-list">
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <span style="font-weight: 600; color: #ffffff;">NEM biztosíthat másokat</span>
+              </li>
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Kizárólag önbiztosító (auto-belay) rendszeren mászhat</span>
+              </li>
+              <li class="card-rules-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Zöld kártyás kísérő vagy falmester felügyeletével mászhat</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Download Document -->
+      <div class="download-container">
+        <p class="download-text">Letöltheted a teljes használati szabályzatot és házirendet nyomtatható PDF formátumban is:</p>
+        <a href="docs/maszofal_hasznalati_szabalyzat_2026.pdf" download="HawkStone_Házirend_Szabályzat_2026.pdf" class="btn-download-glass">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Szabályzat Letöltése (PDF)
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
+      <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> | 
+        <a href="hasznalati-szabalyok.html" class="footer-link">Mászófal használati szabályok</a> | 
+        <a href="szabalyzat.html" class="footer-link">Szabályzatunk</a> | 
+        <a href="impresszum.html" class="footer-link">Impresszum</a> | 
+        <a href="aszf.html" class="footer-link">ÁSZF</a> | 
+        <a href="withdrawal.html" class="footer-link">Elállás a szerződéstől</a>
+      </p>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom: 8px;">Minden jog fenntartva. Biztonságos mászást kívánunk!</p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <script src="app.js?v=20260617_v16"></script>
+</body>
+</html>

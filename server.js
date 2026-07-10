@@ -316,7 +316,7 @@ async function initDB() {
   if (locationsCount.count === 0) {
     await dbRun("INSERT INTO locations (name, address, capacity) VALUES ('Eötvös mászófal', 'Nyíregyháza, Eötvös u. 12.', 15)");
     await dbRun("INSERT INTO locations (name, address, capacity) VALUES ('Kossuth mászófal', 'Nyíregyháza, Kossuth u. 56.', 15)");
-    await dbRun("INSERT INTO locations (name, address, capacity) VALUES ('Zrínyi mászófal', 'Nyíregyháza, Zrínyi u. 34.', 15)");
+    await dbRun("INSERT INTO locations (name, address, capacity) VALUES ('Zrínyi boulder fal', 'Nyíregyháza, Zrínyi u. 34.', 15)");
 
     // Seed default slots
     // 0: Sunday, 1: Mon, 2: Tue, 3: Wed, 4: Thu, 5: Fri, 6: Sat

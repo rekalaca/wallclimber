@@ -2816,3 +2816,60 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+/* --- GLOBAL SCROLL REVEAL ANIMATIONS --- */
+.scroll-animate {
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+/* Desktop default style: soft slow fade-in and slight lift */
+@media (min-width: 769px) {
+  .scroll-animate:not(.animated) {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .scroll-animate {
+    transition: opacity 1.6s cubic-bezier(0.16, 1, 0.3, 1), transform 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .scroll-animate.animated {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile style: slide from left or right */
+@media (max-width: 768px) {
+  .scroll-animate {
+    transition: opacity 1.0s cubic-bezier(0.16, 1, 0.3, 1), transform 1.0s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Left slide elements (only when not animated) */
+  .scroll-animate.scroll-animate-left:not(.animated),
+  .rules-section .scroll-animate.rules-item:nth-child(odd):not(.animated),
+  .scroll-animate.card-green:not(.animated),
+  .scroll-animate.about-video-col:not(.animated),
+  .grid-3 > .scroll-animate:nth-child(odd):not(.animated),
+  .grid-2 > .scroll-animate:nth-child(odd):not(.animated) {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Right slide elements (only when not animated) */
+  .scroll-animate.scroll-animate-right:not(.animated),
+  .rules-section .scroll-animate.rules-item:nth-child(even):not(.animated),
+  .scroll-animate.card-red:not(.animated),
+  .scroll-animate.about-text-col:not(.animated),
+  .grid-3 > .scroll-animate:nth-child(even):not(.animated),
+  .grid-2 > .scroll-animate:nth-child(even):not(.animated) {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  /* Animated state restores normal position */
+  .scroll-animate.animated {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+

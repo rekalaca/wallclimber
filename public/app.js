@@ -121,7 +121,7 @@ function renderHeader() {
       <li><a href="${indexLink('#about')}" class="nav-link">Rólunk</a></li>
       <li><a href="${indexLink('#locations')}" class="nav-link">Helyszínek</a></li>
       <li><a href="${indexLink('#prices')}" class="nav-link">Áraink</a></li>
-      <li><a href="${indexLink('#rules')}" class="nav-link">Szabályzatunk</a></li>
+      <li><a href="szabalyzat.html" class="nav-link ${isActive('szabalyzat.html')}">Szabályzatunk</a></li>
       <li><a href="${indexLink('#contact')}" class="nav-link">Kapcsolat</a></li>
     `;
     if (token) {
@@ -308,9 +308,9 @@ function renderHeader() {
 // ---------------- HEADER SEARCH UTILITIES ----------------
 const searchIndex = [
   { title: "Rólunk", desc: "Ismerd meg a HawkStone csapatát és küldetésünket.", link: "#about", tags: ["rolunk", "csapat", "bemutatkozas", "mászás", "terem"] },
-  { title: "Helyszínek", desc: "Három helyszínünk: Eötvös mászófal, Kossuth mászófal, Zrínyi mászófal.", link: "#locations", tags: ["helyszin", "helyek", "eötvös", "kossuth", "zrínyi", "nyitvatartás", "cim", "címek"] },
+  { title: "Helyszínek", desc: "Három helyszínünk: Eötvös mászófal, Kossuth mászófal, Zrínyi boulder fal.", link: "#locations", tags: ["helyszin", "helyek", "eötvös", "kossuth", "zrínyi", "nyitvatartás", "cim", "címek", "boulder"] },
   { title: "Áraink", desc: "Tekintsd meg jegyeink és bérleteink árait.", link: "#prices", tags: ["arak", "araink", "jegy", "berlet", "bérlet", "napijegy", "vasarlas", "fizetes"] },
-  { title: "Szabályzatunk", desc: "Mászófal biztonsági és házirend szabályzatunk.", link: "#rules", tags: ["szabalyzat", "vizsga", "biztonsag", "zöld", "piros", "kartya", "kártya"] },
+  { title: "Szabályzatunk", desc: "Mászófal biztonsági és házirend szabályzatunk.", link: "szabalyzat.html", tags: ["szabalyzat", "vizsga", "biztonsag", "zöld", "piros", "kartya", "kártya", "házirend", "hazirend"] },
   { title: "Kapcsolat", desc: "Vedd fel velünk a kapcsolatot, vagy küldj üzenetet.", link: "#contact", tags: ["kapcsolat", "email", "telefon", "terkep", "térkép", "uzenet"] },
   { title: "Profilom", desc: "Személyes profil, megvásárolt jegyek és időpontfoglalások kezelése.", link: "dashboard.html", tags: ["profilom", "dashboard", "vezérlőpult", "foglalas", "jegyek", "qr", "kod"] }
 ];
@@ -402,6 +402,20 @@ window.toggleHeaderSearch = toggleHeaderSearch;
 window.clearHeaderSearch = clearHeaderSearch;
 window.handleHeaderSearch = handleHeaderSearch;
 
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const target = window.event ? (window.event.currentTarget || window.event.target) : null;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (target) target.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    if (target) target.textContent = '👁️';
+  }
+}
+window.togglePasswordVisibility = togglePasswordVisibility;
+
 function isActive(page) {
   const path = window.location.pathname;
   return path.endsWith(page) ? 'active' : '';
@@ -492,7 +506,7 @@ async function initPublicLanding() {
   let hasAnimatedHeroMobile = false;
 
   if (video) {
-    video.playbackRate = 0.85;
+    video.playbackRate = 0.65;
     video.loop = false;
     
     // Prepare initial position of text on startup (desktop only)
@@ -535,9 +549,9 @@ async function initPublicLanding() {
     video.addEventListener('timeupdate', () => {
       const isMobile = window.innerWidth <= 768;
       if (isMobile) return; // Mobilon ne animáljuk a szöveg ki/be áttűnését lejátszás közben
-
-      // 1. Text fade-in (3 seconds before end)
-      if (video.duration && (video.duration - video.currentTime <= 3)) {
+ 
+      // 1. Text fade-in (5 seconds before end)
+      if (video.duration && (video.duration - video.currentTime <= 5)) {
         if (!hasFadedInText) {
           hasFadedInText = true;
           if (heroContent) {
@@ -548,8 +562,8 @@ async function initPublicLanding() {
         }
       }
       
-      // 2. Text grow zoom (2.5 seconds before end)
-      if (video.duration && (video.duration - video.currentTime <= 2.5)) {
+      // 2. Text grow zoom (4.2 seconds before end)
+      if (video.duration && (video.duration - video.currentTime <= 4.2)) {
         if (!hasZoomedText) {
           hasZoomedText = true;
           if (heroContent) {
@@ -557,7 +571,7 @@ async function initPublicLanding() {
           }
         }
       }
-
+ 
       // 3. Video fade-out to black (1.8 seconds before end, only on desktop)
       if (!isMobile && video.duration && (video.duration - video.currentTime <= 1.8)) {
         if (!hasFadedOutVideo) {
@@ -565,7 +579,7 @@ async function initPublicLanding() {
           video.classList.add('video-ended');
         }
       }
-
+ 
       // 4. Title (h1) fade-out (0.5 seconds before end, only on desktop)
       if (!isMobile && video.duration && (video.duration - video.currentTime <= 0.5)) {
         if (!hasFadedOutText) {
@@ -605,8 +619,8 @@ async function initPublicLanding() {
           video.classList.remove('video-ended');
           video.play().catch(err => console.log("Video autoplay loop error:", err));
           
-          // Remove paragraph class 500 ms after video starts playing!
-          // This makes the text fade out exactly 1.5 seconds (1500 ms) after the title
+          // Remove paragraph class 2200 ms after video starts playing!
+          // This makes the text stay visible significantly longer for better readability
           setTimeout(() => {
             if (heroContent) {
               heroContent.classList.remove('visible-text');
@@ -616,7 +630,7 @@ async function initPublicLanding() {
                 heroContent.classList.add('prepare-text'); // Instantly reset translateY to 80px while invisible
               }, 2500);
             }
-          }, 500);
+          }, 2200);
         }, 500);
       }
     });
@@ -1112,7 +1126,7 @@ function renderDashboardBookings(filter) {
   if (filteredBookings.length === 0) {
     bookingsContainer.innerHTML = filter === 'upcoming' 
       ? '<p style="color:var(--text-muted);">Nincsenek aktív helyfoglalásaid.</p>'
-      : '<p style="color:var(--text-muted);">Nincsenek múltbéli helyfoglalásaid.</p>';
+      : '<p style="color:var(--text-muted);">Nincsenek korábbi helyfoglalásaid.</p>';
     return;
   }
 
@@ -2419,7 +2433,7 @@ function renderSubpageBookingsList(filter) {
   });
 
   if (filtered.length === 0) {
-    bookingsContainer.innerHTML = `<p style="color:var(--text-muted); font-size: 13px;">Nincsenek ${filter === 'future' ? 'jövőbeni' : 'eddigi'} foglalásai.</p>`;
+    bookingsContainer.innerHTML = `<p style="color:var(--text-muted); font-size: 13px;">Nincsenek ${filter === 'future' ? 'aktuális' : 'korábbi'} foglalásai.</p>`;
     return;
   }
 
@@ -3651,11 +3665,11 @@ function renderBookingsLocationsGrid(stats) {
         <h4 class="location-booking-card-title">${loc.location_name}</h4>
         <div class="location-booking-card-stats">
           <div class="location-booking-card-stat-item">
-            <span class="location-booking-card-stat-label">Múltbéli</span>
+            <span class="location-booking-card-stat-label">Korábbi</span>
             <span class="location-booking-card-stat-value">${loc.past_count || 0}</span>
           </div>
           <div class="location-booking-card-stat-item">
-            <span class="location-booking-card-stat-label">Jövőbeli</span>
+            <span class="location-booking-card-stat-label">Aktuális</span>
             <span class="location-booking-card-stat-value">${loc.future_count || 0}</span>
           </div>
         </div>
@@ -3862,10 +3876,45 @@ async function checkActiveAnnouncement() {
   }
 }
 
+// ---------------- GLOBAL SCROLL REVEAL ANIMATIONS ----------------
+function initScrollAnimations() {
+  const animElements = document.querySelectorAll(
+    '.scroll-animate, .rules-item, .climb-card, .glass-card:not(.main-rules-card), .wall-card, .price-card, .about-text-col, .about-video-col, .location-card'
+  );
+  
+  if (animElements.length === 0) return;
+
+  animElements.forEach(el => {
+    if (!el.classList.contains('scroll-animate')) {
+      el.classList.add('scroll-animate');
+    }
+  });
+
+  const observerOptions = {
+    root: null,
+    rootMargin: '0px 0px -80px 0px',
+    threshold: 0.12
+  };
+
+  const observer = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('animated');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, observerOptions);
+
+  animElements.forEach(el => {
+    observer.observe(el);
+  });
+}
+
 // ---------------- INITIALIZATION CHECK ----------------
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
   checkActiveAnnouncement();
+  initScrollAnimations();
 
   const path = window.location.pathname;
   if (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/')) {
