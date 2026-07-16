@@ -141,6 +141,11 @@ async function initDB() {
       is_verified INTEGER DEFAULT 0,
       verification_token TEXT,
       must_change_password INTEGER DEFAULT 0,
+      billing_name TEXT,
+      billing_zip TEXT,
+      billing_city TEXT,
+      billing_address TEXT,
+      billing_tax_number TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -151,6 +156,23 @@ async function initDB() {
     console.log("[DATABASE MIGRATION] Added column 'must_change_password' to 'users' table.");
   } catch (err) {
     // Ignore error if column already exists
+  }
+
+  // Migration: Add billing columns if they don't exist
+  const billingColumns = [
+    { name: 'billing_name', type: 'TEXT' },
+    { name: 'billing_zip', type: 'TEXT' },
+    { name: 'billing_city', type: 'TEXT' },
+    { name: 'billing_address', type: 'TEXT' },
+    { name: 'billing_tax_number', type: 'TEXT' }
+  ];
+  for (const col of billingColumns) {
+    try {
+      await dbRun(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
+      console.log(`[DATABASE MIGRATION] Added column '${col.name}' to 'users' table.`);
+    } catch (err) {
+      // Ignore error if column already exists
+    }
   }
 
   await dbRun(`
@@ -683,7 +705,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, must_change_password FROM users WHERE id = ?', [req.user.id]);
+    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, must_change_password, billing_name, billing_zip, billing_city, billing_address, billing_tax_number FROM users WHERE id = ?', [req.user.id]);
     if (!user) return res.status(444).json({ error: 'Felhasználó nem található!' });
 
     // Fetch user's active/unused tickets
@@ -751,6 +773,30 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
     res.json({ message: 'Jelszó sikeresen megváltoztatva!' });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a jelszó módosítása során: ' + error.message });
+  }
+});
+
+app.post('/api/auth/billing', authenticateToken, async (req, res) => {
+  try {
+    const { billingName, billingZip, billingCity, billingAddress, billingTaxNumber } = req.body;
+    if (!billingName || !billingZip || !billingCity || !billingAddress) {
+      return res.status(400).json({ error: 'Kérjük, minden kötelező számlázási mezőt tölts ki!' });
+    }
+
+    await dbRun(
+      `UPDATE users SET 
+        billing_name = ?, 
+        billing_zip = ?, 
+        billing_city = ?, 
+        billing_address = ?, 
+        billing_tax_number = ? 
+       WHERE id = ?`,
+      [billingName, billingZip, billingCity, billingAddress, billingTaxNumber || '', req.user.id]
+    );
+
+    res.json({ message: 'Számlázási adatok sikeresen elmentve!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a számlázási adatok mentése során: ' + error.message });
   }
 });
 

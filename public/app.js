@@ -1343,20 +1343,115 @@ async function handleBillingSubmit(event) {
     return;
   }
 
+  // Store pending payment data in window
+  window.pendingPaymentData = {
+    billingName,
+    billingZip,
+    billingCity,
+    billingAddress,
+    billingTaxNumber
+  };
+
+  // Close the main billing modal first
   closeBillingModal();
 
+  // Check if billing details are already saved in user profile
+  const userJson = localStorage.getItem('user');
+  let hasSavedBilling = false;
+  if (userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      // We check if billing_name and billing_address are present
+      if (user.billing_name && user.billing_address) {
+        hasSavedBilling = true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (!hasSavedBilling) {
+    // Show confirmation modal to ask if they want to save details
+    const confirmModal = document.getElementById('confirm-save-billing-modal-backdrop');
+    if (confirmModal) {
+      confirmModal.classList.add('open');
+    } else {
+      // If modal doesn't exist, fallback to direct payment start
+      await handleSaveBillingResponse(false);
+    }
+  } else {
+    // Already has saved billing, proceed directly to Barion
+    await handleSaveBillingResponse(false);
+  }
+}
+
+// Close Confirm Save Billing Modal
+function closeConfirmSaveBillingModal() {
+  const modal = document.getElementById('confirm-save-billing-modal-backdrop');
+  if (modal) modal.classList.remove('open');
+}
+
+// Handle Save Billing Dialog Response
+async function handleSaveBillingResponse(save) {
+  closeConfirmSaveBillingModal();
+
+  const paymentData = window.pendingPaymentData;
+  if (!paymentData) return;
+
+  if (save) {
+    try {
+      // Save billing details in the database via API
+      const res = await fetch('/api/auth/billing', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          billingName: paymentData.billingName,
+          billingZip: paymentData.billingZip,
+          billingCity: paymentData.billingCity,
+          billingAddress: paymentData.billingAddress,
+          billingTaxNumber: paymentData.billingTaxNumber
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Mentési hiba');
+      
+      // Update local storage user profile cache
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        user.billing_name = paymentData.billingName;
+        user.billing_zip = paymentData.billingZip;
+        user.billing_city = paymentData.billingCity;
+        user.billing_address = paymentData.billingAddress;
+        user.billing_tax_number = paymentData.billingTaxNumber;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      showToast('Számlázási adatok elmentve!', 'success');
+    } catch (err) {
+      console.error('Error saving billing details:', err);
+      showToast('Nem sikerült elmenteni a számlázási adatokat: ' + err.message, 'error');
+    }
+  }
+
+  // Proceed with initiating Barion payment
   try {
     showToast('Fizetés kezdeményezése a Barion rendszerében...', 'info');
     const res = await fetch('/api/barion/start-payment', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         ticketType: window.selectedTicketType,
-        billingName,
-        billingZip,
-        billingCity,
-        billingAddress,
-        billingTaxNumber
+        billingName: paymentData.billingName,
+        billingZip: paymentData.billingZip,
+        billingCity: paymentData.billingCity,
+        billingAddress: paymentData.billingAddress,
+        billingTaxNumber: paymentData.billingTaxNumber
       })
     });
     const data = await res.json();
@@ -1373,15 +1468,24 @@ async function handleBillingSubmit(event) {
 function buyTicket(ticketType) {
   window.selectedTicketType = ticketType;
   
-  // Try to pre-fill user name from local storage details
+  // Try to pre-fill user name and billing details from local storage details
   const userJson = localStorage.getItem('user');
   if (userJson) {
     try {
       const user = JSON.parse(userJson);
       const nameInput = document.getElementById('billing-name');
-      if (nameInput) nameInput.value = user.name || '';
+      const zipInput = document.getElementById('billing-zip');
+      const cityInput = document.getElementById('billing-city');
+      const addressInput = document.getElementById('billing-address');
+      const taxInput = document.getElementById('billing-tax-number');
+
+      if (nameInput) nameInput.value = user.billing_name || user.name || '';
+      if (zipInput) zipInput.value = user.billing_zip || '';
+      if (cityInput) cityInput.value = user.billing_city || '';
+      if (addressInput) addressInput.value = user.billing_address || '';
+      if (taxInput) taxInput.value = user.billing_tax_number || '';
     } catch (e) {
-      console.error('Error pre-filling billing name:', e);
+      console.error('Error pre-filling billing details:', e);
     }
   }
 
@@ -3976,6 +4080,8 @@ window.sortAdminUsers = sortAdminUsers;
 window.switchTicketTab = switchTicketTab;
 window.closeBillingModal = closeBillingModal;
 window.handleBillingSubmit = handleBillingSubmit;
+window.closeConfirmSaveBillingModal = closeConfirmSaveBillingModal;
+window.handleSaveBillingResponse = handleSaveBillingResponse;
 window.loadAdminBookings = loadAdminBookings;
 window.cancelAdminBooking = cancelAdminBooking;
 window.loadAdminWithdrawals = loadAdminWithdrawals;

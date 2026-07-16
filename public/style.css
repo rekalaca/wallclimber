@@ -277,9 +277,10 @@ header {
   border-radius: 8px;
 }
 
-.btn-disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-disabled,
+.btn:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
   transform: none !important;
   box-shadow: none !important;
 }

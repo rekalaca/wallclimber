@@ -25,13 +25,49 @@
   <noscript>
     <img height="1" width="1" style="display:none" alt="Barion Pixel" src="https://pixel.barion.com/a.gif?pid=BPT-BNsUqvcLGG-7C" />
   </noscript>
+  <style>
+    /* Custom overrides for the document reading modal */
+    .doc-reading-modal {
+      max-width: 650px !important;
+      width: 95% !important;
+      max-height: 85vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 25px 30px !important;
+    }
+
+    #doc-modal-content {
+      flex: 1;
+      overflow-y: auto;
+      text-align: left;
+      margin-bottom: 20px;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,0.2);
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 600px) {
+      .doc-reading-modal {
+        padding: 20px 10px 15px 10px !important; /* Thin border margins on mobile */
+        width: 95% !important;
+      }
+      #doc-modal-content {
+        padding: 12px 8px !important; /* Maximize scrollable content width */
+        margin-bottom: 15px !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
   <div id="toast-container" class="toast-container"></div>
   <header></header>
 
-  <div class="container" style="max-width: 500px; margin: 60px auto 80px auto;">
+  <div class="container" style="max-width: 600px; margin: 60px auto 80px auto;">
     <div class="glass-card auth-shadow">
       <div class="auth-tabs">
         <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">Bejelentkezés</div>
@@ -110,10 +146,16 @@
             <span class="password-toggle-eye" onclick="togglePasswordVisibility('reg-password-confirm')">👁️</span>
           </div>
         </div>
-        <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px; margin-top: 15px; margin-bottom: 15px;">
-          <input type="checkbox" id="reg-accept" required style="margin-top: 4px; cursor: pointer;">
-          <label for="reg-accept" style="font-size: 13px; color: var(--text-secondary); cursor: pointer; line-height: 1.4; user-select: none;">
-            Megértettem és elfogadom az <a href="adatvedelem.html" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Adatkezelési Tájékoztatót</a> és a <a href="hasznalati-szabalyok.html" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Mászófal használati szabályokat</a>.
+        <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px; margin-top: 15px; margin-bottom: 10px;">
+          <input type="checkbox" id="reg-accept-privacy" required disabled style="margin-top: 4px; cursor: not-allowed;">
+          <label style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; user-select: none;">
+            Megértettem és elfogadom az <a href="#" onclick="openDocumentModal('privacy', event)" style="color: var(--primary); text-decoration: underline; font-weight: 600;">Adatkezelési Tájékoztatót</a>. * (Olvasd el a Tájékoztatót!)
+          </label>
+        </div>
+        <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 15px;">
+          <input type="checkbox" id="reg-accept-rules" required disabled style="margin-top: 4px; cursor: not-allowed;">
+          <label style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; user-select: none;">
+            Megértettem és elfogadom a <a href="#" onclick="openDocumentModal('rules', event)" style="color: var(--primary); text-decoration: underline; font-weight: 600;">Mászófal használati szabályokat</a>. * (Olvasd el a szabályzatot!)
           </label>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Regisztráció végrehajtása</button>
@@ -135,6 +177,24 @@
       <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
     </div>
   </footer>
+
+  <!-- Modal for Document Viewing -->
+  <div class="modal-backdrop" id="doc-modal-backdrop" onclick="closeDocModal()">
+    <div class="modal doc-reading-modal" id="doc-modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeDocModal()">×</button>
+      <h3 id="doc-modal-title" style="color: var(--primary); margin-bottom: 15px; text-align: center;">Dokumentum</h3>
+      
+      <!-- Scrollable content area -->
+      <div id="doc-modal-content">
+        Betöltés...
+      </div>
+      
+      <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-shrink: 0;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeDocModal()">Mégse</button>
+        <button type="button" id="doc-modal-accept-btn" class="btn btn-primary btn-sm" disabled onclick="acceptCurrentDocument()">Megértettem</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.4.4/qrcode.min.js"></script>
   <script>
@@ -259,8 +319,10 @@
       }
 
       // Check if rules are accepted
-      if (!document.getElementById('reg-accept').checked) {
-        showToast('A regisztrációhoz el kell fogadni a szabályzatokat!', 'error');
+      const acceptPrivacy = document.getElementById('reg-accept-privacy');
+      const acceptRules = document.getElementById('reg-accept-rules');
+      if (!acceptPrivacy || !acceptRules || !acceptPrivacy.checked || !acceptRules.checked) {
+        showToast('A regisztrációhoz el kell fogadni a szabályzatokat és a tájékoztatót!', 'error');
         return;
       }
 
@@ -313,6 +375,113 @@
         input.type = 'password';
       }
     }
+
+    // Modal controls for registration policy viewing
+    window.currentDocType = null;
+    window.docContentLoaded = false;
+
+    async function openDocumentModal(docType, event) {
+      if (event) event.preventDefault();
+      window.currentDocType = docType;
+      window.docContentLoaded = false;
+
+      const titleEl = document.getElementById('doc-modal-title');
+      const contentEl = document.getElementById('doc-modal-content');
+      const acceptBtn = document.getElementById('doc-modal-accept-btn');
+
+      if (titleEl) {
+        titleEl.textContent = docType === 'privacy' 
+          ? 'Adatkezelési Tájékoztató' 
+          : 'Mászófal Használati Szabályzat';
+      }
+
+      if (contentEl) {
+        contentEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">Betöltés...</p>';
+        contentEl.scrollTop = 0;
+      }
+
+      if (acceptBtn) {
+        acceptBtn.disabled = true;
+      }
+
+      // Open Modal
+      const modal = document.getElementById('doc-modal-backdrop');
+      if (modal) modal.classList.add('open');
+
+      try {
+        const file = docType === 'privacy' ? 'adatvedelem.html' : 'hasznalati-szabalyok.html';
+        const res = await fetch(file);
+        if (!res.ok) throw new Error('Nem sikerült betölteni a dokumentumot.');
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const cardEl = doc.querySelector('main.container .glass-card');
+        
+        if (contentEl) {
+          if (cardEl) {
+            // Strip the <h2> title tag from the loaded content since it is already in modal header
+            const h2 = cardEl.querySelector('h2');
+            if (h2) h2.remove();
+            
+            contentEl.innerHTML = cardEl.innerHTML;
+          } else {
+            contentEl.innerHTML = text;
+          }
+          
+          // Verify if scrollbar is present or if it's already at bottom
+          setTimeout(() => {
+            window.docContentLoaded = true;
+            if (contentEl.scrollHeight <= contentEl.clientHeight + 10) {
+              if (acceptBtn) acceptBtn.disabled = false;
+            }
+          }, 100);
+        }
+      } catch (err) {
+        if (contentEl) {
+          contentEl.innerHTML = `<p style="color: var(--danger); text-align: center; padding: 20px;">Hiba: ${err.message}</p>`;
+        }
+      }
+    }
+
+    function closeDocModal() {
+      const modal = document.getElementById('doc-modal-backdrop');
+      if (modal) modal.classList.remove('open');
+      window.currentDocType = null;
+      window.docContentLoaded = false;
+    }
+
+    function acceptCurrentDocument() {
+      if (!window.currentDocType) return;
+      
+      const checkboxId = window.currentDocType === 'privacy' 
+        ? 'reg-accept-privacy' 
+        : 'reg-accept-rules';
+      
+      const checkbox = document.getElementById(checkboxId);
+      if (checkbox) {
+        checkbox.disabled = false;
+        checkbox.checked = true;
+        checkbox.disabled = true;
+      }
+      
+      closeDocModal();
+    }
+
+    // Add scroll tracking to document modal content container
+    document.addEventListener('DOMContentLoaded', () => {
+      const contentEl = document.getElementById('doc-modal-content');
+      const acceptBtn = document.getElementById('doc-modal-accept-btn');
+      
+      if (contentEl && acceptBtn) {
+        contentEl.addEventListener('scroll', () => {
+          if (!window.docContentLoaded) return;
+          const isAtBottom = contentEl.scrollHeight - contentEl.scrollTop - contentEl.clientHeight <= 15;
+          if (isAtBottom) {
+            acceptBtn.disabled = false;
+          }
+        });
+      }
+    });
   </script>
   <script src="app.js?v=20260530_v14"></script>
 </body>

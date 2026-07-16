@@ -266,6 +266,21 @@
     </div>
   </div>
 
+  <!-- Confirm Save Billing Details Modal -->
+  <div class="modal-backdrop" id="confirm-save-billing-modal-backdrop" onclick="closeConfirmSaveBillingModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeConfirmSaveBillingModal()">×</button>
+      <h3 style="color: var(--primary); margin-bottom: 15px; text-align: center;">Számlázási Adatok Mentése</h3>
+      <p style="font-size: 14px; line-height: 1.6; color: var(--text-primary); margin-bottom: 25px; text-align: center;">
+        Szeretné, ha elmentenénk az adatokat a későbbi vásárlásokhoz?
+      </p>
+      <div style="display: flex; gap: 15px; justify-content: center;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveBillingResponse(false)">Nem</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveBillingResponse(true)">Igen</button>
+      </div>
+    </div>
+  </div>
+
   <footer>
     <div class="container">
       <p>&copy; 2026 HawkStone Városi Mászóklub | hawkstone.hu <a href="admin.html" target="_blank" class="footer-admin-link">Adminisztráció</a></p>
