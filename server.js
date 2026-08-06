@@ -17,7 +17,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'hawkstone-secret-key-2026-super-se
 // Barion configuration
 const BARION_POS_KEY = process.env.BARION_POS_KEY;
 const BARION_PAYEE_EMAIL = process.env.BARION_PAYEE_EMAIL;
-const BARION_BASE_URL = 'https://api.test.barion.com'; // Sandbox environment
+const BARION_BASE_URL = process.env.BARION_ENVIRONMENT === 'production'
+  ? 'https://api.barion.com'
+  : 'https://api.test.barion.com';
+
 
 // SMTP Transporter configuration
 const transporter = nodemailer.createTransport({

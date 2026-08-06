@@ -4329,3 +4329,135 @@ function switchWithdrawalFilter(filter) {
   renderAdminWithdrawals();
 }
 
+// ---------------- COOKIE CONSENT BANNER & MODAL ----------------
+function initCookieConsent() {
+  const consent = localStorage.getItem('hawkstone_cookie_consent');
+  if (consent) return; // Már van elmentett döntés
+
+  // Modal elem létrehozása
+  const overlay = document.createElement('div');
+  overlay.className = 'cookie-modal-overlay';
+  overlay.id = 'cookie-modal-overlay';
+  overlay.innerHTML = `
+    <div class="cookie-modal-card">
+      <div class="cookie-modal-header">
+        <div class="cookie-modal-title">
+          <span>🍪 Süti (Cookie) Beállítások</span>
+        </div>
+      </div>
+      <div class="cookie-modal-body">
+        <p>A weboldalunk sütiket (cookie-kat) használ a biztonságos és zökkenőmentes működés, a felhasználói élmény javítása, valamint statisztikai és marketing célokból. Az elengedhetetlenül szükséges sütik a weboldal működéséhez elengedhetetlenek.</p>
+        <p style="margin-top: 8px;">További részleteket az <a href="adatvedelem.html" target="_blank" rel="noopener">Adatkezelési Nyilatkozatban</a> és a <a href="cookie-szabalyzat.html" target="_blank" rel="noopener">Süti Tájékoztatóban</a> találsz.</p>
+      </div>
+
+      <button type="button" class="cookie-categories-toggle" id="cookie-categories-toggle">
+        ⚙️ Beállítások testreszabása <span id="cookie-toggle-arrow">▼</span>
+      </button>
+
+      <div class="cookie-categories-list" id="cookie-categories-list">
+        <div class="cookie-category-item">
+          <div class="cookie-category-info">
+            <h5>Elengedhetetlenül szükséges sütik</h5>
+            <p>Ezek a sütik elengedhetetlenek a weboldal működéséhez, a regisztrációhoz, belépéshez és vásárlási folyamathoz.</p>
+          </div>
+          <label class="cookie-switch">
+            <input type="checkbox" checked disabled>
+            <span class="cookie-slider"></span>
+          </label>
+        </div>
+
+        <div class="cookie-category-item">
+          <div class="cookie-category-info">
+            <h5>Preferenciális sütik</h5>
+            <p>Segítenek megjegyezni a nyelvi és területi beállításokat a még személyesebb böngészéshez.</p>
+          </div>
+          <label class="cookie-switch">
+            <input type="checkbox" id="cookie-opt-pref" checked>
+            <span class="cookie-slider"></span>
+          </label>
+        </div>
+
+        <div class="cookie-category-item">
+          <div class="cookie-category-info">
+            <h5>Statisztikai sütik (Analytics)</h5>
+            <p>Névtelen adatokat gyűjtenek az oldal használatáról a szolgáltatások fejlesztéséhez (pl. Google Analytics).</p>
+          </div>
+          <label class="cookie-switch">
+            <input type="checkbox" id="cookie-opt-stat" checked>
+            <span class="cookie-slider"></span>
+          </label>
+        </div>
+
+        <div class="cookie-category-item">
+          <div class="cookie-category-info">
+            <h5>Marketing célú sütik</h5>
+            <p>Releváns ajánlatok és célzott hirdetések megjelenítéséhez (pl. Facebook Pixel, Barion Pixel).</p>
+          </div>
+          <label class="cookie-switch">
+            <input type="checkbox" id="cookie-opt-mkt" checked>
+            <span class="cookie-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cookie-modal-actions">
+        <button class="btn btn-secondary" id="btn-cookie-necessary">Csak a szükségesek</button>
+        <button class="btn btn-outline" id="btn-cookie-custom" style="display:none;">Kijelöltek mentése</button>
+        <button class="btn btn-primary" id="btn-cookie-all">Összes elfogadása</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  setTimeout(() => overlay.classList.add('active'), 100);
+
+  const toggleBtn = document.getElementById('cookie-categories-toggle');
+  const catList = document.getElementById('cookie-categories-list');
+  const customBtn = document.getElementById('btn-cookie-custom');
+  const arrow = document.getElementById('cookie-toggle-arrow');
+
+  if (toggleBtn && catList) {
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = catList.classList.toggle('open');
+      if (customBtn) customBtn.style.display = isOpen ? 'inline-block' : 'none';
+      if (arrow) arrow.textContent = isOpen ? '▲' : '▼';
+    });
+  }
+
+  const saveConsent = (type, details) => {
+    const consentData = {
+      type,
+      details,
+      timestamp: new Date().toISOString()
+    };
+    localStorage.setItem('hawkstone_cookie_consent', JSON.stringify(consentData));
+    document.cookie = `CookieConsent=${type}; max-age=31536000; path=/`;
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 400);
+  };
+
+  document.getElementById('btn-cookie-all').addEventListener('click', () => {
+    saveConsent('all', { necessary: true, pref: true, stat: true, mkt: true });
+  });
+
+  document.getElementById('btn-cookie-necessary').addEventListener('click', () => {
+    saveConsent('necessary', { necessary: true, pref: false, stat: false, mkt: false });
+  });
+
+  document.getElementById('btn-cookie-custom').addEventListener('click', () => {
+    const pref = document.getElementById('cookie-opt-pref').checked;
+    const stat = document.getElementById('cookie-opt-stat').checked;
+    const mkt = document.getElementById('cookie-opt-mkt').checked;
+    saveConsent('custom', { necessary: true, pref, stat, mkt });
+  });
+}
+
+// Global invocation on DOM Ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCookieConsent);
+} else {
+  initCookieConsent();
+}
+
+

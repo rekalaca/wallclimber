@@ -2883,4 +2883,208 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+/* --- COOKIE CONSENT BANNER & FLOATING CARD STYLES --- */
+.cookie-modal-overlay {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  top: auto;
+  z-index: 100000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none; /* A háttérben lévő oldal szabadon görgethető és kattintható marad */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.cookie-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cookie-modal-card {
+  pointer-events: auto; /* A kártyán belüli elemek interaktívak */
+  background: rgba(18, 22, 34, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(242, 118, 32, 0.2);
+  border-radius: var(--radius);
+  max-width: 800px;
+  width: 100%;
+  padding: 24px 28px;
+  color: var(--text-primary);
+  transform: translateY(40px);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.cookie-modal-overlay.active .cookie-modal-card {
+  transform: translateY(0);
+}
+
+.cookie-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.cookie-modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cookie-modal-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.cookie-modal-body a {
+  color: var(--primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.cookie-categories-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s;
+}
+
+.cookie-categories-toggle:hover {
+  color: #ffffff;
+}
+
+.cookie-categories-list {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.cookie-categories-list.open {
+  display: flex;
+}
+
+.cookie-category-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cookie-category-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cookie-category-info h5 {
+  color: #ffffff;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.cookie-category-info p {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.cookie-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.cookie-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cookie-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.cookie-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .cookie-slider {
+  background-color: var(--primary);
+}
+
+input:disabled + .cookie-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input:checked + .cookie-slider:before {
+  transform: translateX(20px);
+}
+
+.cookie-modal-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 576px) {
+  .cookie-modal-card {
+    padding: 20px;
+  }
+  .cookie-modal-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .cookie-modal-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+
 
