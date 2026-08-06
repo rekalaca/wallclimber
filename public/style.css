@@ -2886,9 +2886,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* --- COOKIE CONSENT BANNER & FLOATING CARD STYLES --- */
 .cookie-modal-overlay {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  bottom: 15px;
+  left: 15px;
+  right: 15px;
   top: auto;
   z-index: 100000;
   display: flex;
@@ -2898,6 +2898,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.4s ease, visibility 0.4s ease;
+  box-sizing: border-box;
+  max-width: 100vw;
 }
 
 .cookie-modal-overlay.active {
@@ -2919,8 +2921,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: var(--text-primary);
   transform: translateY(40px);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .cookie-modal-overlay.active .cookie-modal-card {
@@ -2948,6 +2951,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 20px;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .cookie-modal-body a {
@@ -2984,6 +2989,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   padding: 16px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .cookie-categories-list.open {
@@ -3073,16 +3079,41 @@ input:checked + .cookie-slider:before {
 }
 
 @media (max-width: 576px) {
+  .cookie-modal-overlay {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+  }
   .cookie-modal-card {
-    padding: 20px;
+    padding: 16px 18px;
+    max-height: 85vh;
+    border-radius: 14px;
+  }
+  .cookie-modal-title {
+    font-size: 17px;
+  }
+  .cookie-modal-body {
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .cookie-category-item {
+    gap: 10px;
+  }
+  .cookie-category-info h5 {
+    font-size: 13px;
+  }
+  .cookie-category-info p {
+    font-size: 11px;
   }
   .cookie-modal-actions {
     flex-direction: column;
     width: 100%;
+    gap: 8px;
   }
   .cookie-modal-actions .btn {
     width: 100%;
     text-align: center;
+    box-sizing: border-box;
   }
 }
 
