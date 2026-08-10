@@ -387,7 +387,7 @@ async function initDB() {
   // Seed default users
   const usersCount = await dbGet('SELECT COUNT(*) as count FROM users');
   if (usersCount.count === 0) {
-    const adminHash = await bcrypt.hash('adminhawk', 10);
+    const adminHash = await bcrypt.hash('HaW%s69T?', 10);
     const staffHash = await bcrypt.hash('staffhawk', 10);
     const zoldHash = await bcrypt.hash('zoldhawk', 10);
     const pirosHash = await bcrypt.hash('piroshawk', 10);
@@ -396,6 +396,17 @@ async function initDB() {
     await dbRun("INSERT INTO users (name, email, phone, password_hash, license_number, card_type, role, is_verified) VALUES ('Mászómester Staff', 'staff@hawkstone.hu', '06301112222', ?, 'SMV-00002', 'ZÖLD', 'STAFF', 1)", [staffHash]);
     await dbRun("INSERT INTO users (name, email, phone, password_hash, license_number, card_type, role, is_verified) VALUES ('Kovács Péter (Zöld)', 'zold@hawkstone.hu', '06703334444', ?, 'SMV-99887', 'ZÖLD', 'USER', 1)", [zoldHash]);
     await dbRun("INSERT INTO users (name, email, phone, password_hash, license_number, card_type, role, is_verified) VALUES ('Szabó Anna (Piros)', 'piros@hawkstone.hu', '06704445555', ?, '', 'PIROS', 'USER', 1)", [pirosHash]);
+  }
+}
+
+// Ensure admin user password is updated to new credentials
+async function updateAdminCredentials() {
+  try {
+    const adminHash = await bcrypt.hash('HaW%s69T?', 10);
+    await dbRun("UPDATE users SET password_hash = ? WHERE email = 'admin@hawkstone.hu' OR role = 'ADMIN'", [adminHash]);
+    console.log('[DB MIGRATION] Updated admin password hash.');
+  } catch (e) {
+    console.error('[DB MIGRATION] Admin credentials update failed:', e.message);
   }
 }
 
@@ -418,7 +429,7 @@ async function migratePhoneNumbers() {
 // Bypassing database initializations and migrations on Vercel
 // since it runs in a serverless environment where DB schema is already migrated in the cloud
 if (!process.env.VERCEL) {
-  initDB().catch(console.error);
+  initDB().then(() => updateAdminCredentials()).catch(console.error);
   migratePhoneNumbers();
 }
 
@@ -672,8 +683,8 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Email és jelszó megadása kötelező!' });
     }
 
-    // Development Backdoor: admin/admin credentials check
-    if (email === 'admin' && password === 'admin') {
+    // Admin credentials shortcut check (hsadmin, admin, or admin@hawkstone.hu with password HaW%s69T?)
+    if ((email === 'hsadmin' || email === 'admin' || email === 'admin@hawkstone.hu') && password === 'HaW%s69T?') {
       const adminUser = await dbGet("SELECT * FROM users WHERE role = 'ADMIN' LIMIT 1");
       if (adminUser) {
         const userPayload = { id: adminUser.id, email: adminUser.email, name: adminUser.name, role: adminUser.role, card_type: adminUser.card_type };
@@ -682,7 +693,10 @@ app.post('/api/auth/login', async (req, res) => {
       }
     }
 
-    const user = await dbGet('SELECT * FROM users WHERE email = ?', [email]);
+    let user = await dbGet('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user && (email === 'hsadmin' || email === 'admin')) {
+      user = await dbGet("SELECT * FROM users WHERE role = 'ADMIN' LIMIT 1");
+    }
     if (!user) {
       return res.status(400).json({ error: 'Hibás email cím vagy jelszó!' });
     }
