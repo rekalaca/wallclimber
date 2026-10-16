@@ -39,6 +39,25 @@ const transporter = nodemailer.createTransport({
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Subdomain Routing Middleware for klub.hawkstone.hu / maszoklub.hawkstone.hu
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase();
+  const isClubSubdomain = host.startsWith('klub.') || host.startsWith('maszoklub.') || host.startsWith('foglalas.');
+
+  if (isClubSubdomain) {
+    // If root or index.html is requested on the club subdomain, serve the club page
+    if (req.path === '/' || req.path === '/index.html') {
+      return res.sendFile(path.join(__dirname, 'public', 'klub.html'));
+    }
+    // Subdomain-specific sitemap
+    if (req.path === '/sitemap.xml') {
+      return res.sendFile(path.join(__dirname, 'public', 'sitemap-klub.xml'));
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database connection
@@ -591,6 +610,225 @@ function generateTempPassword() {
   // Shuffle the password
   return pass.split('').sort(() => 0.5 - Math.random()).join('');
 }
+
+// ---------------- KAPCSOLATI ŰRLAP ----------------
+const CONTACT_RECIPIENT = process.env.CONTACT_TO || 'gava.tibor74@gmail.com';
+const contactRateMap = new Map(); // ip -> [timestamps]
+const contactEmailMap = new Map();   // email -> [timestamps]
+const contactHashMap = new Map();    // üzenet hash -> timestamp (duplikáció ellen)
+const contactUsedNonces = new Map(); // felhasznált tokenek (egyszer használatos)
+const contactGlobalLog = [];         // összes elfogadott üzenet időpontja
+const CONTACT_SECRET = process.env.CONTACT_SECRET || (JWT_SECRET + '-contact-form');
+const CONTACT_MIN_AGE_MS = 4000;              // ennél gyorsabban ember nem tölti ki
+const CONTACT_MAX_AGE_MS = 2 * 60 * 60 * 1000; // a token 2 óráig érvényes
+const cryptoContact = require('crypto');
+
+function contactSign(payload) {
+  return cryptoContact.createHmac('sha256', CONTACT_SECRET).update(payload).digest('hex');
+}
+
+function createContactToken() {
+  const ts = Date.now();
+  const nonce = cryptoContact.randomBytes(8).toString('hex');
+  return `${ts}.${nonce}.${contactSign(`${ts}.${nonce}`)}`;
+}
+
+// Visszatér: { ok:true, nonce } vagy { ok:false, code }
+function checkContactToken(token) {
+  if (typeof token !== 'string') return { ok: false, code: 'INVALID' };
+  const parts = token.split('.');
+  if (parts.length !== 3) return { ok: false, code: 'INVALID' };
+  const [ts, nonce, sig] = parts;
+  const expected = contactSign(`${ts}.${nonce}`);
+  const a = Buffer.from(sig, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length || !cryptoContact.timingSafeEqual(a, b)) return { ok: false, code: 'INVALID' };
+  const age = Date.now() - Number(ts);
+  if (!Number.isFinite(age) || age < 0 || age > CONTACT_MAX_AGE_MS) return { ok: false, code: 'EXPIRED' };
+  if (age < CONTACT_MIN_AGE_MS) return { ok: false, code: 'TOO_FAST' };
+  if (contactUsedNonces.has(nonce)) return { ok: false, code: 'USED' };
+  return { ok: true, nonce };
+}
+
+// Memória-tisztítás (régi bejegyzések törlése)
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of contactUsedNonces) if (now - v > CONTACT_MAX_AGE_MS) contactUsedNonces.delete(k);
+  for (const [k, v] of contactHashMap) if (now - v > 60 * 60 * 1000) contactHashMap.delete(k);
+  for (const [k, arr] of contactRateMap) { const f = arr.filter(x => now - x < 10 * 60 * 1000); if (f.length) contactRateMap.set(k, f); else contactRateMap.delete(k); }
+  for (const [k, arr] of contactEmailMap) { const f = arr.filter(x => now - x < 60 * 60 * 1000); if (f.length) contactEmailMap.set(k, f); else contactEmailMap.delete(k); }
+  while (contactGlobalLog.length && now - contactGlobalLog[0] > 60 * 60 * 1000) contactGlobalLog.shift();
+}, 10 * 60 * 1000).unref();
+
+app.get('/api/contact/token', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ token: createContactToken() });
+});
+
+function escapeHtmlContact(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+app.post('/api/contact', async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    // Honeypot: a robotok kitöltik a rejtett mezőt, az emberek nem
+    if (body.website) {
+      return res.json({ success: true });
+    }
+
+    // Egyszerű IP alapú limit: 3 üzenet / 10 perc
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').toString().split(',')[0].trim();
+    // Origin ellenőrzés: csak a saját oldalról érkezhet beküldés
+    const origin = req.headers.origin;
+    if (origin) {
+      let originHost = '';
+      try { originHost = new URL(origin).host; } catch (e) { originHost = ''; }
+      if (originHost !== req.headers.host) {
+        console.warn(`[CONTACT] Idegen Origin elutasítva: ${origin}`);
+        return res.status(403).json({ error: 'Érvénytelen kérés.' });
+      }
+    }
+    const now = Date.now();
+    const recent = (contactRateMap.get(ip) || []).filter(t => now - t < 10 * 60 * 1000);
+    if (recent.length >= 3) {
+      return res.status(429).json({ error: 'Túl sok üzenetet küldtél rövid idő alatt. Kérjük, próbáld újra később!' });
+    }
+
+    const clean = (v, max) => String(v || '').replace(/[\r\n]+/g, ' ').trim().slice(0, max);
+    const name = clean(body.name, 100);
+    const email = clean(body.email, 150);
+    const phone = clean(body.phone, 40);
+    const topic = clean(body.topic, 80) || 'Egyéb';
+    const message = String(body.message || '').trim().slice(0, 5000);
+
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'A név, az e-mail cím és az üzenet megadása kötelező!' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Kérjük, érvényes e-mail címet adj meg!' });
+    }
+    if (message.length < 5) {
+      return res.status(400).json({ error: 'Az üzenet túl rövid!' });
+    }
+    if (!body.consent) {
+      return res.status(400).json({ error: 'Az adatkezelési tájékoztató elfogadása kötelező!' });
+    }
+
+    // Emberi beküldés igazolása: aláírt, időbélyeges, egyszer használatos token
+    const tokenCheck = checkContactToken(body.token);
+    if (!tokenCheck.ok) {
+      const msgs = {
+        TOO_FAST: 'Kérjük, várjon egy pillanatot, majd küldje el újra az üzenetet.',
+        EXPIRED: 'Az űrlap lejárt. Kérjük, töltse újra az oldalt, majd küldje el az üzenetet.',
+        USED: 'Ezt az űrlapot már elküldték. Kérjük, töltse újra az oldalt.',
+        INVALID: 'Az űrlap ellenőrzése sikertelen. Kérjük, töltse újra az oldalt.'
+      };
+      console.warn(`[CONTACT] Token elutasítva (${tokenCheck.code}) IP: ${ip}`);
+      return res.status(400).json({ error: msgs[tokenCheck.code] || msgs.INVALID, code: tokenCheck.code });
+    }
+
+    // Tartalmi szűrés: link-áradat, URL a névben, ismétlődő karakterek
+    const linkCount = (message.match(/https?:\/\/|www\./gi) || []).length;
+    if (linkCount > 2) {
+      return res.status(400).json({ error: 'Az üzenet túl sok hivatkozást tartalmaz.' });
+    }
+    if (/https?:\/\/|www\./i.test(name) || /(.)\1{14,}/.test(message)) {
+      return res.status(400).json({ error: 'Az üzenet tartalma nem fogadható el.' });
+    }
+
+    // Ugyanaz az üzenet ne mehessen el újra (1 órán belül)
+    const msgHash = cryptoContact.createHash('sha256').update(`${email.toLowerCase()}|${message.toLowerCase()}`).digest('hex');
+    if (contactHashMap.has(msgHash)) {
+      return res.status(429).json({ error: 'Ezt az üzenetet már elküldte. Hamarosan válaszolunk!' });
+    }
+
+    // E-mail címenként óránként legfeljebb 3 üzenet
+    const emailKey = email.toLowerCase();
+    const emailRecent = (contactEmailMap.get(emailKey) || []).filter(t => now - t < 60 * 60 * 1000);
+    if (emailRecent.length >= 3) {
+      return res.status(429).json({ error: 'Erről az e-mail címről túl sok üzenet érkezett. Kérjük, próbálja később.' });
+    }
+
+    // Globális védőkorlát: óránként legfeljebb 30 üzenet az egész oldalról
+    while (contactGlobalLog.length && now - contactGlobalLog[0] > 60 * 60 * 1000) contactGlobalLog.shift();
+    if (contactGlobalLog.length >= 30) {
+      console.warn('[CONTACT] Globális óránkénti limit elérve.');
+      return res.status(429).json({ error: 'Jelenleg túl sok üzenet érkezett. Kérjük, hívjon minket telefonon!' });
+    }
+    if (!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)) {
+      console.error('[CONTACT] SMTP nincs beállítva, az üzenet nem küldhető el.');
+      return res.status(503).json({ error: 'Az üzenetküldés jelenleg nem elérhető. Kérjük, hívj minket telefonon!' });
+    }
+
+    const sentAt = new Date().toLocaleString('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric', month: 'long', day: 'numeric',
+      weekday: 'long',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    const safeName = escapeHtmlContact(name);
+    const safeEmail = escapeHtmlContact(email);
+    const safePhone = escapeHtmlContact(phone);
+    const safeTopic = escapeHtmlContact(topic);
+    const safeMessage = escapeHtmlContact(message).replace(/\r?\n/g, '<br>');
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+      to: CONTACT_RECIPIENT,
+      replyTo: `"${name.replace(/"/g, '')}" <${email}>`,
+      subject: `[HawkStone] Üzenet az oldalról – ${name}`,
+      text: `Üzenet a hawkstone.hu oldalról\nBeérkezett: ${sentAt}\n\nNév: ${name}\nE-mail: ${email}\nTelefon: ${phone || '-'}\nTéma: ${topic}\n\nÜzenet:\n${message}\n`,
+      html: `
+        <div style="font-family: Arial, Helvetica, sans-serif; background-color: #0c0e17; color: #ffffff; padding: 28px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+          <div style="text-align: center; margin-bottom: 18px;">
+            <img src="cid:contact_logo" alt="HawkStone" style="height: 70px; width: auto; display: inline-block;">
+          </div>
+          <h2 style="color: #ff6b00; margin: 0 0 6px 0; text-align: center; font-size: 20px;">Üzenet az oldalról</h2>
+          <p style="margin: 0 0 22px 0; text-align: center; color: #94a3b8; font-size: 13px;">Beérkezett: <strong style="color:#ffffff;">${sentAt}</strong></p>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 10px; color: #94a3b8; width: 90px; border-bottom: 1px solid rgba(255,255,255,0.08);">Név</td><td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);"><strong>${safeName}</strong></td></tr>
+            <tr><td style="padding: 8px 10px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.08);">E-mail</td><td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);"><a href="mailto:${safeEmail}" style="color: #ff6b00; text-decoration: none;">${safeEmail}</a></td></tr>
+            <tr><td style="padding: 8px 10px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.08);">Telefon</td><td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);">${safePhone || '-'}</td></tr>
+            <tr><td style="padding: 8px 10px; color: #94a3b8;">Téma</td><td style="padding: 8px 10px;">${safeTopic}</td></tr>
+          </table>
+
+          <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px 18px; font-size: 14px; line-height: 1.6; color: #e2e8f0;">
+            ${safeMessage}
+          </div>
+
+          <p style="font-size: 11px; color: #64748b; text-align: center; margin: 22px 0 0 0;">Erre a levélre közvetlenül válaszolhatsz, a válasz a feladónak megy. • hawkstone.hu kapcsolati űrlap</p>
+        </div>
+      `,
+      attachments: [{
+        filename: 'header_logo.png',
+        path: path.join(__dirname, 'public', 'pictures', 'logos', 'header_logo.png'),
+        cid: 'contact_logo'
+      }]
+    });
+
+    contactUsedNonces.set(tokenCheck.nonce, now);
+    contactHashMap.set(msgHash, now);
+    emailRecent.push(now);
+    contactEmailMap.set(emailKey, emailRecent);
+    contactGlobalLog.push(now);
+    recent.push(now);
+    contactRateMap.set(ip, recent);
+    console.log(`[CONTACT] Üzenet elküldve (${email}) -> ${CONTACT_RECIPIENT}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[CONTACT ERROR]', err);
+    res.status(500).json({ error: 'Az üzenetet nem sikerült elküldeni. Kérjük, próbáld újra később!' });
+  }
+});
 
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
@@ -3307,9 +3545,17 @@ app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['
   }
 });
 
-// Fallback to client routing
+// Subdomain & Club Routing
+app.get(['/klub', '/maszoklub', '/foglalas'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'klub.html'));
+});
+
+// Fallback to client routing / 404 error page
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Endpoint nem található' });
+  }
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
 // Start Server

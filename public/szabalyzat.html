@@ -3,313 +3,333 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Házirend & Szabályzat | HawkStone</title>
-  <link rel="stylesheet" href="style.css?v=20260530_v14">
-  <style>
-    /* Premium styles for Szabályzat page */
-    .rules-header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    .rules-subtitle {
-      color: var(--text-secondary);
-      font-size: 15px;
-      font-weight: 400;
-    }
-    
-    /* Disclaimer style */
-    @keyframes pulse-red-shadow {
-      0% {
-        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.25);
+  <meta name="description" content="A HawkStone Városi Mászóklub hivatalos házirendje, biztonsági szabályzata és vizsgakártya rendszere.">
+  <meta name="author" content="rekalaca-webdesign">
+  <meta name="creator" content="rekalaca-webdesign">
+  <meta name="designer" content="rekalaca-webdesign">
+  <meta name="publisher" content="rekalaca-webdesign">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://hawkstone.hu/szabalyzat.html">
+  <!-- Favicon & Apple Touch Icon -->
+  <link rel="icon" type="image/png" href="pictures/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="pictures/favicon.png">
+  <link rel="apple-touch-icon" href="pictures/favicon.png">
+  <!-- Open Graph / Facebook / Messenger -->
+  <meta property="og:site_name" content="HawkStone Mászófalak">
+  <meta property="og:locale" content="hu_HU">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hawkstone.hu/szabalyzat.html">
+  <meta property="og:title" content="Házirend & Szabályzat | HawkStone">
+  <meta property="og:description" content="A HawkStone Városi Mászóklub hivatalos házirendje, biztonsági szabályzata és vizsgakártya rendszere.">
+  <meta property="og:image" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:secure_url" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1720">
+  <meta property="og:image:height" content="650">
+  <meta property="og:image:alt" content="HawkStone Mászófalak - Tervezés & Gyártás">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://hawkstone.hu/szabalyzat.html">
+  <meta name="twitter:title" content="Házirend & Szabályzat | HawkStone">
+  <meta name="twitter:description" content="A HawkStone Városi Mászóklub hivatalos házirendje, biztonsági szabályzata és vizsgakártya rendszere.">
+  <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
+  <link rel="stylesheet" href="style.css?v=20261015_c42">
+    <style>
+      /* Premium styles for Szabályzat page */
+      .rules-header {
+        text-align: center;
+        margin-bottom: 40px;
       }
-      50% {
-        box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
-        border-color: rgba(239, 68, 68, 0.55);
+      .rules-subtitle {
+        color: var(--text-secondary);
+        font-size: 15px;
+        font-weight: 400;
       }
-      100% {
-        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.25);
+      /* Disclaimer style */
+      @keyframes pulse-red-shadow {
+        0% {
+          box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+          border-color: rgba(239, 68, 68, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
+          border-color: rgba(239, 68, 68, 0.55);
+        }
+        100% {
+          box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+          border-color: rgba(239, 68, 68, 0.25);
+        }
       }
-    }
-    .disclaimer-box {
-      background: rgba(239, 68, 68, 0.05);
-      border: 1px solid rgba(239, 68, 68, 0.25);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      margin-bottom: 40px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      animation: pulse-red-shadow 3s infinite ease-in-out;
-      position: relative;
-      overflow: hidden;
-    }
-    .disclaimer-icon {
-      font-size: 28px;
-      color: var(--danger);
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 54px;
-      height: 54px;
-      background: rgba(239, 68, 68, 0.1);
-      border-radius: 50%;
-    }
-    .disclaimer-text {
-      font-size: 17px;
-      font-weight: 700;
-      color: #ffffff;
-      line-height: 1.4;
-    }
-
-    /* Section style */
-    .rules-section-title {
-      font-size: 23px;
-      color: #ffffff;
-      margin-bottom: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* Custom rules list */
-    .rules-list {
-      list-style: none;
-      display: grid;
-      gap: 16px;
-    }
-    .rules-item {
-      display: flex;
-      gap: 15px;
-      align-items: flex-start;
-      background: rgba(255, 255, 255, 0.01);
-      border: 1px solid rgba(255, 255, 255, 0.03);
-      padding: 18px;
-      border-radius: var(--radius);
-      transition: var(--transition);
-    }
-    .rules-item:hover {
-      background: rgba(255, 255, 255, 0.03);
-      border-color: rgba(242, 118, 32, 0.18);
-      transform: translateX(4px);
-    }
-    .rules-item-icon {
-      color: var(--primary);
-      font-size: 16px;
-      margin-top: 3px;
-      flex-shrink: 0;
-    }
-    .rules-item-text {
-      font-size: 14.5px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-    .rules-item-text strong {
-      color: #ffffff;
-    }
-
-    /* Card System */
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 25px;
-      margin-top: 20px;
-    }
-    .climb-card {
-      border-radius: var(--radius-lg);
-      padding: 30px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      box-shadow: var(--glass-shadow);
-      transition: var(--transition);
-    }
-    .climb-card::after {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -50%;
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      filter: blur(80px);
-      z-index: 0;
-      opacity: 0.1;
-    }
-    
-    .card-green {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
-      border: 1px solid rgba(16, 185, 129, 0.45);
-      box-shadow: var(--glass-shadow), 0 0 15px rgba(16, 185, 129, 0.08);
-    }
-    .card-green::after {
-      background: var(--success);
-    }
-    .card-green:hover {
-      border-color: rgba(16, 185, 129, 0.85);
-      box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.25), 0 0 25px rgba(16, 185, 129, 0.18);
-      transform: translateY(-4px);
-    }
-    
-    .card-red {
-      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
-      border: 1px solid rgba(239, 68, 68, 0.45);
-      box-shadow: var(--glass-shadow), 0 0 15px rgba(239, 68, 68, 0.08);
-    }
-    .card-red::after {
-      background: var(--danger);
-    }
-    .card-red:hover {
-      border-color: rgba(239, 68, 68, 0.85);
-      box-shadow: 0 12px 40px 0 rgba(239, 68, 68, 0.25), 0 0 25px rgba(239, 68, 68, 0.18);
-      transform: translateY(-4px);
-    }
-
-    .card-header-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 16px;
-      border-radius: 50px;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 20px;
-      width: fit-content;
-      z-index: 1;
-    }
-    .badge-green-card {
-      background: rgba(16, 185, 129, 0.2);
-      color: var(--success);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-    }
-    .badge-red-card {
-      background: rgba(239, 68, 68, 0.2);
-      color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-    }
-    
-    .card-title {
-      font-size: 20px;
-      color: #ffffff;
-      margin-bottom: 12px;
-      z-index: 1;
-      font-weight: 700;
-    }
-    .card-desc {
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin-bottom: 20px;
-      line-height: 1.6;
-      z-index: 1;
-      flex-grow: 1;
-    }
-    .card-rules-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 1;
-    }
-    .card-rules-item {
-      display: flex;
-      gap: 10px;
-      font-size: 13.5px;
-      color: var(--text-secondary);
-      line-height: 1.4;
-    }
-    .card-rules-item svg {
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-    
-    /* Download Section styling */
-    .download-container {
-      text-align: center;
-      margin-top: 50px;
-      padding-top: 35px;
-      border-top: 1px solid var(--border-color);
-    }
-    .download-text {
-      color: var(--text-secondary);
-      font-size: 14.5px;
-      margin-bottom: 20px;
-    }
-    
-    /* Glass Download Button */
-    .btn-download-glass {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px 36px;
-      background: rgba(242, 118, 32, 0.05);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(242, 118, 32, 0.3);
-      border-radius: var(--radius-lg);
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      text-decoration: none;
-      cursor: pointer;
-      box-shadow: 
-        0 8px 32px 0 rgba(0, 0, 0, 0.25), 
-        inset 0 1px 1px rgba(255, 255, 255, 0.05),
-        inset 0 0 10px rgba(242, 118, 32, 0.1);
-      transition: var(--transition);
-    }
-    .btn-download-glass svg {
-      transition: var(--transition);
-    }
-    .btn-download-glass:hover {
-      background: rgba(242, 118, 32, 0.15);
-      border-color: rgba(242, 118, 32, 0.7);
-      box-shadow: 
-        0 12px 40px 0 rgba(242, 118, 32, 0.25), 
-        inset 0 1px 1px rgba(255, 255, 255, 0.1),
-        inset 0 0 15px rgba(242, 118, 32, 0.2);
-      color: #ffffff;
-      transform: translateY(-3px);
-    }
-    .btn-download-glass:hover svg {
-      transform: translateY(2px);
-    }
-    .btn-download-glass:active {
-      transform: translateY(-1px);
-    }
-    /* Animations */
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
+      .disclaimer-box {
+        background: rgba(239, 68, 68, 0.05);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 40px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        animation: pulse-red-shadow 3s infinite ease-in-out;
+        position: relative;
+        overflow: hidden;
       }
-      to {
-        opacity: 1;
-        transform: translateY(0);
+      .disclaimer-icon {
+        font-size: 28px;
+        color: var(--danger);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 54px;
+        height: 54px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 50%;
       }
-    }
-
-    .main-rules-card {
-      box-shadow: 
-        rgba(255, 255, 255, 0.08) 0px 50px 100px -20px, 
-        rgba(0, 0, 0, 0.65) 0px 30px 60px -30px, 
-        rgba(255, 255, 255, 0.15) 0px -2px 6px 0px inset;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-  </style>
+      .disclaimer-text {
+        font-size: 17px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.4;
+      }
+      /* Section style */
+      .rules-section-title {
+        font-size: 23px;
+        color: #ffffff;
+        margin-bottom: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      /* Custom rules list */
+      .rules-list {
+        list-style: none;
+        display: grid;
+        gap: 16px;
+      }
+      .rules-item {
+        display: flex;
+        gap: 15px;
+        align-items: flex-start;
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        padding: 18px;
+        border-radius: var(--radius);
+        transition: var(--transition);
+      }
+      .rules-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(242, 118, 32, 0.18);
+        transform: translateX(4px);
+      }
+      .rules-item-icon {
+        color: var(--primary);
+        font-size: 16px;
+        margin-top: 3px;
+        flex-shrink: 0;
+      }
+      .rules-item-text {
+        font-size: 14.5px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .rules-item-text strong {
+        color: #ffffff;
+      }
+      /* Card System */
+      .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 25px;
+        margin-top: 20px;
+      }
+      .climb-card {
+        border-radius: var(--radius-lg);
+        padding: 30px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        box-shadow: var(--glass-shadow);
+        transition: var(--transition);
+      }
+      .climb-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        filter: blur(80px);
+        z-index: 0;
+        opacity: 0.1;
+      }
+      .card-green {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.45);
+        box-shadow: var(--glass-shadow), 0 0 15px rgba(16, 185, 129, 0.08);
+      }
+      .card-green::after {
+        background: var(--success);
+      }
+      .card-green:hover {
+        border-color: rgba(16, 185, 129, 0.85);
+        box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.25), 0 0 25px rgba(16, 185, 129, 0.18);
+        transform: translateY(-4px);
+      }
+      .card-red {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(22, 25, 41, 0.9) 100%);
+        border: 1px solid rgba(239, 68, 68, 0.45);
+        box-shadow: var(--glass-shadow), 0 0 15px rgba(239, 68, 68, 0.08);
+      }
+      .card-red::after {
+        background: var(--danger);
+      }
+      .card-red:hover {
+        border-color: rgba(239, 68, 68, 0.85);
+        box-shadow: 0 12px 40px 0 rgba(239, 68, 68, 0.25), 0 0 25px rgba(239, 68, 68, 0.18);
+        transform: translateY(-4px);
+      }
+      .card-header-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 20px;
+        width: fit-content;
+        z-index: 1;
+      }
+      .badge-green-card {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+      }
+      .badge-red-card {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--danger);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+      }
+      .card-title {
+        font-size: 20px;
+        color: #ffffff;
+        margin-bottom: 12px;
+        z-index: 1;
+        font-weight: 700;
+      }
+      .card-desc {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 20px;
+        line-height: 1.6;
+        z-index: 1;
+        flex-grow: 1;
+      }
+      .card-rules-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 1;
+      }
+      .card-rules-item {
+        display: flex;
+        gap: 10px;
+        font-size: 13.5px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+      .card-rules-item svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      /* Download Section styling */
+      .download-container {
+        text-align: center;
+        margin-top: 50px;
+        padding-top: 35px;
+        border-top: 1px solid var(--border-color);
+      }
+      .download-text {
+        color: var(--text-secondary);
+        font-size: 14.5px;
+        margin-bottom: 20px;
+      }
+      /* Glass Download Button */
+      .btn-download-glass {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px 36px;
+        background: rgba(242, 118, 32, 0.05);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(242, 118, 32, 0.3);
+        border-radius: var(--radius-lg);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+        box-shadow: 
+          0 8px 32px 0 rgba(0, 0, 0, 0.25), 
+          inset 0 1px 1px rgba(255, 255, 255, 0.05),
+          inset 0 0 10px rgba(242, 118, 32, 0.1);
+        transition: var(--transition);
+      }
+      .btn-download-glass svg {
+        transition: var(--transition);
+      }
+      .btn-download-glass:hover {
+        background: rgba(242, 118, 32, 0.15);
+        border-color: rgba(242, 118, 32, 0.7);
+        box-shadow: 
+          0 12px 40px 0 rgba(242, 118, 32, 0.25), 
+          inset 0 1px 1px rgba(255, 255, 255, 0.1),
+          inset 0 0 15px rgba(242, 118, 32, 0.2);
+        color: #ffffff;
+        transform: translateY(-3px);
+      }
+      .btn-download-glass:hover svg {
+        transform: translateY(2px);
+      }
+      .btn-download-glass:active {
+        transform: translateY(-1px);
+      }
+      /* Animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .main-rules-card {
+        box-shadow: 
+          rgba(255, 255, 255, 0.08) 0px 50px 100px -20px, 
+          rgba(0, 0, 0, 0.65) 0px 30px 60px -30px, 
+          rgba(255, 255, 255, 0.15) 0px -2px 6px 0px inset;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+    </style>
 </head>
 <body>
 
@@ -476,6 +496,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20260617_v16"></script>
+  <script src="app.js?v=20261015_c31"></script>
 </body>
 </html>

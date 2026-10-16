@@ -3,61 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Beléptető Terminál | HawkStone</title>
-  <link rel="stylesheet" href="style.css?v=20260530_v14">
-  <!-- Barion Pixel -->
-  <script>
-    window["bp"] = window["bp"] || function () {
-      (window["bp"].q = window["bp"].q || []).push(arguments);
-    };
-    window["bp"].l = 1 * new Date();
-
-    var scriptElement = document.createElement("script");
-    var firstScript = document.getElementsByTagName("script")[0];
-    scriptElement.async = true;
-    scriptElement.src = 'https://pixel.barion.com/bp.js';
-    firstScript.parentNode.insertBefore(scriptElement, firstScript);
-
-    window['barion_pixel_id'] = 'BPT-BNsUqvcLGG-7C'; 
-
-    bp('init', 'addBarionPixelId', window['barion_pixel_id']);
-  </script>
-  <noscript>
-    <img height="1" width="1" style="display:none" alt="Barion Pixel" src="https://pixel.barion.com/a.gif?pid=BPT-BNsUqvcLGG-7C" />
-  </noscript>
-  <style>
-    /* Special layout customization for HTML5 QR code scanning UI library to match our Obsidian/Magma theme */
-    #qr-reader-viewport {
-      border: 1px solid var(--border-color) !important;
-      background: var(--bg-card-solid) !important;
-      border-radius: var(--radius-lg);
-    }
-    #qr-reader-viewport button {
-      background: var(--primary-gradient) !important;
-      color: #fff !important;
-      border: none !important;
-      padding: 10px 20px !important;
-      border-radius: var(--radius) !important;
-      font-weight: 600 !important;
-      cursor: pointer !important;
-      margin: 10px 0 !important;
-      font-family: 'Montserrat', sans-serif !important;
-      box-shadow: 0 4px 12px var(--primary-glow) !important;
-      transition: var(--transition) !important;
-    }
-    #qr-reader-viewport button:hover {
-      background: var(--primary-hover) !important;
-      transform: translateY(-1px) !important;
-    }
-    #qr-reader-viewport select {
-      padding: 8px 12px !important;
-      background: rgba(255,255,255,0.05) !important;
-      border: 1px solid var(--border-color) !important;
-      color: #fff !important;
-      border-radius: 8px !important;
-      margin: 5px 0 !important;
-    }
-  </style>
+  <meta name="description" content="Beléptető terminál.">
+  <meta name="author" content="rekalaca-webdesign">
+  <meta name="creator" content="rekalaca-webdesign">
+  <meta name="designer" content="rekalaca-webdesign">
+  <meta name="publisher" content="rekalaca-webdesign">
+  <meta name="robots" content="noindex, nofollow">
+  <!-- Favicon & Apple Touch Icon -->
+  <link rel="icon" type="image/png" href="pictures/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="pictures/favicon.png">
+  <link rel="apple-touch-icon" href="pictures/favicon.png">
+  <!-- Open Graph / Facebook / Messenger -->
+  <meta property="og:site_name" content="HawkStone Mászófalak">
+  <meta property="og:locale" content="hu_HU">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Beléptető Terminál | HawkStone">
+  <meta property="og:description" content="Beléptető terminál.">
+  <meta property="og:image" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:secure_url" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1720">
+  <meta property="og:image:height" content="650">
+  <meta property="og:image:alt" content="HawkStone Mászófalak - Tervezés & Gyártás">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Beléptető Terminál | HawkStone">
+  <meta name="twitter:description" content="Beléptető terminál.">
+  <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
+  <link rel="stylesheet" href="style.css?v=20261015_c42">
+    <!-- Barion Pixel -->
+    <script>
+      window["bp"] = window["bp"] || function () {
+        (window["bp"].q = window["bp"].q || []).push(arguments);
+      };
+      window["bp"].l = 1 * new Date();
+      var scriptElement = document.createElement("script");
+      var firstScript = document.getElementsByTagName("script")[0];
+      scriptElement.async = true;
+      scriptElement.src = 'https://pixel.barion.com/bp.js';
+      firstScript.parentNode.insertBefore(scriptElement, firstScript);
+      window['barion_pixel_id'] = 'BPT-BNsUqvcLGG-7C'; 
+      bp('init', 'addBarionPixelId', window['barion_pixel_id']);
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none" alt="Barion Pixel" src="https://pixel.barion.com/a.gif?pid=BPT-BNsUqvcLGG-7C" />
+    </noscript>
+    <style>
+      /* Special layout customization for HTML5 QR code scanning UI library to match our Obsidian/Magma theme */
+      #qr-reader-viewport {
+        border: 1px solid var(--border-color) !important;
+        background: var(--bg-card-solid) !important;
+        border-radius: var(--radius-lg);
+      }
+      #qr-reader-viewport button {
+        background: var(--primary-gradient) !important;
+        color: #fff !important;
+        border: none !important;
+        padding: 10px 20px !important;
+        border-radius: var(--radius) !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        margin: 10px 0 !important;
+        font-family: 'Montserrat', sans-serif !important;
+        box-shadow: 0 4px 12px var(--primary-glow) !important;
+        transition: var(--transition) !important;
+      }
+      #qr-reader-viewport button:hover {
+        background: var(--primary-hover) !important;
+        transform: translateY(-1px) !important;
+      }
+      #qr-reader-viewport select {
+        padding: 8px 12px !important;
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid var(--border-color) !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+        margin: 5px 0 !important;
+      }
+    </style>
 </head>
 <body>
 
@@ -122,6 +147,6 @@
   </script>
   <!-- Load Html5Qrcode Scanner library from unpkg CDN -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
-  <script src="app.js?v=20260530_v14"></script>
+  <script src="app.js?v=20261015_c31"></script>
 </body>
 </html>

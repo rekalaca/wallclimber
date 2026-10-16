@@ -74,6 +74,11 @@ function renderHeader() {
 
   const isConfiguredAdmin = token && (user.role === 'ADMIN' || user.role === 'STAFF');
   const path = window.location.pathname;
+  const hostname = (window.location.hostname || '').toLowerCase();
+  const isClubHost = hostname.startsWith('klub.') || hostname.startsWith('maszoklub.') || hostname.startsWith('foglalas.');
+  const isClubPage = isClubHost || path.endsWith('klub.html') || path.endsWith('maszoklub.html') || path.endsWith('foglalas.html');
+  const isContactPage = path.endsWith('kapcsolat.html') || path.endsWith('iso9001.html') || path.endsWith('maszofalaink.html') || path.endsWith('404.html') || path.includes('404');
+  const isCompanyIndex = !isClubHost && (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/') || path.endsWith('/'));
   const isAdminPage = path.endsWith('admin.html') || path.endsWith('scanner.html');
 
   // Set admin classes for fix header layout
@@ -81,11 +86,42 @@ function renderHeader() {
     headerEl.className = 'admin-header';
     document.body.className = 'admin-body';
   } else {
-    headerEl.className = '';
+    headerEl.className = (isClubPage || isAdminPage) ? '' : 'no-auth-mobile';
     document.body.className = '';
   }
 
   let navItems = '';
+
+  const contactMobileSnippet = `
+    <li class="menu-contact-mobile">
+      <div class="menu-contact-box">
+        <span class="menu-contact-title">Elérhetőség</span>
+        <a href="tel:+36305746946" class="menu-contact-item" title="Telefonszám hívása">
+          <div class="menu-contact-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+          </div>
+          <div class="menu-contact-details">
+            <span class="menu-contact-label">Telefon</span>
+            <span class="menu-contact-val">(+36) 30 574 6946</span>
+          </div>
+        </a>
+        <a href="mailto:orangeramp.info@gmail.com" class="menu-contact-item" title="E-mail küldése">
+          <div class="menu-contact-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+            </svg>
+          </div>
+          <div class="menu-contact-details">
+            <span class="menu-contact-label">E-mail</span>
+            <span class="menu-contact-val">orangeramp.info@gmail.com</span>
+          </div>
+        </a>
+      </div>
+    </li>
+  `;
 
   if (isConfiguredAdmin) {
     // Admin / Staff Specific Menu (Order requested by USER)
@@ -111,21 +147,64 @@ function renderHeader() {
       <li><a href="index.html" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
-    // Public / User Menu (Rólunk, Helyszínek, Áraink, Szabályzatunk, Kapcsolat)
-    const indexLink = (hash) => {
-      const isIndex = path.endsWith('index.html') || path === '/' || path.endsWith('/');
-      return isIndex ? hash : `index.html${hash}`;
-    };
+    const profileItem = token ? `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>` : '';
 
-    navItems = `
-      <li><a href="${indexLink('#about')}" class="nav-link">Rólunk</a></li>
-      <li><a href="${indexLink('#locations')}" class="nav-link">Helyszínek</a></li>
-      <li><a href="${indexLink('#prices')}" class="nav-link">Áraink</a></li>
-      <li><a href="szabalyzat.html" class="nav-link ${isActive('szabalyzat.html')}">Szabályzatunk</a></li>
-      <li><a href="${indexLink('#contact')}" class="nav-link">Kapcsolat</a></li>
-    `;
-    if (token) {
-      navItems += `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>`;
+    if (isClubPage) {
+      // Climbing Club (Nyíregyháza) Menu
+      navItems = `
+        <li><a href="${isClubHost ? 'https://hawkstone.hu/' : 'index.html'}" class="nav-link nav-link-company" style="color:var(--primary); font-weight:600;"><span style="font-size:12px; margin-right:4px;">←</span> HawkStone.hu</a></li>
+        <li><a href="#about" class="nav-link">Rólunk</a></li>
+        <li><a href="#locations" class="nav-link">Helyszínek</a></li>
+        <li><a href="#prices" class="nav-link">Áraink</a></li>
+        <li><a href="szabalyzat.html" class="nav-link ${isActive('szabalyzat.html')}">Szabályzatunk</a></li>
+        <li><a href="#contact" class="nav-link">Kapcsolat</a></li>
+        ${profileItem}
+        ${contactMobileSnippet}
+      `;
+    } else if (isContactPage) {
+      // Kapcsolat oldal: a főoldal szekcióira mutató menü
+      navItems = `
+        <li><a href="index.html#about" class="nav-link">Bemutatkozunk</a></li>
+        <li><a href="index.html#walls" class="nav-link">Mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html" class="nav-link nav-sublink">Iskolai mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#boulder" class="nav-link nav-sublink">Boulder mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#jatszoter" class="nav-link nav-sublink">Játszótéri mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#egyeb" class="nav-link nav-sublink">Egyéb mászófalak</a></li>
+        <li><a href="index.html#gallery" class="nav-link">Galéria</a></li>
+        <li><a href="iso9001.html" class="nav-link ${isActive('iso9001.html')}">ISO 9001</a></li>
+        <li><a href="kapcsolat.html" class="nav-link ${isActive('kapcsolat.html')}">Kapcsolat</a></li>
+        ${profileItem}
+        <li><a href="klub.html" class="nav-link nav-pulse-btn"><span>Próbáld ki!</span><img src="pictures/logos/header_logo.png" alt="HawkStone Logo" class="nav-pulse-logo" /></a></li>
+        ${contactMobileSnippet}
+      `;
+    } else if (isCompanyIndex) {
+      // Company Main Page (HawkStone Mászófalak Tervezés & Gyártás) Menu
+      navItems = `
+        <li><a href="#about" class="nav-link">Bemutatkozunk</a></li>
+        <li><a href="#walls" class="nav-link">Mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html" class="nav-link nav-sublink">Iskolai mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#boulder" class="nav-link nav-sublink">Boulder mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#jatszoter" class="nav-link nav-sublink">Játszótéri mászófalak</a></li>
+        <li class="nav-sub-item"><a href="maszofalaink.html#egyeb" class="nav-link nav-sublink">Egyéb mászófalak</a></li>
+        <li><a href="#gallery" class="nav-link">Galéria</a></li>
+        <li><a href="iso9001.html" class="nav-link">ISO 9001</a></li>
+        <li><a href="kapcsolat.html" class="nav-link">Kapcsolat</a></li>
+        ${profileItem}
+        <li><a href="klub.html" class="nav-link nav-pulse-btn"><span>Próbáld ki!</span><img src="pictures/logos/header_logo.png" alt="HawkStone Logo" class="nav-pulse-logo" /></a></li>
+        ${contactMobileSnippet}
+      `;
+    } else {
+      // Generic Subpages (Szabályzat, ÁSZF, etc.)
+      navItems = `
+        <li><a href="index.html" class="nav-link">Főoldal</a></li>
+        <li><a href="klub.html" class="nav-link">Városi Mászóklub</a></li>
+        <li><a href="klub.html#prices" class="nav-link">Árak</a></li>
+        <li><a href="szabalyzat.html" class="nav-link ${isActive('szabalyzat.html')}">Szabályzatunk</a></li>
+        <li><a href="klub.html#contact" class="nav-link">Kapcsolat</a></li>
+        ${profileItem}
+        <li><a href="klub.html" class="nav-link nav-pulse-btn"><span>Próbáld ki!</span><img src="pictures/logos/header_logo.png" alt="HawkStone Logo" class="nav-pulse-logo" /></a></li>
+        ${contactMobileSnippet}
+      `;
     }
   }
 
@@ -191,7 +270,7 @@ function renderHeader() {
     authSectionMobile = `
       <div class="nav-auth-mobile">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-          <span style="font-weight:600; font-size:14px; color:#ffffff;">${userName}</span>
+          <a href="dashboard.html" style="font-weight:600; font-size:14px; color:#ffffff; text-decoration:none;">${userName}</a>
         </div>
         <button onclick="logout()" class="btn btn-secondary btn-sm" style="width:100%;">Kijelentkezés</button>
       </div>
@@ -226,10 +305,33 @@ function renderHeader() {
     `;
   }
 
+  const contactDesktopSnippet = !isAdminPage ? `
+    <div class="header-contact-desktop">
+      <a href="tel:+36305746946" class="header-contact-item" title="Telefonszám: (+36) 30 574 6946">
+        <span class="header-contact-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+        </span>
+        <span class="header-contact-text">(+36) 30 574 6946</span>
+      </a>
+      <span class="header-contact-divider">•</span>
+      <a href="mailto:orangeramp.info@gmail.com" class="header-contact-item" title="E-mail: orangeramp.info@gmail.com">
+        <span class="header-contact-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+          </svg>
+        </span>
+        <span class="header-contact-text">orangeramp.info@gmail.com</span>
+      </a>
+    </div>
+  ` : '';
+
   headerEl.innerHTML = `
     <div class="container">
       <nav class="navbar">
-        <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;" onclick="if(window.location.pathname.endsWith('index.html') || window.location.pathname==='/' || window.location.pathname.endsWith('/')){ window.scrollTo({top:0, behavior:'smooth'}); event.preventDefault(); }">
+        <a href="${isClubPage ? (isClubHost ? '/' : 'klub.html') : 'index.html'}" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;">
           <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
         </a>
 
@@ -249,6 +351,8 @@ function renderHeader() {
           </div>
         `}
 
+        ${contactDesktopSnippet}
+
         <!-- Menu overlay background -->
         <div class="menu-overlay" id="menu-overlay"></div>
 
@@ -260,8 +364,8 @@ function renderHeader() {
           </button>
           
           <li class="menu-title-mobile">MENÜ</li>
+          ${(isClubPage || isAdminPage) ? authSectionMobile : ''}
           ${navItems}
-          ${authSectionMobile}
         </ul>
 
         ${authSection}
@@ -303,17 +407,83 @@ function renderHeader() {
       link.addEventListener('click', () => toggleMenu(false));
     });
   }
+
+  initNavActiveState();
 }
 
+// ---------------- AKTÍV MENÜPONT (oldal + szekció figyelés görgetéskor) ----------------
+let navActiveListenersBound = false;
+function updateNavActiveState() {
+  const menu = document.getElementById('nav-menu');
+  if (!menu) return;
+  const curFile = (window.location.pathname.split('/').pop() || 'index.html') || 'index.html';
+  const entries = [];
+  menu.querySelectorAll('a.nav-link').forEach(a => {
+    if (a.classList.contains('nav-pulse-btn') || a.classList.contains('nav-link-company')) return;
+    const href = a.getAttribute('href') || '';
+    const [fileRaw, hash] = href.split('#');
+    const file = fileRaw || curFile;
+    if (file !== curFile) return;
+    entries.push({ a, id: hash || null });
+  });
+  if (!entries.length) return;
+
+  // Aktuális szekció: az utolsó, amelynek teteje már a header alá ért
+  let activeId = null;
+  entries.forEach(e => {
+    if (!e.id) return;
+    const el = document.getElementById(e.id);
+    if (el && el.getBoundingClientRect().top <= 140) activeId = e.id;
+  });
+  let target = activeId ? entries.find(e => e.id === activeId) : entries.find(e => !e.id);
+  // Ha az oldal nem szekció-alapú (pl. Kapcsolat, ISO): a hash nélküli link az aktív
+  menu.querySelectorAll('a.nav-link').forEach(a => a.classList.remove('active'));
+  if (target) target.a.classList.add('active');
+}
+
+function initNavActiveState() {
+  updateNavActiveState();
+  if (navActiveListenersBound) return;
+  navActiveListenersBound = true;
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { updateNavActiveState(); ticking = false; });
+  }, { passive: true });
+  window.addEventListener('hashchange', updateNavActiveState);
+}
 // ---------------- HEADER SEARCH UTILITIES ----------------
 const searchIndex = [
-  { title: "Rólunk", desc: "Ismerd meg a HawkStone csapatát és küldetésünket.", link: "#about", tags: ["rolunk", "csapat", "bemutatkozas", "mászás", "terem"] },
-  { title: "Helyszínek", desc: "Három helyszínünk: Eötvös mászófal, Kossuth mászófal, Zrínyi boulder fal.", link: "#locations", tags: ["helyszin", "helyek", "eötvös", "kossuth", "zrínyi", "nyitvatartás", "cim", "címek", "boulder"] },
-  { title: "Áraink", desc: "Tekintsd meg jegyeink és bérleteink árait.", link: "#prices", tags: ["arak", "araink", "jegy", "berlet", "bérlet", "napijegy", "vasarlas", "fizetes"] },
-  { title: "Szabályzatunk", desc: "Mászófal biztonsági és házirend szabályzatunk.", link: "szabalyzat.html", tags: ["szabalyzat", "vizsga", "biztonsag", "zöld", "piros", "kartya", "kártya", "házirend", "hazirend"] },
-  { title: "Kapcsolat", desc: "Vedd fel velünk a kapcsolatot, vagy küldj üzenetet.", link: "#contact", tags: ["kapcsolat", "email", "telefon", "terkep", "térkép", "uzenet"] },
-  { title: "Profilom", desc: "Személyes profil, megvásárolt jegyek és időpontfoglalások kezelése.", link: "dashboard.html", tags: ["profilom", "dashboard", "vezérlőpult", "foglalas", "jegyek", "qr", "kod"] }
+  // --- Cégoldal ---
+  { title: "Bemutatkozunk", desc: "Ismerd meg a HawkStone mászófalgyártó csapatát és küldetésünket.", link: "index.html#about", tags: "rolunk bemutatkozas csapat hovi-tech tervezes gyartas" },
+  { title: "Mászófal típusaink", desc: "Mászófalaink típusai, működési elve és előnyei.", link: "index.html#walls", tags: "tipusok mászófalak tipusaink mukodesi elv" },
+  { title: "Galéria", desc: "Képgaléria elkészült mászófalainkból.", link: "index.html#gallery", tags: "kepgaleria kepek fotok munkaink referencia" },
+  { title: "Iskolai mászófalak", desc: "Iskolai mászófalak M1104, M1106, M1105 – méretek, felület.", link: "maszofalaink.html#iskolai", tags: "iskola iskolai tornaterem m1104 m1106 m1105 magassag szelesseg" },
+  { title: "Boulder mászófalak", desc: "Boulder mászófalak M1101, M1102, M1103 – méretek, felület.", link: "maszofalaink.html#boulder", tags: "boulder bouldering m1101 m1102 m1103 kis magassagu" },
+  { title: "Játszóterekre, parkokba – Játszótéri kültéri mászófal", desc: "Játszótéri kültéri mászófal M1109, 3 m magas, kb. 11 m².", link: "maszofalaink.html#jatszoter", tags: "jatszoter jatszoteri kulteri park parkok m1109 szabadteri" },
+  { title: "Egyéb mászófalak", desc: "Nagy felületű mászófalak M1107 és M1108, felsőbiztosítási pontokkal.", link: "maszofalaink.html#egyeb", tags: "egyeb nagy m1107 m1108 felsobiztositas felso biztositasi pontok" },
+  { title: "ISO 9001", desc: "Hovi-Tech Kft. minőségpolitikája és ISO 9001 tanúsítványai (HU, EN, DE).", link: "iso9001.html", tags: "iso minosegpolitika tanusitvany certificate zertifikat minosites en 9001 minoseg" },
+  { title: "Kapcsolat", desc: "Elérhetőségeink és kapcsolati űrlap – írj nekünk!", link: "kapcsolat.html", tags: "kapcsolat email telefon uzenet urlap ajanlatkeres cim nyirpazony" },
+  // --- Városi Mászóklub ---
+  { title: "Városi Mászóklub", desc: "Nyíregyházi Városi Mászóklub – próbáld ki a falainkat!", link: "klub.html", tags: "klub maszoklub nyiregyhaza proba probald ki idopontfoglalas foglalas" },
+  { title: "Helyszínek", desc: "Eötvös, Kossuth és Zrínyi iskolai mászófalak Nyíregyházán.", link: "klub.html#locations", tags: "helyszin helyek eotvos kossuth zrinyi nyitvatartas cimek" },
+  { title: "Áraink", desc: "Jegyek és bérletek árai a mászóklubban.", link: "klub.html#prices", tags: "arak jegy berlet napijegy vasarlas fizetes" },
+  { title: "Szabályzatunk", desc: "Mászófal biztonsági és házirend szabályzatunk.", link: "szabalyzat.html", tags: "szabalyzat vizsga biztonsag zold piros kartya hazirend" },
+  { title: "Mászófal használati szabályok", desc: "A mászófalak biztonságos használatának szabályai.", link: "hasznalati-szabalyok.html", tags: "hasznalati szabalyok biztonsag" },
+  { title: "Profilom", desc: "Személyes profil, megvásárolt jegyek és időpontfoglalások.", link: "dashboard.html", tags: "profil dashboard vezerlopult foglalas jegyek qr kod belepes bejelentkezes" },
+  // --- Jogi oldalak ---
+  { title: "Adatkezelési Tájékoztató", desc: "Személyes adatok kezelése, GDPR.", link: "adatvedelem.html", tags: "adatvedelem adatkezeles gdpr adatok" },
+  { title: "Süti Tájékoztató", desc: "Cookie-k (sütik) használata az oldalon.", link: "cookie-szabalyzat.html", tags: "suti cookie sutik" },
+  { title: "ÁSZF", desc: "Általános Szerződési Feltételek.", link: "aszf.html", tags: "aszf szerzodesi feltetelek" },
+  { title: "Elállás a szerződéstől", desc: "Online elállási nyilatkozat.", link: "withdrawal.html", tags: "elallas visszaterites szerzodestol" },
+  { title: "Impresszum", desc: "Cégadatok, Hovi-Tech Kft.", link: "impresszum.html", tags: "impresszum cegadatok" }
 ];
+
+// Ékezet- és kisbetű-független normalizálás a kereséshez
+function normalizeSearchText(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ő/g, 'o').replace(/ű/g, 'u');
+}
 
 function resolveSearchLink(link) {
   if (link.startsWith('#')) {
@@ -365,10 +535,10 @@ function handleHeaderSearch(query) {
     return;
   }
 
+  const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
   const filtered = searchIndex.filter(item => {
-    return item.title.toLowerCase().includes(cleanQuery) ||
-           item.desc.toLowerCase().includes(cleanQuery) ||
-           item.tags.some(tag => tag.includes(cleanQuery));
+    const hay = normalizeSearchText(item.title + ' ' + item.desc + ' ' + item.tags);
+    return terms.every(t => hay.includes(t));
   });
 
   resultsDiv.style.display = 'block';
@@ -4014,6 +4184,250 @@ function initScrollAnimations() {
   });
 }
 
+// ---------------- 3D CARD STACK HERO SHOWCASE ----------------
+let cardStackOrder = [0, 1, 2, 3, 4, 5];
+let cardStackAutoTimer = null;
+let isStackAnimating = false;
+
+function updateCardPositions() {
+  const cardItems = document.querySelectorAll('.card-stack-item');
+  if (cardItems.length === 0) return;
+
+  cardItems.forEach(card => {
+    const cardId = parseInt(card.getAttribute('data-card'), 10);
+    const posIndex = cardStackOrder.indexOf(cardId);
+    
+    // Remove all pos-* classes
+    for (let i = 0; i < 6; i++) {
+      card.classList.remove(`pos-${i}`);
+    }
+    
+    if (posIndex !== -1) {
+      card.classList.add(`pos-${posIndex}`);
+    }
+  });
+
+  // Sync indicator dots with the top active card
+  const dots = document.querySelectorAll('.card-dot');
+  if (dots.length > 0) {
+    const topCardId = cardStackOrder[0];
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === topCardId);
+    });
+  }
+
+  // Sync center brand overlay (herocim.png):
+  // When card 0 (hero01.png which already includes the 3D logo graphic) is on top,
+  // we let hero01's built-in logo shine cleanly without duplication;
+  // when cards 1..5 are in front, herocim.png floats in the center branding the photos!
+  const brandOverlay = document.getElementById('heroBrandOverlay');
+  if (brandOverlay) {
+    const topCardId = cardStackOrder[0];
+    if (topCardId === 0) {
+      brandOverlay.style.opacity = '0';
+      brandOverlay.style.transform = 'translate(-50%, -50%) scale(0.94)';
+    } else {
+      brandOverlay.style.opacity = '1';
+      brandOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
+    }
+  }
+
+  const counterEl = document.getElementById('cardCurrentIndex');
+  if (counterEl) {
+    counterEl.textContent = (cardStackOrder[0] + 1).toString();
+  }
+}
+
+function cycleCardStack(direction = 1) {
+  if (isStackAnimating) return;
+  const container = document.getElementById('cardStack');
+  if (!container) return;
+
+  const cardItems = document.querySelectorAll('.card-stack-item');
+  if (cardItems.length === 0) return;
+
+  isStackAnimating = true;
+
+  if (direction === 1) {
+    // Top card flies out to the right
+    const topCardId = cardStackOrder[0];
+    const nextTopCard = cardStackOrder[1];
+    if (nextTopCard === 0) {
+      // Amikor az utolsó kép van és jön újra az első, kicsit hamarabb tűnjön el a cím
+      const brandOverlay = document.getElementById('heroBrandOverlay');
+      if (brandOverlay) {
+        brandOverlay.style.opacity = '0';
+        brandOverlay.style.transform = 'translate(-50%, -50%) scale(0.92)';
+      }
+    }
+
+    const topCard = container.querySelector(`.card-stack-item[data-card="${topCardId}"]`);
+    if (topCard) {
+      topCard.classList.add('card-flying-out');
+    }
+
+    setTimeout(() => {
+      cardStackOrder.push(cardStackOrder.shift());
+      if (topCard) topCard.classList.remove('card-flying-out');
+      updateCardPositions();
+      setTimeout(() => {
+        isStackAnimating = false;
+      }, 100);
+    }, 400);
+
+  } else {
+    // Reverse cycle: last card comes to the front
+    const lastCardId = cardStackOrder[cardStackOrder.length - 1];
+    const lastCard = container.querySelector(`.card-stack-item[data-card="${lastCardId}"]`);
+    
+    if (lastCard) {
+      lastCard.classList.add('card-flying-out-reverse');
+    }
+
+    setTimeout(() => {
+      cardStackOrder.unshift(cardStackOrder.pop());
+      if (lastCard) lastCard.classList.remove('card-flying-out-reverse');
+      updateCardPositions();
+      setTimeout(() => {
+        isStackAnimating = false;
+      }, 100);
+    }, 400);
+  }
+
+  const isTopHero01 = cardStackOrder[0] === 0;
+  resetCardStackAutoTimer(isTopHero01 ? 6000 : 5000);
+}
+
+function handleCardItemClick(clickedCardId) {
+  const currentTop = cardStackOrder[0];
+  if (clickedCardId === currentTop) {
+    cycleCardStack(1);
+  } else {
+    if (clickedCardId === 0) {
+      const brandOverlay = document.getElementById('heroBrandOverlay');
+      if (brandOverlay) {
+        brandOverlay.style.opacity = '0';
+        brandOverlay.style.transform = 'translate(-50%, -50%) scale(0.92)';
+      }
+    }
+    // Bring clicked card directly to top
+    while (cardStackOrder[0] !== clickedCardId) {
+      cardStackOrder.push(cardStackOrder.shift());
+    }
+    updateCardPositions();
+    const isTopHero01 = cardStackOrder[0] === 0;
+    resetCardStackAutoTimer(isTopHero01 ? 6000 : 5000);
+  }
+}
+
+let preFadeTitleTimer = null;
+
+function resetCardStackAutoTimer(delay = 5000) {
+  if (cardStackAutoTimer) clearTimeout(cardStackAutoTimer);
+  if (preFadeTitleTimer) clearTimeout(preFadeTitleTimer);
+
+  const nextTopCard = cardStackOrder[1];
+  // Ha a következő kép az első kép (hero01.png), kb. 1000ms-mal a váltás előtt finoman eltüntetjük a címet
+  if (nextTopCard === 0 && delay > 1400) {
+    preFadeTitleTimer = setTimeout(() => {
+      const brandOverlay = document.getElementById('heroBrandOverlay');
+      if (brandOverlay) {
+        brandOverlay.style.opacity = '0';
+        brandOverlay.style.transform = 'translate(-50%, -50%) scale(0.92)';
+      }
+    }, delay - 1000);
+  }
+
+  cardStackAutoTimer = setTimeout(() => {
+    cycleCardStack(1);
+    const isTopHero01 = cardStackOrder[0] === 0;
+    resetCardStackAutoTimer(isTopHero01 ? 6000 : 5000);
+  }, delay);
+}
+
+// Bind to window for HTML inline calls
+window.cycleCardStack = cycleCardStack;
+window.handleCardItemClick = handleCardItemClick;
+
+function initCompanyLanding() {
+  updateCardPositions();
+  // Az első kép (hero01.png) 6 másodpercig marad a képernyőn
+  resetCardStackAutoTimer(6000);
+
+  const container = document.getElementById('cardStack');
+  if (container) {
+    // Pause auto timer on hover
+    container.addEventListener('mouseenter', () => {
+      if (cardStackAutoTimer) clearTimeout(cardStackAutoTimer);
+      if (preFadeTitleTimer) clearTimeout(preFadeTitleTimer);
+    });
+    container.addEventListener('mouseleave', () => {
+      const isTopHero01 = cardStackOrder[0] === 0;
+      resetCardStackAutoTimer(isTopHero01 ? 6000 : 5000);
+    });
+
+    // Touch swipe support for mobile
+    let touchStartX = 0;
+    container.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const diff = touchStartX - touchEndX;
+      if (Math.abs(diff) > 40) {
+        cycleCardStack(diff > 0 ? 1 : -1);
+      }
+    }, { passive: true });
+  }
+
+  // Lightbox Modal for gallery images
+  document.querySelectorAll('.company-gallery-thumbs .gallery-item img').forEach(img => {
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', () => {
+      openCompanyLightbox(img.src, img.alt);
+    });
+  });
+}
+
+function openCompanyLightbox(src, alt) {
+  let modal = document.getElementById('company-lightbox-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'company-lightbox-modal';
+    modal.className = 'lightbox-modal';
+    modal.innerHTML = `
+      <div class="lightbox-overlay" onclick="closeCompanyLightbox()"></div>
+      <div class="lightbox-content">
+        <button class="lightbox-close" onclick="closeCompanyLightbox()" aria-label="Bezárás">&times;</button>
+        <img id="lightbox-img" src="" alt="">
+        <p id="lightbox-caption" style="text-align:center; color:var(--text-secondary); margin-top:10px; font-size:14px;"></p>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeCompanyLightbox();
+    });
+  }
+
+  const imgEl = modal.querySelector('#lightbox-img');
+  const captionEl = modal.querySelector('#lightbox-caption');
+  if (imgEl) imgEl.src = src;
+  if (captionEl) captionEl.textContent = alt || '';
+
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCompanyLightbox() {
+  const modal = document.getElementById('company-lightbox-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  document.body.style.overflow = '';
+}
+
 // ---------------- INITIALIZATION CHECK ----------------
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
@@ -4021,8 +4435,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollAnimations();
 
   const path = window.location.pathname;
-  if (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/')) {
+  const hostname = (window.location.hostname || '').toLowerCase();
+  const isClubHost = hostname.startsWith('klub.') || hostname.startsWith('maszoklub.') || hostname.startsWith('foglalas.');
+  const isClubPage = isClubHost || path.endsWith('klub.html') || path.endsWith('maszoklub.html') || path.endsWith('foglalas.html');
+  const isLocationsGridPresent = !!document.getElementById('public-locations-grid');
+
+  if (isClubPage || isLocationsGridPresent) {
     initPublicLanding();
+  } else if (!isClubHost && (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/'))) {
+    initCompanyLanding();
   } else if (path.endsWith('dashboard.html')) {
     initDashboard();
   } else if (path.endsWith('admin.html')) {
@@ -4351,7 +4772,7 @@ function initCookieConsent() {
       </div>
 
       <button type="button" class="cookie-categories-toggle" id="cookie-categories-toggle">
-        ⚙️ Beállítások testreszabása <span id="cookie-toggle-arrow">▼</span>
+        <span class="cookie-gear">⚙️</span> Beállítások testreszabása
       </button>
 
       <div class="cookie-categories-list" id="cookie-categories-list">
@@ -4460,4 +4881,112 @@ if (document.readyState === 'loading') {
   initCookieConsent();
 }
 
+// Hero scroll indicator visibility on scroll
+function handleHeroScrollIndicatorVisibility() {
+  const indicator = document.querySelector('.hero-scroll-indicator');
+  if (!indicator) return;
+  if (window.scrollY > 30) {
+    indicator.style.opacity = '0';
+    indicator.style.visibility = 'hidden';
+    indicator.style.pointerEvents = 'none';
+  } else {
+    indicator.style.opacity = '1';
+    indicator.style.visibility = 'visible';
+    indicator.style.pointerEvents = 'auto';
+  }
+}
+window.addEventListener('scroll', handleHeroScrollIndicatorVisibility, { passive: true });
+window.addEventListener('load', handleHeroScrollIndicatorVisibility);
 
+
+
+
+// ---------------- GALÉRIA LIGHTBOX (kattintható + lapozható) ----------------
+function initGalleryLightbox() {
+  const spread = document.getElementById('gallerySpread');
+  if (!spread) return;
+
+  const items = Array.from(spread.querySelectorAll('.gs-item'));
+  const images = items.map(btn => {
+    const img = btn.querySelector('img');
+    return { src: img.getAttribute('src'), alt: img.getAttribute('alt') || '' };
+  });
+  if (!images.length) return;
+
+  const box = document.createElement('div');
+  box.className = 'gallery-lightbox';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-label', 'Képgaléria');
+  box.innerHTML = `
+    <button type="button" class="gl-btn gl-close" aria-label="Bezárás">✕</button>
+    <button type="button" class="gl-btn gl-prev" aria-label="Előző kép">❮</button>
+    <div class="gl-stage"><img class="gl-img" src="" alt=""></div>
+    <button type="button" class="gl-btn gl-next" aria-label="Következő kép">❯</button>
+    <div class="gl-counter"><span class="gl-cur">1</span> / ${images.length}</div>
+  `;
+  document.body.appendChild(box);
+
+  const imgEl = box.querySelector('.gl-img');
+  const curEl = box.querySelector('.gl-cur');
+  let index = 0;
+
+  const show = (i, animate) => {
+    index = (i + images.length) % images.length;
+    const apply = () => {
+      imgEl.src = images[index].src;
+      imgEl.alt = images[index].alt;
+      curEl.textContent = index + 1;
+      imgEl.classList.remove('switching');
+    };
+    if (animate) {
+      imgEl.classList.add('switching');
+      setTimeout(apply, 180);
+    } else {
+      apply();
+    }
+  };
+
+  const open = (i) => {
+    show(i, false);
+    box.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  const close = () => {
+    box.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  const next = () => show(index + 1, true);
+  const prev = () => show(index - 1, true);
+
+  items.forEach((btn, i) => btn.addEventListener('click', () => open(i)));
+  box.querySelector('.gl-close').addEventListener('click', close);
+  box.querySelector('.gl-next').addEventListener('click', (e) => { e.stopPropagation(); next(); });
+  box.querySelector('.gl-prev').addEventListener('click', (e) => { e.stopPropagation(); prev(); });
+  box.addEventListener('click', (e) => {
+    if (e.target === box || e.target.classList.contains('gl-stage')) close();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!box.classList.contains('open')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowLeft') prev();
+  });
+
+  // Érintéses lapozás (swipe)
+  let touchX = null;
+  box.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 50) { dx < 0 ? next() : prev(); }
+  }, { passive: true });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initGalleryLightbox);
+} else {
+  initGalleryLightbox();
+}

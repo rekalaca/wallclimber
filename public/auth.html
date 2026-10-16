@@ -3,64 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Bejelentkezés & Regisztráció | HawkStone</title>
-  <link rel="stylesheet" href="style.css?v=20260530_v14">
-  <!-- Barion Pixel -->
-  <script>
-    window["bp"] = window["bp"] || function () {
-      (window["bp"].q = window["bp"].q || []).push(arguments);
-    };
-    window["bp"].l = 1 * new Date();
-
-    var scriptElement = document.createElement("script");
-    var firstScript = document.getElementsByTagName("script")[0];
-    scriptElement.async = true;
-    scriptElement.src = 'https://pixel.barion.com/bp.js';
-    firstScript.parentNode.insertBefore(scriptElement, firstScript);
-
-    window['barion_pixel_id'] = 'BPT-BNsUqvcLGG-7C'; 
-
-    bp('init', 'addBarionPixelId', window['barion_pixel_id']);
-  </script>
-  <noscript>
-    <img height="1" width="1" style="display:none" alt="Barion Pixel" src="https://pixel.barion.com/a.gif?pid=BPT-BNsUqvcLGG-7C" />
-  </noscript>
-  <style>
-    /* Custom overrides for the document reading modal */
-    .doc-reading-modal {
-      max-width: 650px !important;
-      width: 95% !important;
-      max-height: 85vh !important;
-      display: flex !important;
-      flex-direction: column !important;
-      padding: 25px 30px !important;
-    }
-
-    #doc-modal-content {
-      flex: 1;
-      overflow-y: auto;
-      text-align: left;
-      margin-bottom: 20px;
-      padding: 20px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      background: rgba(0,0,0,0.2);
-      font-size: 13.5px;
-      line-height: 1.65;
-      color: var(--text-secondary);
-    }
-
-    @media (max-width: 600px) {
+  <meta name="description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
+  <meta name="author" content="rekalaca-webdesign">
+  <meta name="creator" content="rekalaca-webdesign">
+  <meta name="designer" content="rekalaca-webdesign">
+  <meta name="publisher" content="rekalaca-webdesign">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://hawkstone.hu/auth.html">
+  <!-- Favicon & Apple Touch Icon -->
+  <link rel="icon" type="image/png" href="pictures/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="pictures/favicon.png">
+  <link rel="apple-touch-icon" href="pictures/favicon.png">
+  <!-- Open Graph / Facebook / Messenger -->
+  <meta property="og:site_name" content="HawkStone Mászófalak">
+  <meta property="og:locale" content="hu_HU">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hawkstone.hu/auth.html">
+  <meta property="og:title" content="Bejelentkezés & Regisztráció | HawkStone">
+  <meta property="og:description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
+  <meta property="og:image" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:secure_url" content="https://hawkstone.hu/pictures/share.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1720">
+  <meta property="og:image:height" content="650">
+  <meta property="og:image:alt" content="HawkStone Mászófalak - Tervezés & Gyártás">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://hawkstone.hu/auth.html">
+  <meta name="twitter:title" content="Bejelentkezés & Regisztráció | HawkStone">
+  <meta name="twitter:description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
+  <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
+  <link rel="stylesheet" href="style.css?v=20261015_c42">
+    <!-- Barion Pixel -->
+    <script>
+      window["bp"] = window["bp"] || function () {
+        (window["bp"].q = window["bp"].q || []).push(arguments);
+      };
+      window["bp"].l = 1 * new Date();
+      var scriptElement = document.createElement("script");
+      var firstScript = document.getElementsByTagName("script")[0];
+      scriptElement.async = true;
+      scriptElement.src = 'https://pixel.barion.com/bp.js';
+      firstScript.parentNode.insertBefore(scriptElement, firstScript);
+      window['barion_pixel_id'] = 'BPT-BNsUqvcLGG-7C'; 
+      bp('init', 'addBarionPixelId', window['barion_pixel_id']);
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none" alt="Barion Pixel" src="https://pixel.barion.com/a.gif?pid=BPT-BNsUqvcLGG-7C" />
+    </noscript>
+    <style>
+      /* Custom overrides for the document reading modal */
       .doc-reading-modal {
-        padding: 20px 10px 15px 10px !important; /* Thin border margins on mobile */
+        max-width: 650px !important;
         width: 95% !important;
+        max-height: 85vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 25px 30px !important;
       }
       #doc-modal-content {
-        padding: 12px 8px !important; /* Maximize scrollable content width */
-        margin-bottom: 15px !important;
+        flex: 1;
+        overflow-y: auto;
+        text-align: left;
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        background: rgba(0,0,0,0.2);
+        font-size: 13.5px;
+        line-height: 1.65;
+        color: var(--text-secondary);
       }
-    }
-  </style>
+      @media (max-width: 600px) {
+        .doc-reading-modal {
+          padding: 20px 10px 15px 10px !important; /* Thin border margins on mobile */
+          width: 95% !important;
+        }
+        #doc-modal-content {
+          padding: 12px 8px !important; /* Maximize scrollable content width */
+          margin-bottom: 15px !important;
+        }
+      }
+    </style>
 </head>
 <body>
 
@@ -483,6 +509,6 @@
       }
     });
   </script>
-  <script src="app.js?v=20260530_v14"></script>
+  <script src="app.js?v=20261015_c31"></script>
 </body>
 </html>

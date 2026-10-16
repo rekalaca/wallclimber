@@ -1,0 +1,29 @@
+# robots.txt for https://hawkstone.hu
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+Disallow: /api/
+
+# AI Crawlers & Search Bots
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://hawkstone.hu/sitemap.xml
+Sitemap: https://klub.hawkstone.hu/sitemap.xml
