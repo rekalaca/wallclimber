@@ -677,6 +677,13 @@ async function initPublicLanding() {
 
   if (video) {
     video.playbackRate = 0.65;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
+    video.classList.remove('video-ended');
     video.loop = false;
     
     // Prepare initial position of text on startup (desktop only)
@@ -688,6 +695,17 @@ async function initPublicLanding() {
     let hasZoomedText = false;
     let hasFadedOutText = false;
     let hasFadedOutVideo = false;
+
+    const revealVideo = () => video.classList.remove('video-ended');
+    video.addEventListener('playing', revealVideo);
+    video.addEventListener('canplay', revealVideo);
+    video.addEventListener('loadeddata', revealVideo);
+    setTimeout(revealVideo, 300);
+
+    const startPlay = video.play();
+    if (startPlay !== undefined) {
+      startPlay.then(revealVideo).catch(() => revealVideo());
+    }
     
     // Fade in on first play and reset flags at loop start
     video.addEventListener('play', () => {
