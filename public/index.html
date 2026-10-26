@@ -35,7 +35,8 @@
   <meta name="twitter:title" content="HawkStone | Mászófalak - Tervezés, Gyártás & Mobil Mászófalak">
   <meta name="twitter:description" content="Mászófalat vásárolna, bérelne? Fém tartószerkezetű beltéri és kültéri mászófalak, boulder falak, játszótéri és egyedi mobil forgó mászófalak tervezése és gyártása.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261015_c42">
+  <link rel="stylesheet" href="style.css?v=20261026_c48">
+  <link rel="stylesheet" href="silver.css?v=6">
 
   <script type="application/ld+json">
   {
@@ -84,7 +85,7 @@
   }
   </script>
 </head>
-<body>
+<body class="theme-silver">
 
   <!-- Toast Container -->
   <div id="toast-container" class="toast-container"></div>
@@ -160,6 +161,17 @@
 
       <div class="container about-fullscreen-container">
         <div class="about-fullscreen-grid">
+          <!-- Animált narancs-fekete keret: körrel indul, körbefut és bezárul a kiinduló pontnál -->
+          <div class="about-frame" id="about-frame" aria-hidden="true">
+            <span class="about-frame-top"></span>
+            <span class="about-frame-right"></span>
+            <span class="about-frame-bottom"></span>
+            <span class="about-frame-left"></span>
+            <span class="about-loop about-loop-0"></span>
+            <span class="about-loop about-loop-1"></span>
+            <span class="about-loop about-loop-2"></span>
+            <span class="about-loop about-loop-3"></span>
+          </div>
           
           <!-- Welcome Box (Hullócsillag / Border Beam effekttel) -->
           <div class="glass-card company-content-card border-beam-card">
@@ -202,6 +214,20 @@
         </div>
       </div>
     </section>
+
+    <script>
+      (function () {
+        var frame = document.getElementById('about-frame');
+        if (!frame) return;
+        if (!('IntersectionObserver' in window)) { frame.classList.add('draw'); return; }
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { frame.classList.add('draw'); io.disconnect(); }
+          });
+        }, { threshold: 0.35 });
+        io.observe(document.getElementById('about'));
+      })();
+    </script>
 
     <!-- Mászófal Típusaink (background_wall.mp4 videó háttérrel) -->
     <section class="section-walls-video" id="walls">
@@ -296,13 +322,26 @@
         </div>
       </div>
     </section>
+    <script>
+      (function () {
+        var spread = document.getElementById('gallerySpread');
+        if (!spread) return;
+        if (!('IntersectionObserver' in window)) { spread.classList.add('gs-in'); return; }
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { spread.classList.add('gs-in'); io.disconnect(); }
+          });
+        }, { threshold: 0.25 });
+        io.observe(spread);
+      })();
+    </script>
 
   </main>
 
   <!-- Footer -->
   <footer>
     <div class="container">
-      <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+      <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 32px; width: auto;">
           <span style="font-size: 13px; font-weight: 600; color: #ffffff;">HawkStone | Mászófalak</span>
@@ -327,6 +366,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20261015_c31"></script>
+  <script src="app.js?v=20261026_c35"></script>
 </body>
 </html>

@@ -76,7 +76,7 @@ function renderHeader() {
   const path = window.location.pathname;
   const hostname = (window.location.hostname || '').toLowerCase();
   const isClubHost = hostname.startsWith('klub.') || hostname.startsWith('maszoklub.') || hostname.startsWith('foglalas.');
-  const isClubPage = isClubHost || path.endsWith('klub.html') || path.endsWith('maszoklub.html') || path.endsWith('foglalas.html');
+  const isClubPage = isClubHost || path.endsWith('klub.html') || path.endsWith('maszoklub.html') || path.endsWith('foglalas.html') || path.endsWith('szabalyzat.html');
   const isContactPage = path.endsWith('kapcsolat.html') || path.endsWith('iso9001.html') || path.endsWith('maszofalaink.html') || path.endsWith('404.html') || path.includes('404');
   const isCompanyIndex = !isClubHost && (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/') || path.endsWith('/'));
   const isAdminPage = path.endsWith('admin.html') || path.endsWith('scanner.html');
@@ -84,10 +84,11 @@ function renderHeader() {
   // Set admin classes for fix header layout
   if (isAdminPage && isConfiguredAdmin) {
     headerEl.className = 'admin-header';
-    document.body.className = 'admin-body';
+    document.body.classList.add('admin-body');
   } else {
-    headerEl.className = (isClubPage || isAdminPage) ? '' : 'no-auth-mobile';
-    document.body.className = '';
+    headerEl.className = isClubPage ? 'club-header' : ((isAdminPage) ? '' : 'no-auth-mobile');
+    if (isClubPage) document.body.classList.add('club-page');
+    document.body.classList.remove('admin-body');
   }
 
   let navItems = '';
@@ -151,13 +152,15 @@ function renderHeader() {
 
     if (isClubPage) {
       // Climbing Club (Nyíregyháza) Menu
+      const isSub = path.endsWith('szabalyzat.html');
+      const clubBase = isSub ? (isClubHost ? '/' : 'klub.html') : '';
       navItems = `
         <li><a href="${isClubHost ? 'https://hawkstone.hu/' : 'index.html'}" class="nav-link nav-link-company" style="color:var(--primary); font-weight:600;"><span style="font-size:12px; margin-right:4px;">←</span> HawkStone.hu</a></li>
-        <li><a href="#about" class="nav-link">Rólunk</a></li>
-        <li><a href="#locations" class="nav-link">Helyszínek</a></li>
-        <li><a href="#prices" class="nav-link">Áraink</a></li>
+        <li><a href="${clubBase}#about" class="nav-link">Rólunk</a></li>
+        <li><a href="${clubBase}#locations" class="nav-link">Helyszínek</a></li>
+        <li><a href="${clubBase}#prices" class="nav-link">Áraink</a></li>
         <li><a href="szabalyzat.html" class="nav-link ${isActive('szabalyzat.html')}">Szabályzatunk</a></li>
-        <li><a href="#contact" class="nav-link">Kapcsolat</a></li>
+        <li><a href="${clubBase}#contact" class="nav-link">Kapcsolat</a></li>
         ${profileItem}
         ${contactMobileSnippet}
       `;
@@ -330,9 +333,9 @@ function renderHeader() {
 
   headerEl.innerHTML = `
     <div class="container">
-      <nav class="navbar">
-        <a href="${isClubPage ? (isClubHost ? '/' : 'klub.html') : 'index.html'}" class="logo" style="display: flex; align-items: center; gap: 0; height: 100%;">
-          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block;" />
+      <nav class="navbar ${isClubPage ? 'club-navbar' : ''}">
+        <a href="${isClubPage ? (isClubHost ? '/' : 'klub.html') : 'index.html'}" class="logo ${isClubPage ? 'club-logo-link' : 'company-logo-link'}" style="display: flex; align-items: center; gap: 0; height: 100%;">
+          <img src="${(isClubPage || !document.body.classList.contains('theme-silver')) ? 'pictures/logos/klub_logo_transp.png' : 'pictures/logos/header_logo.png'}" alt="HawkStone Logo" class="${isClubPage ? 'club-header-logo-img' : 'header-logo-img'}" style="width: auto; object-fit: contain; display: block;" />
         </a>
 
         ${isConfiguredAdmin ? `
@@ -4789,9 +4792,6 @@ function initCookieConsent() {
         <p style="margin-top: 8px;">További részleteket az <a href="adatvedelem.html" target="_blank" rel="noopener">Adatkezelési Nyilatkozatban</a> és a <a href="cookie-szabalyzat.html" target="_blank" rel="noopener">Süti Tájékoztatóban</a> találsz.</p>
       </div>
 
-      <button type="button" class="cookie-categories-toggle" id="cookie-categories-toggle">
-        <span class="cookie-gear">⚙️</span> Beállítások testreszabása
-      </button>
 
       <div class="cookie-categories-list" id="cookie-categories-list">
         <div class="cookie-category-item">
@@ -4840,9 +4840,10 @@ function initCookieConsent() {
       </div>
 
       <div class="cookie-modal-actions">
+        <button type="button" class="btn btn-outline" id="cookie-categories-toggle">⚙️ Beállítások testreszabása</button>
         <button class="btn btn-secondary" id="btn-cookie-necessary">Csak a szükségesek</button>
-        <button class="btn btn-outline" id="btn-cookie-custom" style="display:none;">Kijelöltek mentése</button>
         <button class="btn btn-primary" id="btn-cookie-all">Összes elfogadása</button>
+        <button class="btn btn-outline" id="btn-cookie-custom" style="display:none;">Kijelöltek mentése</button>
       </div>
     </div>
   `;

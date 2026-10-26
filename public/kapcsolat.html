@@ -35,16 +35,25 @@
   <meta name="twitter:title" content="Kapcsolat | HawkStone Mászófalak">
   <meta name="twitter:description" content="Vegye fel velünk a kapcsolatot! HawkStone mászófalak – HOVI-TECH Kft., 4531 Nyírpazony, Árpád u. 139. Telefon: (+36) 30 574 6946. Írjon nekünk a kapcsolati űrlapon.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261015_c42">
+  <link rel="stylesheet" href="style.css?v=20261026_c48">
+  <link rel="stylesheet" href="silver.css?v=6">
 </head>
-<body>
+<body class="theme-silver">
 
   <div id="toast-container" class="toast-container"></div>
 
   <header></header>
 
   <main class="contact-page">
-    <div class="container">
+    <!-- Video Háttér (contact_background.mp4) + Fátyol overlay -->
+    <div class="contact-video-bg">
+      <video autoplay loop muted playsinline preload="auto" class="contact-bg-video">
+        <source src="video/contact_background.mp4" type="video/mp4">
+      </video>
+      <div class="contact-video-overlay"></div>
+    </div>
+
+    <div class="container contact-container">
 
       <div class="walls-head">
         <span class="heading-kicker">HAWKSTONE • ELÉRHETŐSÉGEINK</span>
@@ -138,7 +147,7 @@
 
             <div class="cf-field">
               <label for="cfMessage">Üzenet *</label>
-              <textarea id="cfMessage" name="message" rows="6" maxlength="5000" required></textarea>
+              <textarea id="cfMessage" name="message" rows="4" maxlength="5000" required></textarea>
             </div>
 
             <!-- Honeypot (robotok ellen), látogatónak nem jelenik meg -->
@@ -163,7 +172,7 @@
 
   <footer>
     <div class="container">
-      <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+      <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 32px; width: auto;">
           <span style="font-size: 13px; font-weight: 600; color: #ffffff;">HawkStone | Mászófalak</span>
@@ -188,7 +197,7 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20261015_c31"></script>
+  <script src="app.js?v=20261026_c35"></script>
   <script>
     (function () {
       const form = document.getElementById('contactForm');
