@@ -77,7 +77,7 @@ function renderHeader() {
   const hostname = (window.location.hostname || '').toLowerCase();
   const isClubHost = hostname.startsWith('klub.') || hostname.startsWith('maszoklub.') || hostname.startsWith('foglalas.');
   const isClubPage = isClubHost || path.endsWith('klub.html') || path.endsWith('maszoklub.html') || path.endsWith('foglalas.html') || path.endsWith('szabalyzat.html');
-  const isContactPage = path.endsWith('kapcsolat.html') || path.endsWith('iso9001.html') || path.endsWith('maszofalaink.html') || path.endsWith('404.html') || path.includes('404');
+  const isContactPage = path.endsWith('kapcsolat.html') || path.endsWith('iso9001.html') || path.endsWith('maszofalaink.html') || path.endsWith('referenciak.html') || path.endsWith('404.html') || path.includes('404');
   const isCompanyIndex = !isClubHost && (path.endsWith('index.html') || path === '/' || path.endsWith('webpage/') || path.endsWith('/'));
   const isAdminPage = path.endsWith('admin.html') || path.endsWith('scanner.html');
 
@@ -651,18 +651,13 @@ function initScrollDivider() {
   if (!containers.length) return;
 
   const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const divider = entry.target.querySelector('.scroll-divider-line');
-        if (divider) {
-          divider.classList.add('active');
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          container.classList.add('is-animated');
+          io.disconnect();
         }
-        observer.unobserve(entry.target);
-      }
-    });
-  }, {
-    threshold: 0.1
-  });
+      });
+    }, { rootMargin: '0px 0px -60px 0px', threshold: 0.12 });
 
   containers.forEach(container => {
     observer.observe(container);
@@ -4920,17 +4915,152 @@ window.addEventListener('load', handleHeroScrollIndicatorVisibility);
 
 
 
-// ---------------- GALÉRIA LIGHTBOX (kattintható + lapozható) ----------------
-function initGalleryLightbox() {
-  const spread = document.getElementById('gallerySpread');
-  if (!spread) return;
+// ---------------- GALÉRIA LIGHTBOX (Összes 22 kép elérhető mindkét oldalon) ----------------
+const ALL_HAWKSTONE_GALLERY_IMAGES = [
+  // 6 db Főoldali kiemelt referencia:
+  {
+    src: 'pictures/hawkstone/16152307391813.jpg',
+    alt: 'Kültéri boulder falpark',
+    city: 'Kültéri boulder falpark',
+    name: 'Kültéri szabadidős mászópark'
+  },
+  {
+    src: 'pictures/hawkstone/16152307581081.jpg',
+    alt: 'Kültéri mászófal komplexum',
+    city: 'Kültéri mászófal komplexum',
+    name: 'Panoráma felvétel a szabadban'
+  },
+  {
+    src: 'pictures/hawkstone/16152307736897.jpg',
+    alt: 'Kültéri geometriai boulder fal',
+    city: 'Kültéri geometriai boulder fal',
+    name: 'Változatos dőlésszögű mászófelület'
+  },
+  {
+    src: 'pictures/hawkstone/16152307885749.jpg',
+    alt: 'Kültéri szabadidős mászófal',
+    city: 'Kültéri szabadidős mászófal',
+    name: 'Közösségi és szabadidős fal'
+  },
+  {
+    src: 'pictures/hawkstone/16375233216007.jpg',
+    alt: 'Iskolai tornatermi boulder fal',
+    city: 'Iskolai tornatermi boulder fal',
+    name: 'Biztonsági esésvédő szivaccsal'
+  },
+  {
+    src: 'pictures/hawkstone/16375234187316.jpg',
+    alt: 'Iskolai tornatermi mászófal',
+    city: 'Iskolai tornatermi mászófal',
+    name: 'Tornatermi biztonsági szivacsrendszerrel'
+  },
+  // 16 db Iskolai és városi referenciafal:
+  {
+    src: 'pictures/wall/debrecen-szoboszloi-iskola.jpg',
+    alt: 'Debrecen – Szoboszlói Úti Általános Iskola',
+    city: 'Debrecen',
+    name: 'Szoboszlói Úti Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/esztergom-babits-iskola.jpg',
+    alt: 'Esztergom – Babits Mihály Általános Iskola',
+    city: 'Esztergom',
+    name: 'Babits Mihály Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/gyula-implom-iskola.jpg',
+    alt: 'Gyula – Implom József Általános Iskola',
+    city: 'Gyula',
+    name: 'Implom József Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/gyula-maszofal.jpg',
+    alt: 'Gyula – Közösségi Mászófal',
+    city: 'Gyula',
+    name: 'Közösségi Mászófal'
+  },
+  {
+    src: 'pictures/wall/fuzesgyarmat-kossuth-iskola.jpg',
+    alt: 'Füzesgyarmat – Kossuth Lajos Általános Iskola',
+    city: 'Füzesgyarmat',
+    name: 'Kossuth Lajos Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/lokoshaza-altalanos-iskola.jpg',
+    alt: 'Lőkösháza – Lőkösházi Általános Iskola',
+    city: 'Lőkösháza',
+    name: 'Lőkösházi Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/mezoberenyi-altalanos-iskola.jpg',
+    alt: 'Mezőberény – Mezőberényi Általános Iskola',
+    city: 'Mezőberény',
+    name: 'Mezőberényi Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/nyiregyhaza-bem-boulder.jpg',
+    alt: 'Nyíregyháza – Bem József Általános Iskola boulder fal',
+    city: 'Nyíregyháza',
+    name: 'Bem József Általános Iskola boulder fal'
+  },
+  {
+    src: 'pictures/wall/nyiregyhaza-zrinyi-boulder.jpg',
+    alt: 'Nyíregyháza – Zrínyi Ilona Gimnázium boulder fal',
+    city: 'Nyíregyháza',
+    name: 'Zrínyi Ilona Gimnázium boulder fal'
+  },
+  {
+    src: 'pictures/wall/nyirabrany-abranyi-iskola.jpg',
+    alt: 'Nyírábrány – Ábrányi Emil Általános Iskola',
+    city: 'Nyírábrány',
+    name: 'Ábrányi Emil Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/papa-weores-boulder.jpg',
+    alt: 'Pápa – Weöres Sándor Általános Iskola boulder fal',
+    city: 'Pápa',
+    name: 'Weöres Sándor Általános Iskola boulder fal'
+  },
+  {
+    src: 'pictures/wall/gyomaendrod-rozsahegyi-iskola.jpg',
+    alt: 'Gyomaendrőd – Rózsahegyi Kálmán Általános Iskola',
+    city: 'Gyomaendrőd',
+    name: 'Rózsahegyi Kálmán Általános Iskola'
+  },
+  {
+    src: 'pictures/wall/szini-karoly-iskola-boulder.jpg',
+    alt: 'Színi Károly Iskola boulder mászófal',
+    city: 'Színi Károly Iskola',
+    name: 'Két Tanítási Nyelvű Ált. Isk. boulder fal'
+  },
+  {
+    src: 'pictures/wall/nyirtass-tass-vezer-boulder.jpg',
+    alt: 'Nyírtass – Tass Vezér Általános Iskola boulder fal',
+    city: 'Nyírtass',
+    name: 'Tass Vezér Általános Iskola boulder fal'
+  },
+  {
+    src: 'pictures/wall/tiszalok-kossuth-boulder.jpg',
+    alt: 'Tiszalök – Kossuth Lajos Általános Iskola boulder fal',
+    city: 'Tiszalök',
+    name: 'Kossuth Lajos Általános Iskola boulder fal'
+  },
+  {
+    src: 'pictures/wall/tat-bela-iskola.jpg',
+    alt: 'Tát – III. Béla Általános Iskola',
+    city: 'Tát',
+    name: 'III. Béla Általános Iskola'
+  }
+];
 
-  const items = Array.from(spread.querySelectorAll('.gs-item'));
-  const images = items.map(btn => {
-    const img = btn.querySelector('img');
-    return { src: img.getAttribute('src'), alt: img.getAttribute('alt') || '' };
-  });
-  if (!images.length) return;
+function initGalleryLightbox() {
+  const triggers = document.querySelectorAll('.gs-item, .ref-scatter-item, .gallery-card');
+  if (!triggers.length) return;
+
+  const images = ALL_HAWKSTONE_GALLERY_IMAGES;
+
+  const existingBox = document.querySelector('.gallery-lightbox');
+  if (existingBox) existingBox.remove();
 
   const box = document.createElement('div');
   box.className = 'gallery-lightbox';
@@ -4939,27 +5069,50 @@ function initGalleryLightbox() {
   box.setAttribute('aria-label', 'Képgaléria');
   box.innerHTML = `
     <button type="button" class="gl-btn gl-close" aria-label="Bezárás">✕</button>
-    <button type="button" class="gl-btn gl-prev" aria-label="Előző kép">❮</button>
-    <div class="gl-stage"><img class="gl-img" src="" alt=""></div>
-    <button type="button" class="gl-btn gl-next" aria-label="Következő kép">❯</button>
     <div class="gl-counter"><span class="gl-cur">1</span> / ${images.length}</div>
+    <button type="button" class="gl-btn gl-prev" aria-label="Előző kép">❮</button>
+    <div class="gl-stage">
+      <div class="gl-card">
+        <img class="gl-img" src="" alt="">
+        <div class="gl-glass-caption">
+          <div class="gl-tag"><span class="gl-tag-dot"></span><span class="gl-tag-text">Referencia mászófal</span></div>
+          <h3 class="gl-title"></h3>
+          <p class="gl-loc"></p>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="gl-btn gl-next" aria-label="Következő kép">❯</button>
   `;
   document.body.appendChild(box);
 
+  const cardEl = box.querySelector('.gl-card');
   const imgEl = box.querySelector('.gl-img');
   const curEl = box.querySelector('.gl-cur');
+  const titleEl = box.querySelector('.gl-title');
+  const locEl = box.querySelector('.gl-loc');
   let index = 0;
 
   const show = (i, animate) => {
     index = (i + images.length) % images.length;
+    const current = images[index];
+
     const apply = () => {
-      imgEl.src = images[index].src;
-      imgEl.alt = images[index].alt;
+      imgEl.src = current.src;
+      imgEl.alt = current.alt;
       curEl.textContent = index + 1;
-      imgEl.classList.remove('switching');
+      titleEl.textContent = current.city || current.name;
+      if (current.city && current.name && current.city !== current.name) {
+        locEl.textContent = current.name;
+        locEl.style.display = 'block';
+      } else {
+        locEl.textContent = '';
+        locEl.style.display = 'none';
+      }
+      cardEl.classList.remove('switching');
     };
+
     if (animate) {
-      imgEl.classList.add('switching');
+      cardEl.classList.add('switching');
       setTimeout(apply, 180);
     } else {
       apply();
@@ -4978,7 +5131,22 @@ function initGalleryLightbox() {
   const next = () => show(index + 1, true);
   const prev = () => show(index - 1, true);
 
-  items.forEach((btn, i) => btn.addEventListener('click', () => open(i)));
+  triggers.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const img = btn.querySelector('img');
+      const src = img ? img.getAttribute('src') : '';
+      let targetIndex = -1;
+      if (src) {
+        targetIndex = images.findIndex(item => item.src === src);
+      }
+      if (targetIndex === -1) {
+        const idxAttr = btn.getAttribute('data-index');
+        targetIndex = idxAttr !== null ? parseInt(idxAttr, 10) : 0;
+      }
+      open(targetIndex >= 0 ? targetIndex : 0);
+    });
+  });
+
   box.querySelector('.gl-close').addEventListener('click', close);
   box.querySelector('.gl-next').addEventListener('click', (e) => { e.stopPropagation(); next(); });
   box.querySelector('.gl-prev').addEventListener('click', (e) => { e.stopPropagation(); prev(); });
@@ -5008,4 +5176,122 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initGalleryLightbox);
 } else {
   initGalleryLightbox();
+}
+
+// ---------------- REFERENCIÁK VÁNDORLÓ VONAL ANIMÁCIÓ (KÉPEK MÖGÖTT) ----------------
+function initReferencesTrack() {
+  const wrap = document.getElementById('refBoardWrap');
+  const board = document.getElementById('referencesBoard');
+  const svg = document.getElementById('refTrackSvg');
+  const container = document.getElementById('refTrackContainer');
+  const pathBg = document.getElementById('refTrackBg');
+  const pathMain = document.getElementById('refTrackMain');
+  const pathPulse = document.getElementById('refTrackPulse');
+  const nodesG = document.getElementById('refTrackNodes');
+
+  if (!wrap || !board || !svg || !pathMain) return;
+
+  function update() {
+    const W = board.offsetWidth;
+    const H = board.offsetHeight;
+    if (!W || !H) return;
+
+    const isMobile = window.innerWidth <= 600;
+    const isTablet = window.innerWidth <= 992;
+
+    // Mennyire lógjon ki a forduló (px) a legszélső képektől
+    const protrude = isMobile ? 18 : (isTablet ? 36 : 60);
+    const loopR = isMobile ? 15 : (isTablet ? 20 : 26);
+
+    // Kényelmes margó az SVG doboznak, hogy a fordulóív és a fény/glow ne vágódjon le
+    const padX = protrude + loopR + 24;
+    const padY = isMobile ? 24 : 36;
+
+    // A konténert és az SVG koordináta-rendszert pontosan kiterjesztjük
+    container.style.position = 'absolute';
+    container.style.left = (-padX) + 'px';
+    container.style.top = (-padY) + 'px';
+    container.style.width = (W + padX * 2) + 'px';
+    container.style.height = (H + padY * 2) + 'px';
+
+    const totalW = W + padX * 2;
+    const totalH = H + padY * 2;
+    svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
+
+    // A kártyák bal és jobb széle az SVG koordináta-rendszerben
+    const leftEdge = padX;
+    const rightEdge = padX + W;
+
+    // Kezdőpont bal fent, kissé kilógva
+    const p0 = { x: leftEdge - (protrude * 0.4), y: padY + 30 };
+
+    // Fordulópontok a kártyák síkján túl kilógatva
+    const t1 = { x: rightEdge + protrude, y: padY + H * 0.27 };
+    const t2 = { x: leftEdge - protrude, y: padY + H * 0.58 };
+    const t3 = { x: rightEdge + protrude, y: padY + H * 0.86 };
+
+    // Kilépő végpont bal lent
+    const p4 = { x: leftEdge - (protrude * 0.45), y: padY + H + 22 };
+
+    // Útvonal a széleken kilógó, gömbölyű fordulóhurkokkal
+    const d = [
+      `M ${p0.x} ${p0.y}`,
+      `L ${t1.x - loopR * 0.9} ${t1.y - loopR * 0.75}`,
+      `C ${t1.x + loopR * 0.85} ${t1.y - loopR * 0.45}, ${t1.x + loopR * 0.85} ${t1.y + loopR * 0.45}, ${t1.x - loopR * 0.9} ${t1.y + loopR * 0.75}`,
+      `L ${t2.x + loopR * 0.9} ${t2.y - loopR * 0.75}`,
+      `C ${t2.x - loopR * 0.85} ${t2.y - loopR * 0.45}, ${t2.x - loopR * 0.85} ${t2.y + loopR * 0.45}, ${t2.x + loopR * 0.9} ${t2.y + loopR * 0.75}`,
+      `L ${t3.x - loopR * 0.9} ${t3.y - loopR * 0.75}`,
+      `C ${t3.x + loopR * 0.85} ${t3.y - loopR * 0.45}, ${t3.x + loopR * 0.85} ${t3.y + loopR * 0.45}, ${t3.x - loopR * 0.9} ${t3.y + loopR * 0.75}`,
+      `L ${p4.x} ${p4.y}`
+    ].join(' ');
+
+    pathBg.setAttribute('d', d);
+    pathMain.setAttribute('d', d);
+    pathPulse.setAttribute('d', d);
+
+    const turns = [
+      { x: t1.x, y: t1.y },
+      { x: t2.x, y: t2.y },
+      { x: t3.x, y: t3.y }
+    ];
+
+    nodesG.innerHTML = turns.map((t, idx) => `
+      <g class="ref-node-group ref-node-${idx}">
+        <circle cx="${t.x}" cy="${t.y}" r="${isMobile ? 12 : 18}" class="ref-node-outer" />
+        <circle cx="${t.x}" cy="${t.y}" r="${isMobile ? 5 : 8}" class="ref-node-inner" />
+        <circle cx="${t.x}" cy="${t.y}" r="${isMobile ? 2 : 3.5}" class="ref-node-core" />
+      </g>
+    `).join('');
+
+    const length = Math.ceil(pathMain.getTotalLength());
+    pathMain.style.strokeDasharray = length;
+    if (!container.classList.contains('is-animated')) {
+      pathMain.style.strokeDashoffset = length;
+    }
+    pathPulse.style.strokeDasharray = `180 ${length}`;
+    container.style.setProperty('--ref-track-len', length);
+  }
+
+  update();
+  window.addEventListener('resize', update, { passive: true });
+
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          container.classList.add('is-animated');
+          io.disconnect();
+        }
+      });
+    }, { threshold: 0.1 });
+    io.observe(wrap);
+  } else {
+    container.classList.add('is-animated');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initReferencesTrack);
+} else {
+  initReferencesTrack();
 }

@@ -3550,6 +3550,15 @@ app.get(['/klub', '/maszoklub', '/foglalas'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'klub.html'));
 });
 
+// Clean URLs for main site pages
+app.get('/referenciak', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'referenciak.html'));
+});
+
+app.get('/maszofalaink', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'maszofalaink.html'));
+});
+
 // Fallback to client routing / 404 error page
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
