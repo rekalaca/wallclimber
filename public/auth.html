@@ -135,6 +135,10 @@
 
       <!-- Register Form -->
       <form id="register-form" onsubmit="handleRegister(event)" style="display: none;">
+        <div id="register-coming-soon" style="text-align: center; padding: 45px 20px;">
+          <h3 style="font-size: 26px; color: var(--primary); font-family: 'Montserrat', sans-serif; font-weight: 700; margin: 0; letter-spacing: 0.5px;">Hamarosan nyitunk!</h3>
+        </div>
+        <div id="register-form-fields" style="display: none;">
         <div class="form-group">
           <label class="form-label" for="reg-name">Teljes név</label>
           <input type="text" id="reg-name" class="form-control" placeholder="Kovács Péter" required>
@@ -185,6 +189,7 @@
           </label>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Regisztráció végrehajtása</button>
+        </div>
       </form>
     </div>
   </div>
@@ -322,6 +327,10 @@
 
     async function handleRegister(e) {
       e.preventDefault();
+      if (document.getElementById('register-coming-soon') && document.getElementById('register-coming-soon').style.display !== 'none') {
+        showToast('Hamarosan nyitunk!', 'info');
+        return;
+      }
       const name = document.getElementById('reg-name').value;
       const email = document.getElementById('reg-email').value;
       const phoneArea = document.getElementById('reg-phone-area').value.trim();
