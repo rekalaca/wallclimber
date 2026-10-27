@@ -220,14 +220,26 @@ body.theme-silver .glass-card {
 body.theme-silver .btn-primary,
 body.theme-silver .btn-danger { color: #ffffff; }
 
-body.theme-silver .btn-outline,
+body.theme-silver .btn-outline {
+  background: rgba(255, 255, 255, 0.78) !important;
+  color: var(--ink) !important;
+  border: 1.5px solid #f27620 !important;
+  box-shadow: 0 4px 14px rgba(242, 118, 32, 0.15);
+}
+body.theme-silver .btn-outline:hover {
+  background: rgba(242, 118, 32, 0.16) !important;
+  border-color: #f27620 !important;
+  color: var(--ink) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(242, 118, 32, 0.35);
+}
+
 body.theme-silver .references-cta-actions .btn-outline {
   background: transparent !important;
   color: #ffffff !important;
   border: 1.5px solid #f27620 !important;
   box-shadow: 0 4px 14px rgba(242, 118, 32, 0.15);
 }
-body.theme-silver .btn-outline:hover,
 body.theme-silver .references-cta-actions .btn-outline:hover {
   background: rgba(242, 118, 32, 0.16) !important;
   border-color: #ff9a4d !important;
@@ -503,6 +515,15 @@ body.theme-silver .cookie-categories-list {
 body.theme-silver .cookie-category-item { border-bottom-color: rgba(40, 52, 78, 0.1); }
 body.theme-silver .cookie-category-info h5,
 body.theme-silver .cookie-categories-toggle:hover { color: var(--ink); }
+body.theme-silver .cookie-modal-actions .btn-outline {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--ink) !important;
+  border: 1.5px solid #f27620 !important;
+}
+body.theme-silver .cookie-modal-actions .btn-outline:hover {
+  background: rgba(242, 118, 32, 0.14) !important;
+  color: var(--ink) !important;
+}
 body.theme-silver .cookie-slider { background-color: rgba(40, 52, 78, 0.22); }
 
 /* ---------- Toast ---------- */
