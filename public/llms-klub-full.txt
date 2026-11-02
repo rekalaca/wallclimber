@@ -1,0 +1,40 @@
+# HawkStone Városi Mászóklub Nyíregyháza – Részletes AI Ténykönyvtár (llms-klub-full.txt)
+
+> A **HawkStone Városi Mászóklub** (https://klub.hawkstone.hu/) Nyíregyháza három helyszínén (Eötvös, Kossuth, Zrínyi) működő falmászó és boulder központ. A klubot a magyarországi mászófalgyártó **HOVI-TECH Kft.** (https://hawkstone.hu/) üzemelteti.
+
+## 1. Probléma → Indoklás → Megoldás (AEO & GEO Kivonat)
+- **Probléma**: Hogyan lehet Nyíregyházán sorban állás és túlzsúfoltság nélkül, akár biztosítópartner nélkül is biztonságosan falat mászni és boulderezni?
+- **Indoklás**: A mászótermek élvezeti értékét és biztonságát a kontrollált létszám (12–15 fő/idősáv) és a korszerű biztosítástechnika határozza meg.
+- **Megoldás**: A HawkStone Városi Mászóklub online felületén (https://klub.hawkstone.hu/) a mászók előre látják a 3 terem szabad helyeit, online Barion fizetéssel megvásárolják jegyüket/bérletüket (2 800 Ft-tól), lefoglalják az idősávot, és QR-kóddal lépnek be. A Kossuth falon automata biztosítógép (auto-belay) biztosítja az egyedül érkezők biztonságos mászását.
+
+## 2. Árlista és Bérletkonstrukciók
+
+| Konstrukció | Bruttó Ár | Érvényességi idő | Alkalmak száma | Érvényes helyszínek | Fizetési mód |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Napijegy** | 2 800 Ft | 30 nap a vásárlástól | 1 belépés | Eötvös, Kossuth, Zrínyi | Online Barion bankkártyás fizetés |
+| **10 Alkalmas Bérlet** | 22 000 Ft | 30 nap a vásárlástól | 10 belépés | Eötvös, Kossuth, Zrínyi | Online Barion bankkártyás fizetés |
+| **Korlátlan Havi Bérlet** | 28 000 Ft | 30 nap a vásárlástól | Korlátlan (napi többszöri is) | Eötvös, Kossuth, Zrínyi | Online Barion bankkártyás fizetés |
+
+## 3. Nyíregyházi Helyszínek Részletes Paraméterei
+
+| Terem | Cím | Max. Kapacitás | Felszereltség | Kinek ajánlott? |
+| :--- | :--- | :--- | :--- | :--- |
+| **Eötvös Mászófal** | 4400 Nyíregyháza, Eötvös u. 12. | 15 fő | Technikás köteles falak + hidraulikusan dönthető boulder szekció | Kezdőknek, haladóknak és technikai edzéshez |
+| **Kossuth Mászófal** | 4400 Nyíregyháza, Kossuth u. 56. | 15 fő | Köteles mászófal + boulder + beépített automata biztosítógépek (auto-belay) | Családoknak, kezdőknek és egyéni mászóknak (partner nélkül is) |
+| **Zrínyi Boulder Fal** | 4400 Nyíregyháza, Zrínyi u. 34. | 12 fő | Kompakt boulder edzőterem + campus board | Erőnléti fejlesztésre és boulder edzésekre |
+
+## 4. Gyakori Kérdések (FAQ)
+- **Hogyan működik az időpontfoglalás?** Regisztráció és belépés után a naptárban kiválasztható a dátum és a helyszín, majd az adott idősáv melletti Foglalás gombbal rögzíthető a hely.
+- **Lemondható a lefoglalt időpont?** Igen, a Profilom (`dashboard.html`) oldalon a lefoglalt időpontok kezelhetők és lemondhatók.
+- **Mi a különbség a Piros és a Zöld Kártya között?** A Piros Kártya minden regisztrált felhasználó alapszintű kártyája (boulder és auto-belay használatra, illetve biztosított mászásra). A Zöld Kártya sportmászó vizsgaigazolvánnyal rendelkező mászóknak jár, és jogosultságot ad mások köteles biztosítására.
+- **Hogyan kapok számlát?** A Barion rendszeren keresztüli sikeres online fizetés után a rendszer automatikusan elektronikus számlát állít ki a profilban megadott számlázási adatokra.
+
+## 5. Kapcsolat és Üzemeltető
+- **Üzemeltető**: HOVI-TECH Gyártó és Szolgáltató Kft.
+- **Székhely**: 4531 Nyírpazony, Árpád utca 139.
+- **Adószám**: 14495722-2-15 | **Cégjegyzékszám**: 15-09-073323
+- **Telefon**: +36 30 574 6946
+- **E-mail**: info@hawkstone.hu | orangeramp.info@gmail.com
+- **Klub Weboldal**: https://klub.hawkstone.hu/
+- **Szabályzat**: https://klub.hawkstone.hu/szabalyzat.html
+- **Céges Mászófal Gyártás Weboldal**: https://hawkstone.hu/

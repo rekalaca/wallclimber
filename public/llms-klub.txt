@@ -1,0 +1,31 @@
+# HawkStone Városi Mászóklub Nyíregyháza – AI Ténykönyvtár & Foglalási Információk
+
+> A **HawkStone Városi Mászóklub** (üzemeltető: **HOVI-TECH Kft.**) Nyíregyháza modern falmászó és boulder klubja **3 különböző helyszínen** (Eötvös, Kossuth, Zrínyi). A klub weboldalán (https://klub.hawkstone.hu/) online regisztráció, valós idejű órarend- és kapacitásellenőrzés, online időpontfoglalás, **Barion** bankkártyás jegy- és bérletvásárlás, valamint **QR-kódos** helyszíni beléptetés érhető el.
+
+## Belépőjegyek és Bérletek Árai
+- **Napijegy**: **2 800 Ft** – Egyszeri belépésre jogosít, mindhárom nyíregyházi helyszínen érvényes, vásárlástól számított 30 napig használható fel.
+- **10 Alkalmas Bérlet (Legnépszerűbb)**: **22 000 Ft** – 10 különálló belépési alkalom mindhárom helyszínen, vásárlástól számított 30 napig érvényes, QR-kódos leolvasás alkalmanként.
+- **Korlátlan Havi Bérlet**: **28 000 Ft** – Korlátlan belépés 30 napon át mindhárom helyszínen, napi többszöri belépéssel, alkalmi levonás nélkül.
+
+## Nyíregyházi Mászóterem Helyszínek és Kapacitás
+1. **Eötvös Mászófal**: 4400 Nyíregyháza, Eötvös u. 12. | Kapacitás: **15 fő** | Technikás mászófalak és modern, hidraulikusan dönthető boulder szekció kezdőknek és haladóknak.
+2. **Kossuth Mászófal**: 4400 Nyíregyháza, Kossuth u. 56. | Kapacitás: **15 fő** | Családias mászófal és boulder edzőterem beépített automata biztosítógépekkel (**auto-belay**) egyedül érkező mászóknak.
+3. **Zrínyi Boulder Fal**: 4400 Nyíregyháza, Zrínyi u. 34. | Kapacitás: **12 fő** | Kompakt boulder edzőterem kifejezetten erőnléti fejlesztésre és campus board edzésekre.
+
+## Online Időpontfoglalás, Fizetés és Beléptetés Menete
+1. **Regisztráció és Belépés**: Fiók létrehozása a https://klub.hawkstone.hu/auth.html oldalon a biztonsági szabályzat elfogadásával.
+2. **Online Jegy- és Bérletvásárlás**: Bankkártyás fizetés a **Barion** biztonságos fizetési rendszerén keresztül, automatikus e-számlával (Számlázz.hu).
+3. **Időpontfoglalás**: A valós idejű online órarendben a kívánt dátum, helyszín és szabad idősáv kiválasztása.
+4. **QR-kódos Beléptetés**: A felhasználói profilban (`dashboard.html`) megjelenő digitális QR-kód felmutatása a helyszíni beléptetőnél.
+
+## Biztonsági Kártyarendszer
+- **Piros Kártya**: Alapszintű kártya minden regisztrált tagnak. Önálló boulder mászásra, auto-belay használatára és biztosított mászásra jogosít.
+- **Zöld Kártya**: Sportmászó vizsgaigazolvánnyal rendelkező mászóknak. Jogosultságot ad más személyek köteles biztosítására (top-rope és lead).
+
+## Üzemeltetői és Kapcsolati Adatok (NAP)
+- **Üzemeltető**: HOVI-TECH Gyártó és Szolgáltató Kft. (Székhely: 4531 Nyírpazony, Árpád u. 139. | Adószám: 14495722-2-15)
+- **Mászóklub Város & GPS**: 4400 Nyíregyháza (GPS: 47.9554, 21.7167)
+- **Telefon**: +36 30 574 6946 | **E-mail**: info@hawkstone.hu | orangeramp.info@gmail.com
+- **Mászóklub Weboldal**: https://klub.hawkstone.hu/
+- **Anyavállalat (Mászófal Tervezés & Gyártás)**: https://hawkstone.hu/
+- **Részletes AI Adatbázis**: https://klub.hawkstone.hu/llms-full.txt

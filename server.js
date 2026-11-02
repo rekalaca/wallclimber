@@ -40,22 +40,103 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Subdomain Routing Middleware for klub.hawkstone.hu / maszoklub.hawkstone.hu
+// Subdomain Routing & SEO / AI Crawler Middleware for hawkstone.hu and klub.hawkstone.hu
 app.use((req, res, next) => {
   const host = (req.headers.host || '').toLowerCase();
   const isClubSubdomain = host.startsWith('klub.') || host.startsWith('maszoklub.') || host.startsWith('foglalas.');
+  const reqPath = req.path || '/';
+
+  // Private pages: prevent search & AI indexing
+  if (reqPath === '/admin.html' || reqPath === '/scanner.html' || reqPath === '/dashboard.html') {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  } else if (reqPath === '/' || reqPath.endsWith('.html')) {
+    res.setHeader('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
+  }
+
+  // Ensure UTF-8 content-type for .txt AI fact files (llms.txt, robots.txt, IndexNow key)
+  if (reqPath.endsWith('.txt')) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  }
 
   if (isClubSubdomain) {
     // If root or index.html is requested on the club subdomain, serve the club page
-    if (req.path === '/' || req.path === '/index.html') {
+    if (reqPath === '/' || reqPath === '/index.html') {
       return res.sendFile(path.join(__dirname, 'public', 'klub.html'));
     }
-    // Subdomain-specific sitemap
-    if (req.path === '/sitemap.xml') {
+    // Subdomain-specific robots.txt, sitemap.xml, and AI RAG fact libraries (llms.txt / llms-full.txt)
+    if (reqPath === '/robots.txt') {
+      return res.sendFile(path.join(__dirname, 'public', 'robots-klub.txt'));
+    }
+    if (reqPath === '/sitemap.xml') {
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       return res.sendFile(path.join(__dirname, 'public', 'sitemap-klub.xml'));
+    }
+    if (reqPath === '/llms.txt') {
+      return res.sendFile(path.join(__dirname, 'public', 'llms-klub.txt'));
+    }
+    if (reqPath === '/llms-full.txt') {
+      return res.sendFile(path.join(__dirname, 'public', 'llms-klub-full.txt'));
+    }
+  } else if (reqPath === '/klub.html' || reqPath === '/maszoklub.html') {
+    // When accessed as https://hawkstone.hu/klub.html, rewrite canonical & og:url dynamically so both hawkstone.hu/klub.html and klub.hawkstone.hu/ have accurate self-referential URLs
+    try {
+      const fileName = reqPath === '/maszoklub.html' ? 'maszoklub.html' : 'klub.html';
+      let html = fs.readFileSync(path.join(__dirname, 'public', fileName), 'utf8');
+      const targetUrl = `https://hawkstone.hu/${fileName}`;
+      html = html
+        .replace('<link rel="canonical" href="https://klub.hawkstone.hu/">', `<link rel="canonical" href="${targetUrl}">`)
+        .replace('<link rel="alternate" hreflang="hu" href="https://klub.hawkstone.hu/">', `<link rel="alternate" hreflang="hu" href="${targetUrl}">`)
+        .replace('<link rel="alternate" hreflang="hu-HU" href="https://klub.hawkstone.hu/">', `<link rel="alternate" hreflang="hu-HU" href="${targetUrl}">`)
+        .replace('<link rel="alternate" hreflang="x-default" href="https://klub.hawkstone.hu/">', `<link rel="alternate" hreflang="x-default" href="${targetUrl}">`)
+        .replace('<meta property="og:url" content="https://klub.hawkstone.hu/">', `<meta property="og:url" content="${targetUrl}">`)
+        .replace('<meta name="twitter:url" content="https://klub.hawkstone.hu/">', `<meta name="twitter:url" content="${targetUrl}">`);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch (e) {
+      // Fallback to static file
     }
   }
   next();
+});
+
+// IndexNow API Endpoint for instant Bing, Yandex & Copilot indexing (main site + club site)
+const INDEXNOW_KEY = 'hawkstone2026indexnowkey';
+app.all('/api/seo/indexnow', async (req, res) => {
+  const mainUrls = [
+    'https://hawkstone.hu/',
+    'https://hawkstone.hu/maszofalaink.html',
+    'https://hawkstone.hu/referenciak.html',
+    'https://hawkstone.hu/iso9001.html',
+    'https://hawkstone.hu/kapcsolat.html',
+    'https://hawkstone.hu/klub.html',
+    'https://hawkstone.hu/szabalyzat.html',
+    'https://hawkstone.hu/llms.txt',
+    'https://hawkstone.hu/llms-full.txt'
+  ];
+  const clubUrls = [
+    'https://klub.hawkstone.hu/',
+    'https://klub.hawkstone.hu/szabalyzat.html',
+    'https://klub.hawkstone.hu/auth.html',
+    'https://klub.hawkstone.hu/llms.txt',
+    'https://klub.hawkstone.hu/llms-full.txt'
+  ];
+  const results = [];
+  for (const payload of [
+    { host: 'hawkstone.hu', key: INDEXNOW_KEY, keyLocation: `https://hawkstone.hu/${INDEXNOW_KEY}.txt`, urlList: mainUrls },
+    { host: 'klub.hawkstone.hu', key: INDEXNOW_KEY, keyLocation: `https://klub.hawkstone.hu/${INDEXNOW_KEY}.txt`, urlList: clubUrls }
+  ]) {
+    try {
+      const r = await fetch('https://api.indexnow.org/indexnow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      results.push({ host: payload.host, status: r.status, ok: r.ok });
+    } catch (err) {
+      results.push({ host: payload.host, error: err.message });
+    }
+  }
+  return res.json({ success: true, key: INDEXNOW_KEY, results });
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

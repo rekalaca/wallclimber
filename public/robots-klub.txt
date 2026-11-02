@@ -1,0 +1,92 @@
+# robots.txt for https://klub.hawkstone.hu (HawkStone Városi Mászóklub Nyíregyháza)
+# AI Fact Library (RAG): https://klub.hawkstone.hu/llms.txt | https://klub.hawkstone.hu/llms-full.txt
+
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+Disallow: /api/
+
+# AI Crawlers & Generative Search Bots (GEO / AEO)
+User-agent: GPTBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: DeepSeekBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: Applebot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+User-agent: CCBot
+Allow: /
+Disallow: /admin.html
+Disallow: /scanner.html
+Disallow: /dashboard.html
+
+Host: https://klub.hawkstone.hu
+Sitemap: https://klub.hawkstone.hu/sitemap.xml
+Sitemap: https://hawkstone.hu/sitemap.xml
