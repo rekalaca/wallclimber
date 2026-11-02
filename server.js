@@ -46,6 +46,13 @@ app.use((req, res, next) => {
   const isClubSubdomain = host.startsWith('klub.') || host.startsWith('maszoklub.') || host.startsWith('foglalas.');
   const reqPath = req.path || '/';
 
+  // Security & Trust Headers (HSTS, XFO, COOP, nosniff) for Lighthouse Best Practices
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   // Private pages: prevent search & AI indexing
   if (reqPath === '/admin.html' || reqPath === '/scanner.html' || reqPath === '/dashboard.html') {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
