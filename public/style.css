@@ -6501,15 +6501,13 @@ input:checked + .cookie-slider:before {
 
 
 /* ==========================================================================
-   GALÉRIA: ferdén szétdobált képek (100vh asztali magasság) + lightbox
+   GALÉRIA: téglalap keretes, vízszintes rács elrendezés + lightbox
    ========================================================================== */
 .section-gallery {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100vh - 80px);
-  min-height: calc(100dvh - 80px);
   padding: 36px 0 60px 0;
   box-sizing: border-box;
   overflow: visible;
@@ -6526,22 +6524,27 @@ input:checked + .cookie-slider:before {
 .gallery-scatter {
   position: relative;
   width: 100%;
-  height: clamp(480px, 62vh, 640px);
-  min-height: 480px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  padding: 12px 0 20px 0;
 }
 
 .gs-item {
-  position: absolute;
+  position: relative;
   display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d111d;
   padding: 0;
   margin: 0;
-  border: none;
-  background: transparent;
   cursor: pointer;
-  aspect-ratio: 4 / 3;
-  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
-  transform: rotate(var(--rot, 0deg));
-  transition: transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), filter 0.45s ease, z-index 0s;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4);
+  transform: none;
+  transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease, z-index 0s;
   z-index: 1;
   -webkit-tap-highlight-color: transparent;
 }
@@ -6551,41 +6554,39 @@ input:checked + .cookie-slider:before {
   height: 100%;
   object-fit: cover;
   display: block;
-  clip-path: var(--shape, none);
+  clip-path: none;
   pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
 .gs-item:hover,
 .gs-item:focus-visible {
-  transform: rotate(0deg) scale(1.07);
+  transform: translateY(-8px) scale(1.04);
   z-index: 10;
   outline: none;
-  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 16px rgba(242, 118, 32, 0.55));
+  border-color: rgba(242, 118, 32, 0.85);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75), 0 0 26px rgba(242, 118, 32, 0.45);
 }
 
-/* "Hanyagul ledobott" elrendezés (asztali nézet) + különböző fogás formák */
-.gs-1 { left: 2%;  top: 3%;  width: 28%; --rot: -5deg;  --shape: polygon(13% 0, 87% 0, 100% 100%, 0 100%); }                      /* trapéz */
-.gs-2 { left: 33%; top: 0%;  width: 26%; --rot: 3.5deg; --shape: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); z-index: 2; }       /* romb */
-.gs-3 { left: 63%; top: 6%;  width: 29%; --rot: -3deg;  --shape: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); } /* hatszög */
-.gs-4 { left: 7%;  top: 51%; width: 25%; --rot: 4.5deg; --shape: polygon(0 14%, 58% 0, 100% 22%, 92% 100%, 8% 86%); z-index: 2; } /* ötszög */
-.gs-5 { left: 36%; top: 47%; width: 30%; --rot: -4deg;  --shape: polygon(0 0, 76% 0, 100% 50%, 76% 100%, 0 100%, 14% 50%); }  /* nyil */
-.gs-6 { left: 71%; top: 52%; width: 25%; --rot: 5deg;   --shape: polygon(16% 0, 84% 0, 100% 32%, 88% 100%, 30% 100%, 0 68%); z-index: 2; } /* szabálytalan sokszög */
+.gs-item:hover img,
+.gs-item:focus-visible img {
+  transform: scale(1.06);
+}
 
-/* Belépő animáció: kis méretből nőnek meg a helyükön, egyesével */
+/* Belépő animáció: vízszintesen, finoman jelennek meg a helyükön */
 .gallery-scatter:not(.gs-in) .gs-item { opacity: 0; }
 .gallery-scatter.gs-in .gs-item {
-  animation: gsGrow 1.1s cubic-bezier(0.34, 1.35, 0.64, 1) backwards;
+  animation: gsGrow 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .gallery-scatter.gs-in .gs-1 { animation-delay: 0s; }
-.gallery-scatter.gs-in .gs-2 { animation-delay: 0.22s; }
-.gallery-scatter.gs-in .gs-3 { animation-delay: 0.44s; }
-.gallery-scatter.gs-in .gs-4 { animation-delay: 0.66s; }
-.gallery-scatter.gs-in .gs-5 { animation-delay: 0.88s; }
-.gallery-scatter.gs-in .gs-6 { animation-delay: 1.1s; }
+.gallery-scatter.gs-in .gs-2 { animation-delay: 0.1s; }
+.gallery-scatter.gs-in .gs-3 { animation-delay: 0.2s; }
+.gallery-scatter.gs-in .gs-4 { animation-delay: 0.3s; }
+.gallery-scatter.gs-in .gs-5 { animation-delay: 0.4s; }
+.gallery-scatter.gs-in .gs-6 { animation-delay: 0.5s; }
 @keyframes gsGrow {
-  0% { opacity: 0; transform: rotate(var(--rot, 0deg)) scale(0.08); }
-  35% { opacity: 1; }
-  100% { opacity: 1; transform: rotate(var(--rot, 0deg)) scale(1); }
+  0% { opacity: 0; transform: translateY(18px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .gallery-scatter.gs-in .gs-item { animation-duration: 0.01s; animation-delay: 0s !important; }
@@ -6889,7 +6890,7 @@ input:checked + .cookie-slider:before {
   margin: 0;
   cursor: pointer;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4);
-  transform: rotate(var(--tilt, 0deg)) translateY(var(--shift, 0px));
+  transform: none;
   transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease, z-index 0s;
   z-index: 1;
   -webkit-tap-highlight-color: transparent;
@@ -6905,7 +6906,7 @@ input:checked + .cookie-slider:before {
 
 .ref-scatter-item:hover,
 .ref-scatter-item:focus-visible {
-  transform: rotate(0deg) translateY(-10px) scale(1.06);
+  transform: translateY(-8px) scale(1.04);
   z-index: 25;
   border-color: rgba(242, 118, 32, 0.85);
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75), 0 0 26px rgba(242, 118, 32, 0.45);
@@ -6916,24 +6917,6 @@ input:checked + .cookie-slider:before {
 .ref-scatter-item:focus-visible img {
   transform: scale(1.06);
 }
-
-/* Egyedi ferdeségek és kis eltolások a természetes "ledobált" hatásért */
-.ref-scatter-item:nth-child(1)  { --tilt: -3.2deg; --shift: 4px; }
-.ref-scatter-item:nth-child(2)  { --tilt: 2.8deg;  --shift: -8px; }
-.ref-scatter-item:nth-child(3)  { --tilt: -4.5deg; --shift: 10px; }
-.ref-scatter-item:nth-child(4)  { --tilt: 3.5deg;  --shift: -6px; }
-.ref-scatter-item:nth-child(5)  { --tilt: 4.2deg;  --shift: 8px; }
-.ref-scatter-item:nth-child(6)  { --tilt: -3.8deg; --shift: -10px; }
-.ref-scatter-item:nth-child(7)  { --tilt: -2.2deg; --shift: 6px; }
-.ref-scatter-item:nth-child(8)  { --tilt: 3.6deg;  --shift: -4px; }
-.ref-scatter-item:nth-child(9)  { --tilt: -4deg;   --shift: 8px; }
-.ref-scatter-item:nth-child(10) { --tilt: 2.5deg;  --shift: -12px; }
-.ref-scatter-item:nth-child(11) { --tilt: -3.5deg; --shift: 6px; }
-.ref-scatter-item:nth-child(12) { --tilt: 4.5deg;  --shift: -6px; }
-.ref-scatter-item:nth-child(13) { --tilt: -2.8deg; --shift: 10px; }
-.ref-scatter-item:nth-child(14) { --tilt: 3.2deg;  --shift: -8px; }
-.ref-scatter-item:nth-child(15) { --tilt: -4.2deg; --shift: 4px; }
-.ref-scatter-item:nth-child(16) { --tilt: 2.7deg;  --shift: -6px; }
 
 /* Kártya felirat */
 .ref-scatter-caption {
@@ -7309,7 +7292,7 @@ input:checked + .cookie-slider:before {
 }
 
 
-/* Tablet & mobil: kétoszlopos, ferde, biztonságosan oldalon belüli képek */
+/* Tablet & mobil: téglalap keretes, vízszintes rács elrendezés */
 @media (max-width: 992px) {
   .section-gallery {
     height: auto;
@@ -7318,32 +7301,11 @@ input:checked + .cookie-slider:before {
     overflow-x: clip;
   }
   .gallery-scatter {
-    height: auto !important;
-    min-height: 0 !important;
-    flex: none;
-    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: 520px;
-    margin: 0 auto;
     gap: 22px 18px;
-    padding: 8px 16px;
+    padding: 8px 0;
     box-sizing: border-box;
   }
-  .gs-item {
-    position: relative;
-    left: auto !important;
-    top: auto !important;
-    width: 100% !important;
-    max-width: 230px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .gs-1 { --rot: -2.5deg; }
-  .gs-2 { --rot: 2.2deg; margin-top: 12px; }
-  .gs-3 { --rot: 1.8deg; }
-  .gs-4 { --rot: -2.2deg; margin-top: 12px; }
-  .gs-5 { --rot: -1.8deg; }
-  .gs-6 { --rot: 2.5deg; margin-top: 12px; }
   .gl-prev { left: 10px; }
   .gl-next { right: 10px; }
   .gl-btn { width: 44px; height: 44px; font-size: 18px; }
@@ -7356,19 +7318,10 @@ input:checked + .cookie-slider:before {
     overflow-x: clip;
   }
   .gallery-scatter {
-    max-width: 340px;
-    gap: 16px 14px;
-    padding: 8px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding: 6px 0;
   }
-  .gs-item {
-    max-width: 150px;
-  }
-  .gs-1 { --rot: -1.8deg; }
-  .gs-2 { --rot: 1.8deg; margin-top: 8px; }
-  .gs-3 { --rot: 1.5deg; }
-  .gs-4 { --rot: -1.5deg; margin-top: 8px; }
-  .gs-5 { --rot: -1.5deg; }
-  .gs-6 { --rot: 1.8deg; margin-top: 8px; }
 
   .gallery-cta-wrap {
     margin: 30px 0 10px 0;
@@ -7389,14 +7342,10 @@ input:checked + .cookie-slider:before {
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 420px) {
   .gallery-scatter {
-    max-width: 310px;
-    gap: 14px 10px;
-    padding: 6px 8px;
-  }
-  .gs-item {
-    max-width: 135px;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 
