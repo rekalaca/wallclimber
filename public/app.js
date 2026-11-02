@@ -651,13 +651,18 @@ function initScrollDivider() {
   if (!containers.length) return;
 
   const observer = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          container.classList.add('is-animated');
-          io.disconnect();
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const divider = entry.target.querySelector('.scroll-divider-line');
+        if (divider) {
+          divider.classList.add('active');
         }
-      });
-    }, { rootMargin: '0px 0px -60px 0px', threshold: 0.12 });
+        observer.unobserve(entry.target);
+      }
+    });
+  }, {
+    threshold: 0.1
+  });
 
   containers.forEach(container => {
     observer.observe(container);
