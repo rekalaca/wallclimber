@@ -114,3 +114,4 @@
 - Általános Szerződési Feltételek (ÁSZF): https://hawkstone.hu/aszf.html
 - Adatkezelési Tájékoztató: https://hawkstone.hu/adatvedelem.html
 - Elállási Nyilatkozat: https://hawkstone.hu/withdrawal.html
+

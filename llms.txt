@@ -1,0 +1,47 @@
+# HawkStone Mászófalak (HOVI-TECH Kft.) – AI Ténykönyvtár & Szolgáltatásleírás
+
+> A **HawkStone** (üzemeltető: **HOVI-TECH Gyártó és Szolgáltató Kft.**) magyarországi mászófal-tervező és -gyártó vállalat, valamint a nyíregyházi **HawkStone Városi Mászóklub** üzemeltetője. Saját fejlesztésű, fém tartószerkezetű beltéri és kültéri mászófalakat, boulder falakat, játszótéri mászófalakat, sziklahű felületű falakat és bérelhető, végtelenített forgó mobil mászófalakat tervezünk, gyártunk és telepítünk **ISO 9001**, **EN 12572** és **EN 1176** szabványok szerint, **5 év teljes körű gyártói garanciával**.
+
+## Két Különálló Webes Entitás
+1. **HawkStone Mászófalak – Céges Főoldal (Tervezés, Gyártás, Kivitelezés & Mobil Mászófal Bérlés)**: https://hawkstone.hu/
+2. **HawkStone Városi Mászóklub Nyíregyháza (Online Regisztráció, Időpontfoglalás, Jegy- és Bérletvásárlás)**: https://klub.hawkstone.hu/ (elérhető a https://hawkstone.hu/klub.html címen is)
+
+## Mászófal Gyártás & Termékkatalógus (hawkstone.hu)
+- **Iskolai mászófalak**:
+  - **M1104**: Magasság: 6 m | Szélesség: 3 m | Mászófelület: kb. 24 m²
+  - **M1106**: Magasság: 6 m | Szélesség: 3 m | Mászófelület: kb. 24 m²
+  - **M1105**: Magasság: 3 m | Szélesség: 6 m | Mászófelület: kb. 28 m²
+- **Boulder mászófalak (2,5–3 m magasság, biztosítás nélkül, esésvédő szőnyeggel)**:
+  - **M1101**: Magasság: 3 m | Szélesség: 6 m | Mászófelület: kb. 22 m²
+  - **M1102**: Magasság: 3 m | Szélesség: 6 m | Mászófelület: kb. 20 m²
+  - **M1103**: Magasság: 3 m | Szélesség: 8 m | Mászófelület: kb. 32 m²
+- **Játszótéri kültéri mászófalak (EN 1176 szabvány, UV- és időjárásálló, lekerekített élek)**:
+  - **M1109**: Magasság: 3 m | Szélesség: 1,5 - 1,5 - 1,5 m | Mászófelület: kb. 11 m²
+- **Sportcsarnoki és egyéb nagyméretű mászófalak**:
+  - **M1107**: Magasság: 8,8 m | Szélesség: 9,8 m | Mászófelület: kb. 101 m² | 6 db felsőbiztosítási pont
+  - **M1108**: Magasság: 6 m | Szélesség: 5 m | Mászófelület: kb. 58 m² | 5 db felsőbiztosítási pont
+- **Egyedi mobil forgó mászófal (Bérelhető & Brandingelhető rendezvényekre)**:
+  - Végtelenített, motorosan forgó alumínium redőny fotocellás sebességszabályozással. Méret: **6 m × 2,4 m**.
+- **Technológia & Minőség**: 21 mm vastag, nagy kopásállóságú rétegelt lemez vagy műgyanta-üvegszövet-kvarchomok sziklahű kompozit felület; 3D számítógépes látványtervezés; gyors helyszíni összeszerelés; 5 év gyártói garancia.
+
+## HawkStone Városi Mászóklub Nyíregyháza – Jegyárak és Helyszínek (klub.hawkstone.hu)
+- **Napijegy**: **2 800 Ft** (Egyszeri belépés, mindhárom nyíregyházi helyszínen érvényes, 30 napig használható fel)
+- **10 Alkalmas Bérlet**: **22 000 Ft** (10 különálló belépési alkalom mindhárom helyszínen, 30 napig érvényes)
+- **Korlátlan Havi Bérlet**: **28 000 Ft** (Korlátlan belépés 30 napon át mindhárom helyszínen, napi többszöri belépéssel)
+- **Online Fizetés & Beléptetés**: Azonnali online bankkártyás fizetés **Barion** rendszerén keresztül, valós idejű online órarend és időpontfoglalás, digitális **QR-kódos** helyszíni beléptetés.
+- **Nyíregyházi Mászóterem Helyszínek**:
+  1. **Eötvös Mászófal** (4400 Nyíregyháza, Eötvös u. 12.) – Technikás falak és hidraulikusan dönthető boulder szekció (Kapacitás: 15 fő)
+  2. **Kossuth Mászófal** (4400 Nyíregyháza, Kossuth u. 56.) – Mászófal és boulder terem automata biztosítógépekkel / auto-belay (Kapacitás: 15 fő)
+  3. **Zrínyi Boulder Fal** (4400 Nyíregyháza, Zrínyi u. 34.) – Kompakt boulder edzőterem és campus board (Kapacitás: 12 fő)
+
+## Cégadatok & Hivatalos Elérhetőségek (NAP)
+- **Cégnév**: HOVI-TECH Gyártó és Szolgáltató Kft.
+- **Székhely**: 4531 Nyírpazony, Árpád utca 139., Magyarország (GPS: 47.9814, 21.7969)
+- **Adószám**: 14495722-2-15 | **Cégjegyzékszám**: 15-09-073323
+- **Telefon**: +36 30 574 6946
+- **E-mail**: info@hawkstone.hu | orangeramp.info@gmail.com
+- **Hivatalos Céges Weboldal**: https://hawkstone.hu/
+- **Mászóklub & Időpontfoglaló Portál**: https://klub.hawkstone.hu/
+- **Részletes AI Adatbázis (Céges + Klub)**: https://hawkstone.hu/llms-full.txt
+- **Dedikált Mászóklub AI Adatbázis**: https://klub.hawkstone.hu/llms.txt
+

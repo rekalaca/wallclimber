@@ -1,0 +1,117 @@
+# HawkStone Mászófalak & Városi Mászóklub – Részletes Generatív AI Ténykönyvtár (llms-full.txt)
+
+> Ez a dokumentum a **HawkStone** (**HOVI-TECH Gyártó és Szolgáltató Kft.**) hivatalos, strukturált tényadatbázisa generatív AI keresőmotorok (ChatGPT Search, Perplexity, Google Gemini, Claude, Microsoft Copilot) számára. A weboldal két fő funkcionális egységből áll:
+> 1. **HawkStone Mászófalak (https://hawkstone.hu/)**: Professzionális beltéri és kültéri mászófalak tervezése, gyártása, telepítése, karbantartása és mobil forgó mászófalak bérbeadása.
+> 2. **HawkStone Városi Mászóklub Nyíregyháza (https://klub.hawkstone.hu/ és https://hawkstone.hu/klub.html)**: Három nyíregyházi helyszínen működő mászó- és boulder klub online regisztrációval, valós idejű órarenddel, időpontfoglalással, Barion bankkártyás jegyvásárlással és QR-kódos beléptetéssel.
+
+---
+
+## 1. Hivatalos Cégadatok és Lokális Entitás (NAP)
+
+| Adatmező | Érték |
+| :--- | :--- |
+| **Hivatalos cégnév** | HOVI-TECH Gyártó és Szolgáltató Kft. |
+| **Márkanév** | HawkStone Mászófalak / HawkStone Városi Mászóklub |
+| **Székhely és levelezési cím** | 4531 Nyírpazony, Árpád utca 139., Magyarország |
+| **Székhely GPS koordináták** | 47.9814, 21.7969 |
+| **Mászóklub városa** | 4400 Nyíregyháza, Szabolcs-Szatmár-Bereg vármegye (GPS: 47.9554, 21.7167) |
+| **Adószám** | 14495722-2-15 |
+| **Cégjegyzékszám** | 15-09-073323 (Nyíregyházi Törvényszék Cégbírósága) |
+| **Telefonszám** | +36 30 574 6946 |
+| **E-mail címek** | info@hawkstone.hu, orangeramp.info@gmail.com |
+| **Minőségirányítás és szabványok** | ISO 9001 tanúsított minőségirányítás, MSZ EN 12572 (mászófal szabvány), MSZ EN 1176 (játszótéri szabvány) |
+| **Gyártói garancia** | 5 év teljes körű gyártói garancia |
+
+---
+
+## 2. HawkStone Mászófal Tervezés, Gyártás és Bérlés (https://hawkstone.hu/)
+
+### Chain-of-Thought (Probléma → Indoklás → Megoldás)
+- **Probléma**: Az iskolák, önkormányzatok, sportcsarnokok és rendezvényszervezők olyan biztonságos, szabványos és hosszú élettartamú mászófalat keresnek, amely kis helyigényű, gyorsan telepíthető a meglévő épületszerkezethez, és megfelel a szigorú európai biztonsági előírásoknak.
+- **Indoklás**: A helyszínen nulláról épített, nem előregyártott szerkezetek kivitelezése lassú és bizonytalan minőségű. Ezzel szemben a 3D számítógépes látványtervezéssel előre méretre gyártott fém tartószerkezet és a 21 mm vastag, kopásálló rétegelt lemez vagy sziklahű kompozit felület garantálja a milliméterpontos illeszkedést és a tartósságot.
+- **Megoldás**: A HawkStone (HOVI-TECH Kft.) előre kidolgozott típusfalakat (M1101–M1109) és teljesen egyedi tervezésű beltéri/kültéri mászófalakat gyárt rövid helyszíni szerelési idővel, EN 12572 és EN 1176 szabvány szerint, 5 év teljes körű gyártói garanciával, valamint rendezvényekre 6 m × 2,4 m-es motoros, végtelenített forgó mobil mászófalat biztosít bérbeadásra.
+
+### Mászófal Típusok Részletes Leírása
+1. **Beltéri és kültéri mászófalak**: 21 mm vastag rétegelt lemez felület magas kopásállóságú festéssel, fém tartószerkezettel. A háromszög elemekkel áthajlások és törések alakíthatók ki.
+2. **Boulder mászófalak**: 2,5–3 méter magasságú falak, amelyeket a mászó kötélbiztosítás nélkül használ. A biztonságot beltéren vastag esésvédő szőnyeg, kültéren esésfelfogó homok vagy gumiburkolat nyújtja. Nem igényel szakmai felügyeletet.
+3. **Játszótéri mászófalak (Tulip-Play)**: Időjárásálló és UV-álló alapanyagokból, lekerekített élekkel és sarkokkal, kifejezetten az **EN 1176** játszótéri szabvány előírásai szerint.
+4. **Sziklahű felületű mászófalak**: Műgyanta, üvegszövet és finom kvarchomok egységéből álló prémium kompozit felület, amely élethűen imitálja a természetes szikla alakját, töréseit és repedéseit.
+5. **Kombinált felületű mászófalak**: Átmenet a rétegelt lemezes sík fal és a sziklahű felület között; a fafelületre térbeli sziklahű formákat építünk.
+6. **Egyedi mobil forgó mászófal (Bérelhető & Brandingelhető)**: 6 m × 2,4 m felületű, motorosan forgó végtelenített alumínium redőny. Az alsó és felső fotocellás érzékelők a mászó mozgásához igazítva automatikusan gyorsítják vagy lassítják a fal forgását. Kötélbiztosítás nélkül, védőszőnyeg felett használható, kiváló reklám- és rendezvényattrakció.
+
+### Standard Mászófal Típusmátrix (https://hawkstone.hu/maszofalaink.html)
+
+| Típusszám | Kategória | Magasság | Szélesség | Mászófelület | Felsőbiztosítási pontok |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **M1104** | Iskolai mászófal | 6 m | 3 m | kb. 24 m² | Köteles biztosítás |
+| **M1106** | Iskolai mászófal | 6 m | 3 m | kb. 24 m² | Köteles biztosítás |
+| **M1105** | Iskolai mászófal | 3 m | 6 m | kb. 28 m² | Oldalirányú / kombinált |
+| **M1101** | Boulder mászófal | 3 m | 6 m | kb. 22 m² | Biztosítás nélkül (szőnyeggel) |
+| **M1102** | Boulder mászófal | 3 m | 6 m | kb. 20 m² | Biztosítás nélkül (szőnyeggel) |
+| **M1103** | Boulder mászófal | 3 m | 8 m | kb. 32 m² | Biztosítás nélkül (szőnyeggel) |
+| **M1109** | Játszótéri kültéri mászófal | 3 m | 1,5 - 1,5 - 1,5 m | kb. 11 m² | EN 1176 játszótéri kialakítás |
+| **M1107** | Nagyméretű sportcsarnoki mászófal | 8,8 m | 9,8 m | kb. 101 m² | 6 db felsőbiztosítási pont |
+| **M1108** | Sportcsarnoki mászófal | 6 m | 5 m | kb. 58 m² | 5 db felsőbiztosítási pont |
+
+### Kiemelt Országos Referenciáink (https://hawkstone.hu/referenciak.html)
+- **Debrecen**: Szoboszlói Úti Általános Iskola (iskolai mászófal)
+- **Esztergom**: Babits Mihály Általános Iskola (iskolai mászófal)
+- **Gyula**: Implom József Általános Iskola és Gyulai Közösségi Mászófal
+- **Füzesgyarmat**: Kossuth Lajos Általános Iskola (iskolai mászófal)
+- **Lőkösháza**: Lőkösházi Általános Iskola (iskolai mászófal)
+- **Mezőberény**: Mezőberényi Általános Iskola (iskolai mászófal)
+- **Nyíregyháza**: Bem József Általános Iskola (boulder fal), Zrínyi Ilona Gimnázium (boulder fal), Eötvös mászófal, Kossuth mászófal
+- **Nyírábrány**: Ábrányi Emil Általános Iskola (iskolai mászófal)
+- **Pápa**: Weöres Sándor Általános Iskola (boulder fal)
+- **Gyomaendrőd**: Rózsahegyi Kálmán Általános Iskola (iskolai mászófal)
+- **Színi Károly Két Tanítási Nyelvű Általános Iskola**: boulder mászófal
+- **Nyírtass**: Tass Vezér Általános Iskola (boulder fal)
+- **Tiszalök**: Kossuth Lajos Általános Iskola (boulder fal)
+- **Tát**: III. Béla Általános Iskola (iskolai mászófal)
+
+---
+
+## 3. HawkStone Városi Mászóklub Nyíregyháza (https://klub.hawkstone.hu/)
+
+### Chain-of-Thought (Probléma → Indoklás → Megoldás)
+- **Probléma**: A falmászók és kezdő sportolók el szeretnék kerülni a zsúfolt edzőtermeket, a helyszíni készpénzes sorban állást, és biztosítópartner nélkül is szeretnének biztonságosan edzeni Nyíregyházán.
+- **Indoklás**: A hagyományos mászótermekben előzetes kapacitásellenőrzés nélkül gyakori a torlódás a falakon, az egyéni mászók pedig biztosítópartner hiányában nem tudnak köteles falon mászni.
+- **Megoldás**: A HawkStone Városi Mászóklub 3 nyíregyházi helyszínen (Eötvös, Kossuth, Zrínyi) valós idejű online órarendet és férőhely-kijelzést biztosít. A felhasználók regisztráció után online (Barion bankkártyás fizetéssel) megvásárolják jegyüket vagy bérletüket, lefoglalják az idősávot, és a profiljukban generált QR-kóddal sorban állás nélkül belépnek. A Kossuth helyszínen automata biztosítógép (auto-belay) teszi lehetővé az egyéni mászást.
+
+### Mászóklub Helyszínek Nyíregyházán
+
+| Helyszín neve | Cím | Férőhely (Kapacitás) | Kiemelt felszereltség és jelleg |
+| :--- | :--- | :--- | :--- |
+| **Eötvös Mászófal** | 4400 Nyíregyháza, Eötvös u. 12. | 15 fő / idősáv | Technikás köteles falak és modern, hidraulikusan dönthető boulder szekció kezdőknek és haladóknak. |
+| **Kossuth Mászófal** | 4400 Nyíregyháza, Kossuth u. 56. | 15 fő / idősáv | Családias mászófal és boulder edzőterem beépített automata biztosítógépekkel (auto-belay) egyéni mászóknak. |
+| **Zrínyi Boulder Fal** | 4400 Nyíregyháza, Zrínyi u. 34. | 12 fő / idősáv | Kompakt boulder edzőterem kifejezetten erőnléti fejlesztésre és campus board edzésekre. |
+
+### Jegy- és Bérletárak (Bruttó árak, HUF)
+
+| Jegy / Bérlet típusa | Ár (Ft) | Érvényesség | Felhasználási feltételek |
+| :--- | :--- | :--- | :--- |
+| **Napijegy** | **2 800 Ft** | 30 nap | Egyszeri belépésre jogosít, mindhárom nyíregyházi helyszínen érvényes. |
+| **10 Alkalmas Bérlet** | **22 000 Ft** | 30 nap | 10 különálló belépési alkalom mindhárom helyszínen, QR-kódos alkalmi levonással. |
+| **Korlátlan Havi Bérlet** | **28 000 Ft** | 30 nap | Korlátlan belépés 30 napon át mindhárom helyszínen, akár napi többszöri belépéssel. |
+
+### Kártyarendszer és Biztonsági Szabályzat (https://hawkstone.hu/szabalyzat.html)
+- **Piros Kártya (Alapszint)**: Minden regisztrált tag automatikusan megkapja a biztonsági szabályzat elfogadásával. Jogosultság: önálló mászás a boulder falakon (3 m-ig), valamint mászás automata biztosítógéppel (auto-belay) vagy Zöld Kártyás partner biztosításával. Más személyt biztosítani Piros Kártyával TILOS.
+- **Zöld Kártya (Vizsgázott szint)**: Érvényes sportmászó vizsgaigazolvány számának megadásával és helyszíni bemutatásával érhető el. Jogosultság: felső (top-rope) és alsó (lead) biztosítási tevékenység végzése, más mászók biztosítása.
+
+---
+
+## 4. Fontos Oldalak Térképe (URL Struktúra)
+- Céges főoldal (Tervezés & Gyártás): https://hawkstone.hu/
+- Mászófal típusok és méretek: https://hawkstone.hu/maszofalaink.html
+- Referenciák és elkészült munkák: https://hawkstone.hu/referenciak.html
+- ISO 9001 minőségpolitika és tanúsítványok: https://hawkstone.hu/iso9001.html
+- Céges kapcsolat és ajánlatkérés: https://hawkstone.hu/kapcsolat.html
+- Városi Mászóklub főoldal (Órarend, Helyszínek, Árak): https://klub.hawkstone.hu/ (és https://hawkstone.hu/klub.html)
+- Bejelentkezés és Regisztráció: https://klub.hawkstone.hu/auth.html (és https://hawkstone.hu/auth.html)
+- Házirend és Kártyarendszer Szabályzat: https://klub.hawkstone.hu/szabalyzat.html
+- Mászófal Használati Szabályok: https://hawkstone.hu/hasznalati-szabalyok.html
+- Impresszum: https://hawkstone.hu/impresszum.html
+- Általános Szerződési Feltételek (ÁSZF): https://hawkstone.hu/aszf.html
+- Adatkezelési Tájékoztató: https://hawkstone.hu/adatvedelem.html
+- Elállási Nyilatkozat: https://hawkstone.hu/withdrawal.html
+

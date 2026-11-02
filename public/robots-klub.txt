@@ -90,3 +90,4 @@ Disallow: /dashboard.html
 Host: https://klub.hawkstone.hu
 Sitemap: https://klub.hawkstone.hu/sitemap.xml
 Sitemap: https://hawkstone.hu/sitemap.xml
+

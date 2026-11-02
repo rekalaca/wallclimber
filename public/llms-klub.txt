@@ -29,3 +29,4 @@
 - **Mászóklub Weboldal**: https://klub.hawkstone.hu/
 - **Anyavállalat (Mászófal Tervezés & Gyártás)**: https://hawkstone.hu/
 - **Részletes AI Adatbázis**: https://klub.hawkstone.hu/llms-full.txt
+

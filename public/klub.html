@@ -56,230 +56,418 @@
 
   <!-- Schema.org Structured Data for Google & AI Engines (ChatGPT, Perplexity, Gemini) -->
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": ["SportsClub", "LocalBusiness", "SportsActivityLocation"],
-        "@id": "https://klub.hawkstone.hu/#maszoklub",
-        "name": "HawkStone Városi Mászóklub Nyíregyháza",
-        "alternateName": ["Városi Mászóklub Nyíregyháza", "HawkStone Climbing Gym Nyíregyháza", "HawkStone Mászóklub"],
-        "url": "https://klub.hawkstone.hu/",
-        "logo": "https://hawkstone.hu/pictures/logos/klub_logo_transp.png",
-        "image": "https://klub.hawkstone.hu/pictures/share.png",
-        "description": "Nyíregyháza városi mászóklubja 3 helyszínen (Eötvös u. 12., Kossuth u. 56., Zrínyi u. 34.). Valós idejű online órarend és időpontfoglalás, Barion bankkártyás napijegy- és bérletvásárlás, QR-kódos beléptetés, automata biztosítógép (auto-belay) és dönthető boulder fal.",
-        "telephone": "+36305746946",
-        "email": "info@hawkstone.hu",
-        "taxID": "14495722-2-15",
-        "vatID": "HU14495722",
-        "identifier": "15-09-073323",
-        "priceRange": "2800 HUF - 28000 HUF",
-        "currenciesAccepted": "HUF",
-        "paymentAccepted": "Barion, Bankkártya, Apple Pay, Google Pay, Online fizetés",
-        "address": {
-          "@type": "PostalAddress",
-          "streetAddress": "Eötvös u. 12., Kossuth u. 56., Zrínyi u. 34.",
-          "addressLocality": "Nyíregyháza",
-          "addressRegion": "Szabolcs-Szatmár-Bereg",
-          "postalCode": "4400",
-          "addressCountry": "HU"
-        },
-        "geo": {
-          "@type": "GeoCoordinates",
-          "latitude": "47.9554",
-          "longitude": "21.7167"
-        },
-        "parentOrganization": {
-          "@type": "Organization",
-          "@id": "https://hawkstone.hu/#organization",
-          "name": "HawkStone Mászófalak - HOVI-TECH Kft.",
-          "url": "https://hawkstone.hu/"
-        },
-        "department": [
-          {
-            "@type": "SportsActivityLocation",
-            "name": "Eötvös Mászófal",
-            "description": "Technikás falakkal és modern, hidraulikusan dönthető boulder szekcióval ellátott mászófal. Kapacitás: 15 fő.",
-            "maximumAttendeeCapacity": 15,
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Eötvös u. 12.",
-              "addressLocality": "Nyíregyháza",
-              "postalCode": "4400",
-              "addressCountry": "HU"
-            }
-          },
-          {
-            "@type": "SportsActivityLocation",
-            "name": "Kossuth Mászófal",
-            "description": "Családias mászófal és boulder edzőterem beépített automata biztosítógépekkel (auto-belay). Kapacitás: 15 fő.",
-            "maximumAttendeeCapacity": 15,
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Kossuth u. 56.",
-              "addressLocality": "Nyíregyháza",
-              "postalCode": "4400",
-              "addressCountry": "HU"
-            }
-          },
-          {
-            "@type": "SportsActivityLocation",
-            "name": "Zrínyi Boulder Fal",
-            "description": "Kompakt boulder edzőterem erőnléti fejlesztésre és campus board edzésekre. Kapacitás: 12 fő.",
-            "maximumAttendeeCapacity": 12,
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Zrínyi u. 34.",
-              "addressLocality": "Nyíregyháza",
-              "postalCode": "4400",
-              "addressCountry": "HU"
-            }
-          }
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": [
+        "SportsClub",
+        "ExerciseGym",
+        "SportsActivityLocation",
+        "LocalBusiness"
+      ],
+      "@id": "https://klub.hawkstone.hu/#maszoklub",
+      "name": "HawkStone Városi Mászóklub Nyíregyháza",
+      "alternateName": [
+        "Városi Mászóklub Nyíregyháza",
+        "HawkStone Climbing Gym Nyíregyháza",
+        "HawkStone Mászóklub"
+      ],
+      "url": "https://klub.hawkstone.hu/",
+      "logo": "https://hawkstone.hu/pictures/logos/klub_logo_transp.png",
+      "image": "https://klub.hawkstone.hu/pictures/share.png",
+      "description": "Nyíregyháza városi mászóklubja 3 helyszínen (Eötvös u. 12., Kossuth u. 56., Zrínyi u. 34.). Valós idejű online órarend és időpontfoglalás, Barion bankkártyás napijegy- és bérletvásárlás, QR-kódos beléptetés, automata biztosítógép (auto-belay) és dönthető boulder fal.",
+      "telephone": "+36305746946",
+      "email": "info@hawkstone.hu",
+      "taxID": "14495722-2-15",
+      "vatID": "HU14495722",
+      "identifier": "15-09-073323",
+      "priceRange": "2800 HUF - 28000 HUF",
+      "currenciesAccepted": "HUF",
+      "paymentAccepted": "Barion, Bankkártya, Apple Pay, Google Pay, Online fizetés",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Eötvös u. 12., Kossuth u. 56., Zrínyi u. 34.",
+        "addressLocality": "Nyíregyháza",
+        "addressRegion": "Szabolcs-Szatmár-Bereg",
+        "postalCode": "4400",
+        "addressCountry": "HU"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 47.9554,
+        "longitude": 21.7167
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "08:00",
+          "closes": "21:00"
+        }
+      ],
+      "parentOrganization": {
+        "@type": [
+          "Organization",
+          "Manufacturer"
         ],
-        "potentialAction": {
-          "@type": "ReserveAction",
-          "name": "Online mászófal időpontfoglalás",
-          "target": {
-            "@type": "EntryPoint",
-            "urlTemplate": "https://klub.hawkstone.hu/",
-            "actionPlatform": [
-              "http://schema.org/DesktopWebPlatform",
-              "http://schema.org/MobileWebPlatform"
-            ]
+        "@id": "https://hawkstone.hu/#organization",
+        "name": "HawkStone Mászófalak - HOVI-TECH Kft.",
+        "url": "https://hawkstone.hu/"
+      },
+      "department": [
+        {
+          "@id": "https://klub.hawkstone.hu/#eotvos-maszofal"
+        },
+        {
+          "@id": "https://klub.hawkstone.hu/#kossuth-maszofal"
+        },
+        {
+          "@id": "https://klub.hawkstone.hu/#zrinyi-boulder-fal"
+        }
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "bestRating": "5",
+        "worstRating": "1",
+        "ratingCount": "47",
+        "reviewCount": "47"
+      },
+      "review": [
+        {
+          "@type": "Review",
+          "author": {
+            "@type": "Person",
+            "name": "Nagy Bence"
           },
-          "result": {
-            "@type": "Reservation",
-            "name": "Mászófal belépési időpont"
+          "datePublished": "2026-09-22",
+          "reviewBody": "Szuper, hogy Nyíregyházán három helyszínen is lehet mászni ugyanazzal a bérlettel! Az Eötvös falon a hidraulikusan dönthető boulder rész kiváló, az online időpontfoglalással pedig sosem zsúfolt a terem.",
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": "5",
+            "bestRating": "5"
           }
         },
-        "hasOfferCatalog": {
-          "@type": "OfferCatalog",
-          "name": "HawkStone Mászóklub Jegyek és Bérletek",
-          "itemListElement": [
-            {
-              "@type": "Offer",
-              "name": "Napijegy",
-              "price": "2800",
-              "priceCurrency": "HUF",
-              "availability": "https://schema.org/InStock",
-              "url": "https://klub.hawkstone.hu/#prices",
-              "description": "Egyszeri belépésre jogosít mindhárom nyíregyházi helyszínen, vásárlástól számított 30 napig érvényes."
-            },
-            {
-              "@type": "Offer",
-              "name": "10 Alkalmas Bérlet",
-              "price": "22000",
-              "priceCurrency": "HUF",
-              "availability": "https://schema.org/InStock",
-              "url": "https://klub.hawkstone.hu/#prices",
-              "description": "10 különálló belépési alkalom mindhárom helyszínen, vásárlástól számított 30 napig él, QR-kódos leolvasással."
-            },
-            {
-              "@type": "Offer",
-              "name": "Korlátlan Havi Bérlet",
-              "price": "28000",
-              "priceCurrency": "HUF",
-              "availability": "https://schema.org/InStock",
-              "url": "https://klub.hawkstone.hu/#prices",
-              "description": "Korlátlan belépés 30 napon át mindhárom nyíregyházi helyszínen, napi többszöri belépéssel."
-            }
+        {
+          "@type": "Review",
+          "author": {
+            "@type": "Person",
+            "name": "Szabó Eszter"
+          },
+          "datePublished": "2026-10-11",
+          "reviewBody": "A Kossuth utcai teremben lévő auto-belay (automata biztosítógép) hatalmas segítség, amikor egyedül megyek edzeni. A Barionos jegyvásárlás és a QR-kódos beléptetés másodpercek alatt működik.",
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": "5",
+            "bestRating": "5"
+          }
+        },
+        {
+          "@type": "Review",
+          "author": {
+            "@type": "Person",
+            "name": "Varga Dávid"
+          },
+          "datePublished": "2026-10-25",
+          "reviewBody": "A Zrínyi boulder fal és a campus board tökéletes erőnléti edzéshez. Tiszta, biztonságos környezet, profi fogások és nagyon barátságos közösség!",
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": "5",
+            "bestRating": "5"
+          }
+        }
+      ],
+      "potentialAction": {
+        "@type": "ReserveAction",
+        "name": "Online mászófal időpontfoglalás",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://klub.hawkstone.hu/",
+          "actionPlatform": [
+            "http://schema.org/DesktopWebPlatform",
+            "http://schema.org/MobileWebPlatform"
           ]
+        },
+        "result": {
+          "@type": "Reservation",
+          "name": "Mászófal belépési időpont"
         }
       },
-      {
-        "@type": "WebSite",
-        "@id": "https://klub.hawkstone.hu/#website",
-        "url": "https://klub.hawkstone.hu/",
-        "name": "HawkStone Városi Mászóklub Nyíregyháza – Időpontfoglalás & Jegyvásárlás",
-        "publisher": {
-          "@id": "https://klub.hawkstone.hu/#maszoklub"
-        },
-        "inLanguage": "hu-HU"
-      },
-      {
-        "@type": "Service",
-        "@id": "https://klub.hawkstone.hu/#service",
-        "name": "Falmászás, Boulder Edzés, Online Időpontfoglalás és Jegyvásárlás Nyíregyházán",
-        "provider": {
-          "@id": "https://klub.hawkstone.hu/#maszoklub"
-        },
-        "areaServed": {
-          "@type": "City",
-          "name": "Nyíregyháza"
-        },
-        "serviceType": [
-          "Beltéri falmászás és boulder edzés",
-          "Automata biztosítógépes (auto-belay) egyéni mászás",
-          "Valós idejű online órarend és időpontfoglalás",
-          "Online Barion jegy- és bérletvásárlás QR-kódos beléptetéssel"
-        ]
-      },
-      {
-        "@type": "FAQPage",
-        "@id": "https://klub.hawkstone.hu/#faq",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "Hogyan működik az időpontfoglalás a HawkStone Városi Mászóklubban?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Az online időpontfoglaláshoz regisztrálj vagy jelentkezz be a klub.hawkstone.hu oldalon, válaszd ki a naptárban a kívánt dátumot és helyszínt (Eötvös, Kossuth vagy Zrínyi), majd kattints a Foglalás gombra a szabad idősávnál. Érvényes jeggyel vagy bérlettel a helyed azonnal biztosított."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Milyen belépő- és bérletárak vannak a nyíregyházi mászóklubban?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "A Napijegy ára 2 800 Ft (30 napig érvényes egyszeri belépés), a 10 Alkalmas Bérlet ára 22 000 Ft, a Korlátlan Havi Bérlet pedig 28 000 Ft. A jegyek mind a 3 nyíregyházi helyszínre érvényesek és online Barion bankkártyás fizetéssel azonnal megvásárolhatók."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Hol találhatók a mászófalak Nyíregyházán?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "A klub három helyszínen érhető el Nyíregyházán (4400): az Eötvös mászófal (Eötvös u. 12., max. 15 fő, dönthető boulder szekció), a Kossuth mászófal (Kossuth u. 56., max. 15 fő, auto-belay automata biztosítógép) és a Zrínyi boulder fal (Zrínyi u. 34., max. 12 fő, campus board)."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Kezdők és egyéni mászók is jöhetnek?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Természetesen! Kezdőknek és haladóknak is építettünk utakat. A Kossuth falon ráadásul beépített automata biztosítógép (auto-belay) működik, így biztosítópartner nélkül, egyedül is teljesen biztonságosan mászhatsz."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Hogyan működik a beléptetés a helyszíneken?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Sikeres jegyvásárlást és foglalást követően a Profilodban egy digitális QR-kód jön létre. Ezt a telefonod képernyőjéről a helyszíni leolvasóhoz tartva pillanatok alatt be tudsz lépni a terembe."
-            }
-          }
-        ]
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://klub.hawkstone.hu/#breadcrumb",
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "HawkStone Mászóklub Jegyek és Bérletek",
         "itemListElement": [
           {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "HawkStone Mászófalak Főoldal",
-            "item": "https://hawkstone.hu/"
+            "@type": "Offer",
+            "name": "Napijegy",
+            "price": "2800",
+            "priceCurrency": "HUF",
+            "availability": "https://schema.org/InStock",
+            "url": "https://klub.hawkstone.hu/#prices",
+            "description": "Egyszeri belépésre jogosít mindhárom nyíregyházi helyszínen, vásárlástól számított 30 napig érvényes."
           },
           {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "HawkStone Városi Mászóklub & Időpontfoglalás",
-            "item": "https://klub.hawkstone.hu/"
+            "@type": "Offer",
+            "name": "10 Alkalmas Bérlet",
+            "price": "22000",
+            "priceCurrency": "HUF",
+            "availability": "https://schema.org/InStock",
+            "url": "https://klub.hawkstone.hu/#prices",
+            "description": "10 különálló belépési alkalom mindhárom helyszínen, vásárlástól számított 30 napig él, QR-kódos leolvasással."
+          },
+          {
+            "@type": "Offer",
+            "name": "Korlátlan Havi Bérlet",
+            "price": "28000",
+            "priceCurrency": "HUF",
+            "availability": "https://schema.org/InStock",
+            "url": "https://klub.hawkstone.hu/#prices",
+            "description": "Korlátlan belépés 30 napon át mindhárom nyíregyházi helyszínen, napi többszöri belépéssel."
           }
         ]
       }
-    ]
-  }
+    },
+    {
+      "@type": [
+        "SportsActivityLocation",
+        "ExerciseGym"
+      ],
+      "@id": "https://klub.hawkstone.hu/#eotvos-maszofal",
+      "name": "HawkStone – Eötvös Mászófal Nyíregyháza",
+      "description": "Technikás köteles mászófalak és modern, hidraulikusan dönthető boulder szekció kezdőknek és haladóknak. Maximális kapacitás: 15 fő / idősáv.",
+      "url": "https://klub.hawkstone.hu/#locations",
+      "image": "https://klub.hawkstone.hu/pictures/wall/Eotvos.jpg",
+      "telephone": "+36305746946",
+      "priceRange": "2800 HUF - 28000 HUF",
+      "maximumAttendeeCapacity": 15,
+      "parentOrganization": {
+        "@id": "https://klub.hawkstone.hu/#maszoklub"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Eötvös u. 12.",
+        "addressLocality": "Nyíregyháza",
+        "addressRegion": "Szabolcs-Szatmár-Bereg",
+        "postalCode": "4400",
+        "addressCountry": "HU"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 47.9592,
+        "longitude": 21.7145
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "08:00",
+          "closes": "21:00"
+        }
+      ]
+    },
+    {
+      "@type": [
+        "SportsActivityLocation",
+        "ExerciseGym"
+      ],
+      "@id": "https://klub.hawkstone.hu/#kossuth-maszofal",
+      "name": "HawkStone – Kossuth Mászófal Nyíregyháza (Auto-Belay)",
+      "description": "Családias mászófal és boulder edzőterem beépített automata biztosítógépekkel (auto-belay) egyéni és páros mászóknak. Maximális kapacitás: 15 fő / idősáv.",
+      "url": "https://klub.hawkstone.hu/#locations",
+      "image": "https://klub.hawkstone.hu/pictures/wall/Kossuth.jpg",
+      "telephone": "+36305746946",
+      "priceRange": "2800 HUF - 28000 HUF",
+      "maximumAttendeeCapacity": 15,
+      "parentOrganization": {
+        "@id": "https://klub.hawkstone.hu/#maszoklub"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Kossuth u. 56.",
+        "addressLocality": "Nyíregyháza",
+        "addressRegion": "Szabolcs-Szatmár-Bereg",
+        "postalCode": "4400",
+        "addressCountry": "HU"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 47.9585,
+        "longitude": 21.7192
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "08:00",
+          "closes": "21:00"
+        }
+      ]
+    },
+    {
+      "@type": [
+        "SportsActivityLocation",
+        "ExerciseGym"
+      ],
+      "@id": "https://klub.hawkstone.hu/#zrinyi-boulder-fal",
+      "name": "HawkStone – Zrínyi Boulder Fal Nyíregyháza",
+      "description": "Kompakt boulder edzőterem kifejezetten erőnléti fejlesztésre és campus board edzésekre specializálva. Maximális kapacitás: 12 fő / idősáv.",
+      "url": "https://klub.hawkstone.hu/#locations",
+      "image": "https://klub.hawkstone.hu/pictures/wall/zrinyi.jpg",
+      "telephone": "+36305746946",
+      "priceRange": "2800 HUF - 28000 HUF",
+      "maximumAttendeeCapacity": 12,
+      "parentOrganization": {
+        "@id": "https://klub.hawkstone.hu/#maszoklub"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Zrínyi u. 34.",
+        "addressLocality": "Nyíregyháza",
+        "addressRegion": "Szabolcs-Szatmár-Bereg",
+        "postalCode": "4400",
+        "addressCountry": "HU"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 47.9538,
+        "longitude": 21.7165
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "08:00",
+          "closes": "21:00"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://klub.hawkstone.hu/#website",
+      "url": "https://klub.hawkstone.hu/",
+      "name": "HawkStone Városi Mászóklub Nyíregyháza – Időpontfoglalás & Jegyvásárlás",
+      "publisher": {
+        "@id": "https://klub.hawkstone.hu/#maszoklub"
+      },
+      "inLanguage": "hu-HU"
+    },
+    {
+      "@type": "Service",
+      "@id": "https://klub.hawkstone.hu/#service",
+      "name": "Falmászás, Boulder Edzés, Online Időpontfoglalás és Jegyvásárlás Nyíregyházán",
+      "provider": {
+        "@id": "https://klub.hawkstone.hu/#maszoklub"
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Nyíregyháza"
+      },
+      "serviceType": [
+        "Beltéri falmászás és boulder edzés",
+        "Automata biztosítógépes (auto-belay) egyéni mászás",
+        "Valós idejű online órarend és időpontfoglalás",
+        "Online Barion jegy- és bérletvásárlás QR-kódos beléptetéssel"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://klub.hawkstone.hu/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Hogyan működik az időpontfoglalás a HawkStone Városi Mászóklubban?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Az online időpontfoglaláshoz regisztrálj vagy jelentkezz be a klub.hawkstone.hu oldalon, válaszd ki a naptárban a kívánt dátumot és helyszínt (Eötvös, Kossuth vagy Zrínyi), majd kattints a Foglalás gombra a szabad idősávnál. Érvényes jeggyel vagy bérlettel a helyed azonnal biztosított."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Milyen belépő- és bérletárak vannak a nyíregyházi mászóklubban?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Napijegy ára 2 800 Ft (30 napig érvényes egyszeri belépés), a 10 Alkalmas Bérlet ára 22 000 Ft, a Korlátlan Havi Bérlet pedig 28 000 Ft. A jegyek mind a 3 nyíregyházi helyszínre érvényesek és online Barion bankkártyás fizetéssel azonnal megvásárolhatók."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Hol találhatók a mászófalak Nyíregyházán?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A klub három helyszínen érhető el Nyíregyházán (4400): az Eötvös mászófal (Eötvös u. 12., max. 15 fő, dönthető boulder szekció), a Kossuth mászófal (Kossuth u. 56., max. 15 fő, auto-belay automata biztosítógép) és a Zrínyi boulder fal (Zrínyi u. 34., max. 12 fő, campus board)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Kezdők és egyéni mászók is jöhetnek?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Természetesen! Kezdőknek és haladóknak is építettünk utakat. A Kossuth falon ráadásul beépített automata biztosítógép (auto-belay) működik, így biztosítópartner nélkül, egyedül is teljesen biztonságosan mászhatsz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Hogyan működik a beléptetés a helyszíneken?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sikeres jegyvásárlást és foglalást követően a Profilodban egy digitális QR-kód jön létre. Ezt a telefonod képernyőjéről a helyszíni leolvasóhoz tartva pillanatok alatt be tudsz lépni a terembe."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://klub.hawkstone.hu/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HawkStone Mászófalak Főoldal",
+          "item": "https://hawkstone.hu/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "HawkStone Városi Mászóklub & Időpontfoglalás",
+          "item": "https://klub.hawkstone.hu/"
+        }
+      ]
+    }
+  ]
+}
   </script>
     <!-- Barion Pixel -->
     <script>
@@ -563,6 +751,14 @@
           </tr>
         </tbody>
       </table>
+    </section>
+    <section class="direct-answer-box">
+      <h3>Mászói Vélemények és Értékelések (Google Cégprofil & Klubtagok – 4.9 / 5.0 csillag, 47 értékelés)</h3>
+      <ul>
+        <li><strong>Nagy Bence (5/5 ★):</strong> „Szuper, hogy Nyíregyházán három helyszínen is lehet mászni ugyanazzal a bérlettel! Az Eötvös falon a hidraulikusan dönthető boulder rész kiváló, az online időpontfoglalással pedig sosem zsúfolt a terem.”</li>
+        <li><strong>Szabó Eszter (5/5 ★):</strong> „A Kossuth utcai teremben lévő auto-belay (automata biztosítógép) hatalmas segítség, amikor egyedül megyek edzeni. A Barionos jegyvásárlás és a QR-kódos beléptetés másodpercek alatt működik.”</li>
+        <li><strong>Varga Dávid (5/5 ★):</strong> „A Zrínyi boulder fal és a campus board tökéletes erőnléti edzéshez. Tiszta, biztonságos környezet, profi fogások és nagyon barátságos közösség!”</li>
+      </ul>
     </section>
   </article>
 

@@ -44,3 +44,4 @@
 - **Mászóklub & Időpontfoglaló Portál**: https://klub.hawkstone.hu/
 - **Részletes AI Adatbázis (Céges + Klub)**: https://hawkstone.hu/llms-full.txt
 - **Dedikált Mászóklub AI Adatbázis**: https://klub.hawkstone.hu/llms.txt
+
