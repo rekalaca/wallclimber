@@ -32,7 +32,7 @@
   <meta name="twitter:title" content="Adminisztrációs Panel | HawkStone">
   <meta name="twitter:description" content="Adminisztrációs kezelőfelület.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261102_c66">
+  <link rel="stylesheet" href="style.css?v=20261105_c84">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -99,10 +99,6 @@
           <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
             <button type="button" onclick="clearCRMSearch()" class="btn btn-secondary" style="width: auto; padding: 10px 24px; font-weight: 600;">Szűrés törlése</button>
             <button type="submit" class="btn btn-primary" style="width: auto; padding: 10px 30px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
               Keresés futtatása
             </button>
           </div>
@@ -240,10 +236,10 @@
             <!-- Bulk Export/Import Buttons -->
             <div class="admin-users-controls-buttons">
               <button onclick="exportAllUsersToCSV()" class="btn btn-secondary btn-sm btn-export-import">
-                📥 Export
+                Export
               </button>
               <button onclick="document.getElementById('import-users-csv').click()" class="btn btn-secondary btn-sm btn-export-import">
-                📤 Import
+                Import
               </button>
               <input type="file" id="import-users-csv" style="display:none;" accept=".csv" onchange="importUsersFromCSVFile(this)">
             </div>
@@ -268,7 +264,7 @@
       <!-- User Details SPA Subpage (Hidden by default) -->
       <div id="admin-user-details-subpage" class="glass-card" style="display: none; padding: 30px;">
         <button onclick="closeUserDetailsSubpage()" class="btn btn-secondary btn-sm" style="margin-bottom: 25px; display: inline-flex; align-items: center; gap: 5px;">
-          ⬅️ Vissza a tagok listájához
+          Vissza a tagok listájához
         </button>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; flex-wrap: wrap;" id="user-subpage-grid-layout">
@@ -395,7 +391,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
                 <h4 style="font-size: 14px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Belépési Előzmények</h4>
                 <button onclick="exportUserLogsCSV()" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; height: auto;">
-                  📊 Export (.csv)
+                  Export (.csv)
                 </button>
               </div>
               <div id="subpage-user-logs" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
@@ -411,35 +407,35 @@
     <div id="admin-news-content" style="display: none;">
       <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
         
-        <div style="margin-bottom: 30px; display: flex; flex-direction: column; gap: 20px;">
-          <!-- Add/Edit News Form -->
-          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 10px; border-radius: 12px; width: 100%;">
-            <h4 id="news-form-title" style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Új közlemény közzététele</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; align-items: start; margin-bottom: 30px;">
+          <!-- Left side: Add/Edit News Form -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 22px; border-radius: 14px; width: 100%;">
+            <h4 id="news-form-title" style="font-size: 16px; margin-bottom: 18px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Új közlemény közzététele</h4>
             <form id="admin-news-form">
               <input type="hidden" id="admin-news-id" value="">
               <input type="hidden" id="admin-news-image" value="">
               
               <div class="form-group">
                 <label class="form-label" for="admin-news-title">Közlemény Címe</label>
-                <input type="text" id="admin-news-title" class="form-control" placeholder="Például: Ünnepi nyitvatartás" required>
+                <input type="text" id="admin-news-title" class="form-control" placeholder="Például: Ünnepi nyitvatartás" style="text-align: center;" required oninput="updateAdminNewsPreview()">
               </div>
               
               <div class="form-group">
-                <label class="form-label">Közlemény Szövege</label>
+                <label class="form-label">Közlemény Szövege (középre zárt)</label>
                 <div class="rich-editor">
-                  <div class="rich-editor-toolbar">
+                  <div class="rich-editor-toolbar" style="justify-content: center;">
                     <button type="button" class="editor-btn" onclick="formatEditorText('b')" title="Félkövér"><b>B</b></button>
                     <button type="button" class="editor-btn" onclick="formatEditorText('i')" title="Dőlt"><i>I</i></button>
                     <button type="button" class="editor-btn" onclick="formatEditorText('u')" title="Aláhúzott"><u>U</u></button>
                   </div>
-                  <textarea id="admin-news-content-text" class="editor-textarea" placeholder="Írd ide a hír szövegét... Formázáshoz jelöld ki a szöveget és kattints a fenti gombokra!" required></textarea>
+                  <textarea id="admin-news-content-text" class="editor-textarea" style="text-align: center;" placeholder="Írd ide a hír szövegét... Formázáshoz jelöld ki a szöveget és kattints a fenti gombokra!" required oninput="updateAdminNewsPreview()"></textarea>
                 </div>
               </div>
 
               <div class="form-group" style="display:flex; align-items:center; gap:15px; margin-top: 15px;">
                 <label class="form-label" style="margin-bottom:0; cursor:pointer;" for="admin-news-active">Aktív közlemény (Azonnali felugrás a kezdőlapon):</label>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="admin-news-active">
+                  <input type="checkbox" id="admin-news-active" onchange="updateAdminNewsPreview()">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -451,17 +447,29 @@
             </form>
           </div>
 
-          <!-- Explanatory note -->
-          <div class="text-justify" style="padding: 10px;">
-            <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--text-primary);">Hogyan működik az Üzenőfal?</h4>
-            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Az üzenőfal segítségével fontos információkat, nyitvatartási változásokat vagy versenyhíreket oszthatsz meg a mászókkal.</p>
-            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Ha egy közleményt <strong>Aktív</strong> állapotba helyezel, az automatikusan megnyílik egy felugró ablakban (Modal) minden látogatónak, aki betölti a főoldalt vagy a mászói fiókját.</p>
-            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;"><strong>Egyszerre csak egy aktív hír lehet.</strong> Ha bekapcsolod az aktív státuszt egy hírnél, a rendszer az összes többi korábbi hírt automatikusan inaktívvá teszi.</p>
-            <p style="font-size: 14px; color: var(--text-secondary);">A formázó gombok HTML jelölők (pl. <code>&lt;b&gt;</code>) illesztenek be a kijelölt szöveg köré. Ezek helyesen fognak megjelenni a tagok képernyőjén.</p>
+          <!-- Right side: Live Preview + Explanatory note -->
+          <div>
+            <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő előnézet (Felugró közlemény)</h4>
+            <div style="background: var(--bg-card-solid, #121622); border: 1px solid var(--border-color); border-radius: 16px; padding: 28px 24px; box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 24px rgba(242,118,32,0.12); position: relative; text-align: center; margin-bottom: 22px;">
+              <span style="position: absolute; top: 12px; right: 16px; color: var(--text-muted); font-size: 20px; line-height: 1; pointer-events: none;">&times;</span>
+              <h3 id="admin-news-preview-title" style="font-size: 22px; color: var(--primary); margin: 0 0 14px 0; font-family: 'Montserrat', sans-serif; font-weight: 800; text-align: center;">Ünnepi nyitvatartás</h3>
+              <div id="admin-news-preview-content" class="announcement-modal-content" style="text-align: center; white-space: pre-line; font-size: 15px; line-height: 1.6; color: var(--text-secondary);">Írd be bal oldalon a közlemény címét és szövegét az élő előnézethez!</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; text-align: left;">
+              <h5 style="font-size: 14px; margin: 0 0 10px 0; color: var(--text-primary);">Hogyan működik az Üzenőfal?</h5>
+              <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0; line-height: 1.65;">
+                <li><strong>Felugró ablak (Modal):</strong> Ha egy közleményt <strong>Aktív</strong> állapotba helyezel, az automatikusan megnyílik minden látogatónak, aki betölti a klub főoldalát vagy a mászói fiókját.</li>
+                <li><strong>Egyszerre csak egy aktív hír lehet:</strong> Ha bekapcsolod az aktív státuszt egy hírnél, a rendszer a korábbi híreket automatikusan inaktívvá teszi.</li>
+                <li><strong>Formázás:</strong> A <b>B</b>, <i>I</i>, <u>U</u> gombokkal kiemelheted a kijelölt szövegrészeket.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);">Eddigi közlemények</h4>
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0 25px 0;">
+
+        <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Eddigi közlemények</h4>
         <div id="admin-news-list" class="news-list">
           <p style="color:var(--text-muted);">Közlemények betöltése...</p>
         </div>
@@ -482,7 +490,7 @@
       <!-- Specific Location Bookings Subpage (Hidden by default) -->
       <div id="admin-bookings-details-view" class="glass-card" style="display: none;">
         <button onclick="showBookingsLocationsGrid()" class="btn btn-secondary btn-sm" style="margin-bottom: 25px; display: inline-flex; align-items: center; gap: 5px;">
-          ⬅️ Vissza a helyszínekhez
+          Vissza a helyszínekhez
         </button>
         
         <h3 id="admin-booking-location-title" style="font-size: 24px; color: var(--primary); margin-bottom: 5px; font-family: 'Montserrat', sans-serif;"></h3>
@@ -610,6 +618,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20261102_c66"></script>
+  <script src="app.js?v=20261105_c84"></script>
 </body>
 </html>

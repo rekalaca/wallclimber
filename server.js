@@ -37,8 +37,8 @@ const transporter = nodemailer.createTransport({
 });
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Subdomain Routing & SEO / AI Crawler Middleware for hawkstone.hu and klub.hawkstone.hu
 app.use((req, res, next) => {
@@ -54,7 +54,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // Private pages: prevent search & AI indexing
-  if (reqPath === '/admin.html' || reqPath === '/scanner.html' || reqPath === '/dashboard.html') {
+  if (reqPath === '/admin.html' || reqPath === '/webadmin.html' || reqPath === '/webadmin' || reqPath === '/scanner.html' || reqPath === '/dashboard.html') {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   } else if (reqPath === '/' || reqPath.endsWith('.html')) {
     res.setHeader('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
@@ -371,9 +371,11 @@ async function initDB() {
       content TEXT NOT NULL,
       image_url TEXT,
       is_active INTEGER DEFAULT 0,
+      target TEXT DEFAULT 'club',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await dbRun("ALTER TABLE announcements ADD COLUMN target TEXT DEFAULT 'club'").catch(() => {});
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS barion_payments (
@@ -442,6 +444,69 @@ async function initDB() {
   try {
     await dbRun("ALTER TABLE withdrawals ADD COLUMN admin_note TEXT DEFAULT ''");
   } catch (_) { /* column already exists */ }
+
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS gallery_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target TEXT NOT NULL DEFAULT 'references',
+      city TEXT NOT NULL,
+      name TEXT NOT NULL,
+      alt TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      image_data TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS wall_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL DEFAULT 'iskolai',
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      height TEXT NOT NULL,
+      width TEXT NOT NULL,
+      surface TEXT NOT NULL,
+      anchor_points TEXT DEFAULT '',
+      filename TEXT NOT NULL,
+      image_data TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  const wallSeeded = await dbGet('SELECT setting_value FROM site_settings WHERE setting_key = ?', ['wall_products_seeded']);
+  if (!wallSeeded) {
+    const existingWallsCount = await dbGet('SELECT COUNT(*) as count FROM wall_products');
+    if (!existingWallsCount || existingWallsCount.count === 0) {
+      const defaultWalls = [
+        { category: 'iskolai', code: 'M1104', title: 'Iskolai Mászófal', height: '6 m', width: '3 m', surface: 'kb. 24 m²', anchor_points: '', filename: 'fal1-1.jpg', sort_order: 1 },
+        { category: 'iskolai', code: 'M1106', title: 'Iskolai Mászófal', height: '6 m', width: '3 m', surface: 'kb. 24 m²', anchor_points: '', filename: 'fal2-1.jpg', sort_order: 2 },
+        { category: 'iskolai', code: 'M1105', title: 'Iskolai Mászófal', height: '3 m', width: '6 m', surface: 'kb. 28 m²', anchor_points: '', filename: 'fal3-1.jpg', sort_order: 3 },
+        { category: 'boulder', code: 'M1101', title: 'Boulder mászófal', height: '3 m', width: '6 m', surface: 'kb. 22 m²', anchor_points: '', filename: 'fal5-1.jpg', sort_order: 4 },
+        { category: 'boulder', code: 'M1102', title: 'Boulder mászófal', height: '3 m', width: '6 m', surface: 'kb. 20 m²', anchor_points: '', filename: 'fal6-1.jpg', sort_order: 5 },
+        { category: 'boulder', code: 'M1103', title: 'Boulder mászófal', height: '3 m', width: '8 m', surface: 'kb. 32 m²', anchor_points: '', filename: 'fal7-1.jpg', sort_order: 6 },
+        { category: 'jatszoter', code: 'M1109', title: 'Játszótéri kültéri mászófal', height: '3 m', width: '1,5 - 1,5 - 1,5 m', surface: 'kb. 11 m²', anchor_points: '', filename: 'fal4-1.jpg', sort_order: 7 },
+        { category: 'egyeb', code: 'M1107', title: 'Mászófal', height: '8,8 m', width: '9,8 m', surface: 'kb. 101 m²', anchor_points: '6 db', filename: 'fal8-1.jpg', sort_order: 8 },
+        { category: 'egyeb', code: 'M1108', title: 'Mászófal', height: '6 m', width: '5 m', surface: 'kb. 58 m²', anchor_points: '5 db', filename: 'fal9-1.jpg', sort_order: 9 }
+      ];
+      for (const w of defaultWalls) {
+        await dbRun(
+          'INSERT INTO wall_products (category, code, title, height, width, surface, anchor_points, filename, image_data, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [w.category, w.code, w.title, w.height, w.width, w.surface, w.anchor_points, w.filename, '', w.sort_order]
+        );
+      }
+    }
+    await dbRun("INSERT INTO site_settings (setting_key, setting_value) VALUES ('wall_products_seeded', '1')");
+  }
 
   // Seed Locations
   const locationsCount = await dbGet('SELECT COUNT(*) as count FROM locations');
@@ -3019,7 +3084,13 @@ app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']
 // Get active announcement (Public)
 app.get('/api/announcements/active', async (req, res) => {
   try {
-    const announcement = await dbGet('SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1');
+    const target = req.query.target === 'web' ? 'web' : 'club';
+    let announcement;
+    if (target === 'web') {
+      announcement = await dbGet("SELECT * FROM announcements WHERE is_active = 1 AND target = 'web' ORDER BY created_at DESC LIMIT 1");
+    } else {
+      announcement = await dbGet("SELECT * FROM announcements WHERE is_active = 1 AND (target = 'club' OR target IS NULL) ORDER BY created_at DESC LIMIT 1");
+    }
     res.json(announcement || null);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3029,7 +3100,13 @@ app.get('/api/announcements/active', async (req, res) => {
 // Get all announcements (Admin/Staff only)
 app.get('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
-    const list = await dbAll('SELECT * FROM announcements ORDER BY created_at DESC');
+    const target = req.query.target === 'web' ? 'web' : 'club';
+    let list;
+    if (target === 'web') {
+      list = await dbAll("SELECT * FROM announcements WHERE target = 'web' ORDER BY created_at DESC");
+    } else {
+      list = await dbAll("SELECT * FROM announcements WHERE (target = 'club' OR target IS NULL) ORDER BY created_at DESC");
+    }
     res.json(list);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3039,20 +3116,25 @@ app.get('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN'])
 // Create new announcement (Admin/Staff only)
 app.post('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
-    const { title, content, imageUrl, isActive } = req.body;
+    const { title, content, imageUrl, isActive, target } = req.body;
     if (!title || !content) {
       return res.status(400).json({ error: 'A cím és a tartalom megadása kötelező!' });
     }
 
+    const targetVal = target === 'web' ? 'web' : 'club';
     const activeVal = isActive ? 1 : 0;
 
     if (activeVal === 1) {
-      await dbRun('UPDATE announcements SET is_active = 0');
+      if (targetVal === 'web') {
+        await dbRun("UPDATE announcements SET is_active = 0 WHERE target = 'web'");
+      } else {
+        await dbRun("UPDATE announcements SET is_active = 0 WHERE target = 'club' OR target IS NULL");
+      }
     }
 
     const result = await dbRun(
-      'INSERT INTO announcements (title, content, image_url, is_active) VALUES (?, ?, ?, ?)',
-      [title, content, imageUrl || null, activeVal]
+      'INSERT INTO announcements (title, content, image_url, is_active, target) VALUES (?, ?, ?, ?, ?)',
+      [title, content, imageUrl || null, activeVal, targetVal]
     );
 
     res.status(201).json({ message: 'Hír sikeresen létrehozva!', id: result.lastID });
@@ -3064,22 +3146,28 @@ app.post('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']
 // Update announcement (Admin/Staff only)
 app.put('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
-    const { title, content, imageUrl, isActive } = req.body;
+    const { title, content, imageUrl, isActive, target } = req.body;
     const { id } = req.params;
 
     if (!title || !content) {
       return res.status(400).json({ error: 'A cím és a tartalom megadása kötelező!' });
     }
 
+    const existing = await dbGet('SELECT target FROM announcements WHERE id = ?', [id]);
+    const targetVal = target === 'web' ? 'web' : (existing && existing.target === 'web' ? 'web' : 'club');
     const activeVal = isActive ? 1 : 0;
 
     if (activeVal === 1) {
-      await dbRun('UPDATE announcements SET is_active = 0');
+      if (targetVal === 'web') {
+        await dbRun("UPDATE announcements SET is_active = 0 WHERE target = 'web'");
+      } else {
+        await dbRun("UPDATE announcements SET is_active = 0 WHERE target = 'club' OR target IS NULL");
+      }
     }
 
     await dbRun(
-      'UPDATE announcements SET title = ?, content = ?, image_url = ?, is_active = ? WHERE id = ?',
-      [title, content, imageUrl || null, activeVal, id]
+      'UPDATE announcements SET title = ?, content = ?, image_url = ?, is_active = ?, target = ? WHERE id = ?',
+      [title, content, imageUrl || null, activeVal, targetVal, id]
     );
 
     res.json({ message: 'Hír sikeresen frissítve!' });
@@ -3633,6 +3721,379 @@ app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['
   }
 });
 
+// ---------------- GALLERY & REFERENCES UPLOAD API ----------------
+function toInternetFriendlyFilename(raw, fallback = 'referencia-maszofal') {
+  const base = String(raw || '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ő/g, 'o')
+    .replace(/ű/g, 'u')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return (base || fallback) + '.jpg';
+}
+
+// Public endpoint: list dynamic gallery items (for index.html and referenciak.html)
+app.get('/api/gallery', async (req, res) => {
+  try {
+    const rows = await dbAll('SELECT id, target, city, name, alt, filename, created_at FROM gallery_items ORDER BY id ASC');
+    const items = (rows || []).map(r => {
+      const folder = r.target === 'home_gallery' ? 'hawkstone' : 'wall';
+      const relPath = `pictures/${folder}/${r.filename}`;
+      const absPath = path.join(__dirname, 'public', 'pictures', folder, r.filename);
+      const hasStaticFile = fs.existsSync(absPath);
+      return {
+        id: r.id,
+        target: r.target,
+        city: r.city,
+        name: r.name,
+        alt: r.alt || `${r.city} – ${r.name}`,
+        filename: r.filename,
+        src: hasStaticFile ? relPath : `/api/gallery-image/${r.id}/${encodeURIComponent(r.filename)}`,
+        created_at: r.created_at
+      };
+    });
+    res.json(items);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Public endpoint: serve uploaded image bytes directly from DB with long cache headers
+app.get('/api/gallery-image/:id/:filename?', async (req, res) => {
+  try {
+    const item = await dbGet('SELECT filename, image_data FROM gallery_items WHERE id = ?', [req.params.id]);
+    if (!item || !item.image_data) {
+      return res.status(404).send('Kép nem található');
+    }
+    const base64Part = item.image_data.includes(',') ? item.image_data.split(',')[1] : item.image_data;
+    const buffer = Buffer.from(base64Part, 'base64');
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).send('Hiba a kép betöltésekor');
+  }
+});
+
+// Admin endpoint: list all uploaded gallery/reference items
+app.get('/api/admin/references', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const rows = await dbAll('SELECT id, target, city, name, alt, filename, created_at FROM gallery_items ORDER BY id DESC');
+    const items = (rows || []).map(r => {
+      const folder = r.target === 'home_gallery' ? 'hawkstone' : 'wall';
+      const relPath = `pictures/${folder}/${r.filename}`;
+      const absPath = path.join(__dirname, 'public', 'pictures', folder, r.filename);
+      const hasStaticFile = fs.existsSync(absPath);
+      return {
+        id: r.id,
+        target: r.target,
+        city: r.city,
+        name: r.name,
+        alt: r.alt,
+        filename: r.filename,
+        src: hasStaticFile ? relPath : `/api/gallery-image/${r.id}/${encodeURIComponent(r.filename)}`,
+        saved_to_disk: hasStaticFile,
+        created_at: r.created_at
+      };
+    });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a referenciák lekérésekor: ' + error.message });
+  }
+});
+
+// Admin endpoint: upload, sanitize filename, save to DB (and public/pictures/* if writable)
+app.post('/api/admin/references', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { target, city, name, filename, customSlug, imageData, imageBase64 } = req.body;
+    const finalImageData = imageData || imageBase64;
+    if (!city || !finalImageData) {
+      return res.status(400).json({ error: 'A város/főcím és a kép kiválasztása kötelező.' });
+    }
+    const cleanTarget = target === 'home_gallery' ? 'home_gallery' : 'references';
+    const cleanCity = String(city).trim();
+    const cleanName = String(name || '').trim();
+    const cleanAlt = cleanName ? `${cleanCity} – ${cleanName}` : cleanCity;
+    const rawSlug = filename || customSlug || (cleanName ? `${cleanCity}-${cleanName}` : cleanCity);
+    let cleanFilename = toInternetFriendlyFilename(rawSlug);
+
+    const folder = cleanTarget === 'home_gallery' ? 'hawkstone' : 'wall';
+    const targetDir = path.join(__dirname, 'public', 'pictures', folder);
+    let savedToDisk = false;
+
+    // Avoid overwriting existing file with the same name by appending a short suffix if needed
+    try {
+      if (fs.existsSync(path.join(targetDir, cleanFilename))) {
+        const stem = cleanFilename.replace(/\.jpg$/i, '');
+        cleanFilename = `${stem}-${Date.now().toString().slice(-4)}.jpg`;
+      }
+      const base64Part = finalImageData.includes(',') ? finalImageData.split(',')[1] : finalImageData;
+      const buffer = Buffer.from(base64Part, 'base64');
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(path.join(targetDir, cleanFilename), buffer);
+      savedToDisk = true;
+    } catch (fsErr) {
+      // On read-only serverless filesystems (e.g. Vercel), DB storage serves the image via /api/gallery-image/:id/:filename
+      console.log('[GALLERY UPLOAD] Read-only filesystem, serving from database:', fsErr.message);
+    }
+
+    const result = await dbRun(
+      'INSERT INTO gallery_items (target, city, name, alt, filename, image_data) VALUES (?, ?, ?, ?, ?, ?)',
+      [cleanTarget, cleanCity, cleanName, cleanAlt, cleanFilename, finalImageData]
+    );
+
+    const newId = result.lastID;
+    const src = savedToDisk
+      ? `pictures/${folder}/${cleanFilename}`
+      : `/api/gallery-image/${newId}/${encodeURIComponent(cleanFilename)}`;
+
+    res.json({
+      success: true,
+      item: {
+        id: newId,
+        target: cleanTarget,
+        city: cleanCity,
+        name: cleanName,
+        alt: cleanAlt,
+        filename: cleanFilename,
+        src,
+        saved_to_disk: savedToDisk
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a kép feltöltésekor: ' + error.message });
+  }
+});
+
+// Admin endpoint: delete an uploaded gallery/reference item
+app.delete('/api/admin/references/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const item = await dbGet('SELECT * FROM gallery_items WHERE id = ?', [req.params.id]);
+    if (!item) {
+      return res.status(404).json({ error: 'A kiválasztott elem nem található.' });
+    }
+    const folder = item.target === 'home_gallery' ? 'hawkstone' : 'wall';
+    const filePath = path.join(__dirname, 'public', 'pictures', folder, item.filename);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (_) {}
+
+    await dbRun('DELETE FROM gallery_items WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a törlés során: ' + error.message });
+  }
+});
+
+// ---------------- SITE CONTACT SETTINGS API ----------------
+const DEFAULT_CONTACT_SETTINGS = {
+  company_name: 'HOVI-TECH Kft.',
+  address: '4531 Nyírpazony, Árpád u. 139.',
+  phone_display: '(+36) 30 574 6946',
+  phone_tel: '+36305746946',
+  email_primary: 'orangeramp.info@gmail.com',
+  email_secondary: 'info@hawkstone.hu',
+  web_primary: 'www.orangeramp.com',
+  web_secondary: 'www.hawkstone.hu'
+};
+
+app.get('/api/site-settings/contact', async (req, res) => {
+  try {
+    const row = await dbGet('SELECT setting_value FROM site_settings WHERE setting_key = ?', ['contact_info']);
+    if (!row || !row.setting_value) {
+      return res.json(DEFAULT_CONTACT_SETTINGS);
+    }
+    const parsed = JSON.parse(row.setting_value);
+    res.json({ ...DEFAULT_CONTACT_SETTINGS, ...parsed });
+  } catch (error) {
+    res.json(DEFAULT_CONTACT_SETTINGS);
+  }
+});
+
+app.put('/api/admin/site-settings/contact', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const {
+      company_name,
+      address,
+      phone_display,
+      email_primary,
+      email_secondary,
+      web_primary,
+      web_secondary
+    } = req.body;
+
+    if (!company_name || !address || !phone_display || !email_primary) {
+      return res.status(400).json({ error: 'A cégnév, a cím, a telefonszám és az elsődleges e-mail cím megadása kötelező.' });
+    }
+
+    const cleanPhoneDisplay = String(phone_display).trim();
+    const cleanPhoneTel = cleanPhoneDisplay.replace(/[^+\d]/g, '') || '+36305746946';
+
+    const updated = {
+      company_name: String(company_name).trim(),
+      address: String(address).trim(),
+      phone_display: cleanPhoneDisplay,
+      phone_tel: cleanPhoneTel,
+      email_primary: String(email_primary).trim(),
+      email_secondary: String(email_secondary || '').trim(),
+      web_primary: String(web_primary || '').trim(),
+      web_secondary: String(web_secondary || '').trim()
+    };
+
+    const jsonVal = JSON.stringify(updated);
+    const existing = await dbGet('SELECT setting_key FROM site_settings WHERE setting_key = ?', ['contact_info']);
+    if (existing) {
+      await dbRun('UPDATE site_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?', [jsonVal, 'contact_info']);
+    } else {
+      await dbRun('INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)', ['contact_info', jsonVal]);
+    }
+
+    res.json({ success: true, contact: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a kapcsolati adatok mentésekor: ' + error.message });
+  }
+});
+
+// ---------------- WALL PRODUCTS (maszofalaink.html) API ----------------
+app.get('/api/wall-products', async (req, res) => {
+  try {
+    const rows = await dbAll('SELECT id, category, code, title, height, width, surface, anchor_points, filename, sort_order, created_at FROM wall_products ORDER BY sort_order ASC, id ASC');
+    const items = (rows || []).map(r => {
+      const relPath = `pictures/iskolai/${r.filename}`;
+      const absPath = path.join(__dirname, 'public', 'pictures', 'iskolai', r.filename);
+      const hasStaticFile = fs.existsSync(absPath);
+      return {
+        id: r.id,
+        category: r.category,
+        code: r.code,
+        title: r.title,
+        height: r.height,
+        width: r.width,
+        surface: r.surface,
+        anchor_points: r.anchor_points || '',
+        filename: r.filename,
+        src: hasStaticFile ? relPath : `/api/wall-product-image/${r.id}/${encodeURIComponent(r.filename)}`,
+        created_at: r.created_at
+      };
+    });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a mászófal kártyák lekérésekor: ' + error.message });
+  }
+});
+
+app.get('/api/wall-product-image/:id/:filename?', async (req, res) => {
+  try {
+    const item = await dbGet('SELECT filename, image_data FROM wall_products WHERE id = ?', [req.params.id]);
+    if (!item || !item.image_data) {
+      return res.status(404).send('Kép nem található');
+    }
+    const base64Part = item.image_data.includes(',') ? item.image_data.split(',')[1] : item.image_data;
+    const buffer = Buffer.from(base64Part, 'base64');
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).send('Hiba a kép betöltésekor');
+  }
+});
+
+app.post('/api/admin/wall-products', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { category, code, title, height, width, surface, anchor_points, filename, imageData } = req.body;
+    if (!code || !title || !height || !width || !surface || !imageData) {
+      return res.status(400).json({ error: 'A típusszám, megnevezés, méretek, felület és a kép megadása kötelező.' });
+    }
+
+    const validCategories = ['iskolai', 'boulder', 'jatszoter', 'egyeb'];
+    const cleanCategory = validCategories.includes(category) ? category : 'iskolai';
+    const cleanCode = String(code).trim();
+    const cleanTitle = String(title).trim();
+    const cleanHeight = String(height).trim();
+    const cleanWidth = String(width).trim();
+    const cleanSurface = String(surface).trim();
+    const cleanAnchors = String(anchor_points || '').trim();
+    let cleanFilename = toInternetFriendlyFilename(filename || `${cleanCode}-${cleanTitle}`, 'maszofal');
+
+    const targetDir = path.join(__dirname, 'public', 'pictures', 'iskolai');
+    let savedToDisk = false;
+
+    try {
+      if (fs.existsSync(path.join(targetDir, cleanFilename))) {
+        const stem = cleanFilename.replace(/\.jpg$/i, '');
+        cleanFilename = `${stem}-${Date.now().toString().slice(-4)}.jpg`;
+      }
+      const base64Part = imageData.includes(',') ? imageData.split(',')[1] : imageData;
+      const buffer = Buffer.from(base64Part, 'base64');
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(path.join(targetDir, cleanFilename), buffer);
+      savedToDisk = true;
+    } catch (fsErr) {
+      console.log('[WALL PRODUCT UPLOAD] Read-only filesystem, serving from database:', fsErr.message);
+    }
+
+    const maxSortRow = await dbGet('SELECT MAX(sort_order) as maxSort FROM wall_products');
+    const nextSort = (maxSortRow && maxSortRow.maxSort ? maxSortRow.maxSort : 9) + 1;
+
+    const result = await dbRun(
+      'INSERT INTO wall_products (category, code, title, height, width, surface, anchor_points, filename, image_data, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [cleanCategory, cleanCode, cleanTitle, cleanHeight, cleanWidth, cleanSurface, cleanAnchors, cleanFilename, imageData, nextSort]
+    );
+
+    const newId = result.lastID;
+    const src = savedToDisk
+      ? `pictures/iskolai/${cleanFilename}`
+      : `/api/wall-product-image/${newId}/${encodeURIComponent(cleanFilename)}`;
+
+    res.json({
+      success: true,
+      item: {
+        id: newId,
+        category: cleanCategory,
+        code: cleanCode,
+        title: cleanTitle,
+        height: cleanHeight,
+        width: cleanWidth,
+        surface: cleanSurface,
+        anchor_points: cleanAnchors,
+        filename: cleanFilename,
+        src
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a mászófal kártya mentésekor: ' + error.message });
+  }
+});
+
+app.delete('/api/admin/wall-products/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const item = await dbGet('SELECT * FROM wall_products WHERE id = ?', [req.params.id]);
+    if (!item) {
+      return res.status(404).json({ error: 'A kiválasztott mászófal kártya nem található.' });
+    }
+
+    // Ha saját feltöltött képfájl volt (image_data nem üres), töröljük a lemezről is
+    if (item.image_data) {
+      const filePath = path.join(__dirname, 'public', 'pictures', 'iskolai', item.filename);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (_) {}
+    }
+
+    await dbRun('DELETE FROM wall_products WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a törlés során: ' + error.message });
+  }
+});
+
 // Subdomain & Club Routing
 app.get(['/klub', '/maszoklub', '/foglalas'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'klub.html'));
@@ -3645,6 +4106,10 @@ app.get('/referenciak', (req, res) => {
 
 app.get('/maszofalaink', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'maszofalaink.html'));
+});
+
+app.get('/webadmin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'webadmin.html'));
 });
 
 // Fallback to client routing / 404 error page

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weboldal Adminisztráció | HawkStone Mászófalak</title>
+  <meta name="description" content="HawkStone Mászófalak központi weboldal adminisztrációs felület – referenciák, galéria és kapcsolati adatok kezelése.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="stylesheet" href="style.css?v=20261105_c84">
+</head>
+<body class="theme-silver">
+
+  <div id="toast-container" class="toast-container"></div>
+  <header></header>
+
+  <main class="container" style="padding: 40px 20px 80px 20px; min-height: calc(100vh - 200px);">
+
+    <!-- 1. BEJELENTKEZÉSI NÉZET (ha nincs belépve ADMIN/STAFF jogosultsággal) -->
+    <div id="webadmin-login-view" style="display: none; max-width: 460px; margin: 50px auto;">
+      <div class="glass-card auth-shadow" style="padding: 36px 32px;">
+        <div style="text-align: center; margin-bottom: 26px;">
+          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 48px; width: auto; margin-bottom: 14px;">
+          <span class="badge badge-primary" style="margin-bottom: 8px;">HAWKSTONE.HU • WEBOLDAL ADMIN</span>
+          <h2 style="font-size: 24px; color: #ffffff; margin: 6px 0; font-family: 'Montserrat', sans-serif; font-weight: 800;">Weboldal Adminisztráció</h2>
+          <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Jelentkezz be az adminisztrátori fiókoddal a referenciák, galéria és kapcsolati adatok szerkesztéséhez.</p>
+        </div>
+
+        <form id="webadmin-login-form" onsubmit="handleWebAdminLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="webadmin-email">Felhasználónév vagy E-mail cím</label>
+            <input type="text" id="webadmin-email" class="form-control" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="webadmin-password">Jelszó</label>
+            <div style="position: relative;">
+              <input type="password" id="webadmin-password" class="form-control" required autocomplete="current-password">
+              <span class="password-toggle-eye" onclick="togglePasswordVisibility('webadmin-password')">👁️</span>
+            </div>
+          </div>
+          <button type="submit" id="webadmin-login-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-weight: 700;">
+            Belépés a Weboldal Adminba
+          </button>
+        </form>
+
+        <div style="margin-top: 20px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <a href="index.html" style="font-size: 13px; color: var(--text-secondary); text-decoration: none;">← Vissza a főoldalra</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. BEJELENTKEZETT WEBOLDAL ADMIN PANEL -->
+    <div id="webadmin-panel-view" style="display: none;">
+      <div style="margin-bottom: 30px; text-align: center;">
+        <span class="badge badge-primary" style="margin-bottom: 8px;">HAWKSTONE • KÖZPONTI WEBOLDAL</span>
+        <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; font-weight: 800;">Weboldal Adminisztráció</h2>
+        <h3 id="webadmin-active-tab-title" style="font-size: 16px; color: #ffffff; text-transform: uppercase; margin-top: 8px; font-weight: 700; letter-spacing: 0.08em; font-family: 'Montserrat', sans-serif;">REFERENCIÁK ÉS GALÉRIA KEZELÉSE</h3>
+      </div>
+
+      <!-- Gyors fülválasztó gombok -->
+      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 32px;">
+        <button type="button" id="webadmin-tab-btn-references" onclick="switchWebAdminTab('references')" class="btn btn-primary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+          Referenciák &amp; Galéria Képfeltöltés
+        </button>
+        <button type="button" id="webadmin-tab-btn-walls" onclick="switchWebAdminTab('walls')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+          Mászófalaink Oldal Kártyák
+        </button>
+        <button type="button" id="webadmin-tab-btn-news" onclick="switchWebAdminTab('news')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+          Üzenőfal Kezelése
+        </button>
+        <button type="button" id="webadmin-tab-btn-contact" onclick="switchWebAdminTab('contact')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+          Kapcsolati Adatok Szerkesztése
+        </button>
+      </div>
+
+      <!-- FÜL 1: REFERENCIÁK ÉS GALÉRIA FELTÖLTÉS -->
+      <div id="webadmin-references-content" style="display: block;">
+        <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; align-items: start;">
+
+            <!-- Bal oldal: Képfeltöltés és automatikus konvertálás -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 22px; border-radius: 14px;">
+              <h4 style="font-size: 16px; margin-bottom: 18px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">+ Új referencia vagy galériakép feltöltése</h4>
+
+              <form id="admin-reference-form" onsubmit="handleAdminReferenceUpload(event)">
+                <div class="form-group">
+                  <label class="form-label" style="margin-bottom: 8px; display: block;">Hová kerüljön a kép?</label>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <label id="ref-target-card-references" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--primary); background: rgba(242, 118, 32, 0.12); cursor: pointer; transition: all 0.25s ease;">
+                      <input type="radio" name="admin-ref-target" value="references" checked onchange="updateAdminRefTargetUI()" style="accent-color: var(--primary);">
+                      <div>
+                        <strong style="display: block; font-size: 13px; color: #ffffff;">Referenciák oldal</strong>
+                        <span style="font-size: 11px; color: var(--text-secondary);">referenciak.html</span>
+                      </div>
+                    </label>
+                    <label id="ref-target-card-home" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border-color); background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: all 0.25s ease;">
+                      <input type="radio" name="admin-ref-target" value="home_gallery" onchange="updateAdminRefTargetUI()" style="accent-color: var(--primary);">
+                      <div>
+                        <strong style="display: block; font-size: 13px; color: #ffffff;">Főoldali galéria</strong>
+                        <span style="font-size: 11px; color: var(--text-secondary);">index.html#gallery</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="admin-ref-city">Város / Főcím (narancssárga felirat)</label>
+                  <input type="text" id="admin-ref-city" class="form-control" placeholder="pl. Budapest vagy Kültéri mászófal" required oninput="updateAdminRefPreviewAndSlug()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="admin-ref-name">Intézmény / Megnevezés (alsó felirat – opcionális)</label>
+                  <input type="text" id="admin-ref-name" class="form-control" placeholder="pl. Kossuth Lajos Ált. Isk." oninput="updateAdminRefPreviewAndSlug()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="admin-ref-slug">Generált internetbarát fájlnév (automatikus)</label>
+                  <input type="text" id="admin-ref-slug" class="form-control" placeholder="pl. budapest-kossuth-lajos-alt-isk.jpg" oninput="this.dataset.manual='1'">
+                  <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">A rendszer automatikusan eltávolítja az ékezeteket és szóközöket.</small>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="admin-ref-file">Fotó kiválasztása (JPG, PNG, WEBP)</label>
+                  <input type="file" id="admin-ref-file" class="form-control" accept="image/*" required onchange="handleAdminRefFileChange(this)" style="padding: 9px 12px;">
+                  <div id="admin-ref-opt-info" style="font-size: 12px; color: #22c55e; margin-top: 6px; display: none;"></div>
+                </div>
+
+                <button type="submit" id="admin-ref-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-weight: 700;">
+                  Kép konvertálása és hozzáadása
+                </button>
+              </form>
+            </div>
+
+            <!-- Jobb oldal: Élő előnézet & útmutató -->
+            <div>
+              <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő kártya előnézet</h4>
+              <div style="max-width: 340px; margin-bottom: 24px;">
+                <div class="ref-scatter-item" style="cursor: default; pointer-events: none;">
+                  <img id="admin-ref-preview-img" src="pictures/minta.png" alt="Előnézet">
+                  <div class="ref-scatter-caption">
+                    <span class="ref-scatter-city" id="admin-ref-preview-city">VÁROS / FŐCÍM</span>
+                    <span class="ref-scatter-name" id="admin-ref-preview-name">Intézmény vagy mászófal neve</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-justify" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <h5 style="font-size: 14px; color: var(--text-primary); margin: 0 0 10px 0;">Hogyan működik az automatikus optimalizálás?</h5>
+                <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0; line-height: 1.65;">
+                  <li><strong>Internetbarát fájlnév:</strong> A megadott városból és névből automatikusan ékezet- és szóközmentes fájlnév készül (pl. <code>debrecen-uj-iskola.jpg</code>).</li>
+                  <li><strong>Képtömörítés és méretezés:</strong> A nagy felbontású telefonos vagy fényképezőgépes fotókat a rendszer automatikusan max. <code>2048 px</code> méretre és web-optimalizált JPEG formátumra konvertálja.</li>
+                  <li><strong>2 célhely:</strong> Választhatsz, hogy a kép a <strong>Referenciák oldalra</strong> (<code>referenciak.html</code>) vagy a <strong>Főoldali galériába</strong> (<code>index.html</code>) kerüljön be. Mindkét esetben a teljes képernyős nagyítóban (Lightbox) is lapozható lesz!</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 35px 0 25px 0;">
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+            <h4 style="font-size: 16px; margin: 0; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Feltöltött képek kezelése</h4>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" id="admin-ref-filter-all" onclick="filterAdminReferences('all')" class="btn btn-primary btn-sm" style="padding: 6px 14px; font-size: 12px;">Összes</button>
+              <button type="button" id="admin-ref-filter-references" onclick="filterAdminReferences('references')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Referenciák oldal</button>
+              <button type="button" id="admin-ref-filter-home" onclick="filterAdminReferences('home_gallery')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Főoldali galéria</button>
+            </div>
+          </div>
+
+          <div id="admin-references-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px;">
+            <p style="color: var(--text-muted);">Feltöltött képek betöltése...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FÜL 2: MÁSZÓFALAINK OLDAL KÁRTYÁK KEZELÉSE -->
+      <div id="webadmin-walls-content" style="display: none;">
+        <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; align-items: start;">
+
+            <!-- Bal oldal: Új mászófal kártya hozzáadása -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 22px; border-radius: 14px;">
+              <h4 style="font-size: 16px; margin-bottom: 18px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">+ Új mászófal kártya hozzáadása</h4>
+
+              <form id="webadmin-wall-form" onsubmit="handleWebAdminWallSubmit(event)">
+                <div class="form-group">
+                  <label class="form-label" for="ww-category">Kategória (Melyik szekcióba kerüljön?)</label>
+                  <select id="ww-category" class="form-control" onchange="updateWebAdminWallCategoryDefaults()">
+                    <option value="iskolai">Iskolai mászófalak</option>
+                    <option value="boulder">Boulder mászófalak</option>
+                    <option value="jatszoter">Játszóterekre, parkokba</option>
+                    <option value="egyeb">Egyéb mászófalak</option>
+                  </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label class="form-label" for="ww-code">Kód / Típus</label>
+                    <input type="text" id="ww-code" class="form-control" placeholder="pl. M1110" required oninput="updateWebAdminWallPreview()">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="ww-title">Megnevezés</label>
+                    <input type="text" id="ww-title" class="form-control" value="Iskolai Mászófal" placeholder="pl. Iskolai Mászófal" required oninput="updateWebAdminWallPreview()">
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label class="form-label" for="ww-height">Magasság</label>
+                    <input type="text" id="ww-height" class="form-control" placeholder="pl. 6 m vagy 3 m" required oninput="updateWebAdminWallPreview()">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="ww-width">Szélesség</label>
+                    <input type="text" id="ww-width" class="form-control" placeholder="pl. 4 m vagy 2 x 2,5 m" required oninput="updateWebAdminWallPreview()">
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label class="form-label" for="ww-surface">Felülete*</label>
+                    <input type="text" id="ww-surface" class="form-control" placeholder="pl. kb. 24 m²" required oninput="updateWebAdminWallPreview()">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="ww-anchors">Felsőbiztosítási pontok (opcionális)</label>
+                    <input type="text" id="ww-anchors" class="form-control" placeholder="pl. 6 db (üresen hagyható)" oninput="updateWebAdminWallPreview()">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="ww-slug">Generált internetbarát fájlnév (automatikus)</label>
+                  <input type="text" id="ww-slug" class="form-control" placeholder="pl. iskolai-maszofal-m1110.jpg" oninput="this.dataset.manual='1'">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="ww-file">Mászófal látványterv / fotó (JPG, PNG, WEBP)</label>
+                  <input type="file" id="ww-file" class="form-control" accept="image/*" required onchange="handleWebAdminWallFileChange(this)" style="padding: 9px 12px;">
+                  <div id="ww-opt-info" style="font-size: 12px; color: #22c55e; margin-top: 6px; display: none;"></div>
+                </div>
+
+                <button type="submit" id="ww-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-weight: 700;">
+                  Mászófal kártya hozzáadása
+                </button>
+              </form>
+            </div>
+
+            <!-- Jobb oldal: Élő Mászófalaink kártya előnézet -->
+            <div>
+              <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő kártya előnézet (Mászófalaink oldal)</h4>
+              <div style="max-width: 340px; margin-bottom: 24px;">
+                <article class="glass-card school-card" style="margin: 0;">
+                  <div class="school-card-img">
+                    <img id="ww-preview-img" src="pictures/iskolai/fal1-1.jpg" alt="Előnézet">
+                  </div>
+                  <div class="school-card-body">
+                    <span class="school-nr" id="ww-preview-code">M1110</span>
+                    <h3 id="ww-preview-title">Iskolai Mászófal</h3>
+                    <ul>
+                      <li><span>Magasság</span><strong id="ww-preview-height">6 m</strong></li>
+                      <li><span>Szélesség</span><strong id="ww-preview-width">3 m</strong></li>
+                      <li><span>Felülete*</span><strong id="ww-preview-surface">kb. 24 m²</strong></li>
+                      <li id="ww-preview-anchors-row"><span>Felsőbiztosítási pontok</span><strong id="ww-preview-anchors">6 db</strong></li>
+                    </ul>
+                  </div>
+                </article>
+              </div>
+
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; text-align: left;">
+                <h5 style="font-size: 14px; color: var(--text-primary); margin: 0 0 10px 0;">Mászófalaink oldal kezelése</h5>
+                <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0; line-height: 1.65;">
+                  <li><strong>4 kategória:</strong> Válaszd ki, hogy az új fal az <em>Iskolai</em>, <em>Boulder</em>, <em>Játszóterekre/parkokba</em> vagy <em>Egyéb mászófalak</em> szekcióban jelenjen meg a <code>maszofalaink.html</code> oldalon.</li>
+                  <li><strong>Felsőbiztosítási pontok:</strong> Ha a mezőt üresen hagyod (pl. Boulder falnál), az a sor automatikusan elrejtőzik a kártyán.</li>
+                  <li><strong>Kártyák törlése:</strong> Az alábbi listában az összes jelenlegi mászófal kártya látható kategóriánként – bármelyiket egyetlen kattintással törölheted.</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 35px 0 25px 0;">
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+            <h4 style="font-size: 16px; margin: 0; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Mászófalaink oldalon lévő kártyák (<span id="ww-total-count">0</span> db)</h4>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" id="ww-filter-all" onclick="filterWebAdminWalls('all')" class="btn btn-primary btn-sm" style="padding: 6px 14px; font-size: 12px;">Összes</button>
+              <button type="button" id="ww-filter-iskolai" onclick="filterWebAdminWalls('iskolai')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Iskolai</button>
+              <button type="button" id="ww-filter-boulder" onclick="filterWebAdminWalls('boulder')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Boulder</button>
+              <button type="button" id="ww-filter-jatszoter" onclick="filterWebAdminWalls('jatszoter')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Játszótér</button>
+              <button type="button" id="ww-filter-egyeb" onclick="filterWebAdminWalls('egyeb')" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-size: 12px;">Egyéb</button>
+            </div>
+          </div>
+
+          <div id="webadmin-walls-list" class="school-grid" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px;">
+            <p style="color: var(--text-muted);">Mászófal kártyák betöltése...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FÜL 2: KAPCSOLATI ADATOK SZERKESZTÉSE -->
+      <div id="webadmin-contact-content" style="display: none;">
+        <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; align-items: start;">
+
+            <!-- Bal oldal: Kapcsolati adatok űrlap -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 24px; border-radius: 14px;">
+              <h4 style="font-size: 16px; margin-bottom: 8px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Weboldal Kapcsolati Adatok</h4>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                Az itt módosított adatok automatikusan frissülnek a weboldal fejlécében, a mobil menüben és a <strong>Kapcsolat</strong> (<code>kapcsolat.html</code>) oldalon.
+              </p>
+
+              <form id="webadmin-contact-form" onsubmit="handleSaveWebAdminContact(event)">
+                <div class="form-group">
+                  <label class="form-label" for="wc-company-name">Cégnév / Gyártó neve</label>
+                  <input type="text" id="wc-company-name" class="form-control" placeholder="HOVI-TECH Kft." required oninput="updateWebAdminContactPreview()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="wc-address">Székhely / Postacím</label>
+                  <input type="text" id="wc-address" class="form-control" placeholder="4531 Nyírpazony, Árpád u. 139." required oninput="updateWebAdminContactPreview()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="wc-phone-display">Telefonszám (megjelenített formátum)</label>
+                  <input type="text" id="wc-phone-display" class="form-control" placeholder="(+36) 30 574 6946" required oninput="updateWebAdminContactPreview()">
+                  <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">A fejlécben és a Kapcsolat oldalon megjelenő telefonszám (a hívó link automatikusan képződik).</small>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="wc-email-primary">Elsődleges E-mail cím (Fejléc + Kapcsolat oldal)</label>
+                  <input type="email" id="wc-email-primary" class="form-control" placeholder="orangeramp.info@gmail.com" required oninput="updateWebAdminContactPreview()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="wc-email-secondary">Másodlagos E-mail cím (Kapcsolat oldal – opcionális)</label>
+                  <input type="email" id="wc-email-secondary" class="form-control" placeholder="info@hawkstone.hu" oninput="updateWebAdminContactPreview()">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label class="form-label" for="wc-web-primary">Weboldal 1</label>
+                    <input type="text" id="wc-web-primary" class="form-control" placeholder="www.orangeramp.com" oninput="updateWebAdminContactPreview()">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="wc-web-secondary">Weboldal 2</label>
+                    <input type="text" id="wc-web-secondary" class="form-control" placeholder="www.hawkstone.hu" oninput="updateWebAdminContactPreview()">
+                  </div>
+                </div>
+
+                <button type="submit" id="wc-save-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-weight: 700;">
+                  Kapcsolati adatok mentése
+                </button>
+              </form>
+            </div>
+
+            <!-- Jobb oldal: Élő Kapcsolat kártya előnézet -->
+            <div>
+              <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő előnézet (Kapcsolat oldal kártya)</h4>
+              <div class="glass-card contact-card contact-card-main" style="padding: 26px;">
+                <h2 class="contact-company" id="wc-preview-company" style="margin-top: 0;">HOVI-TECH Kft.</h2>
+                <ul class="contact-list">
+                  <li>
+                    <span class="contact-icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </span>
+                    <div>
+                      <span class="contact-label">Cím</span>
+                      <span class="contact-value" id="wc-preview-address">HOVI-TECH Kft.<br>4531 Nyírpazony, Árpád u. 139.</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="contact-icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    </span>
+                    <div>
+                      <span class="contact-label">Telefon</span>
+                      <span class="contact-value contact-link" id="wc-preview-phone">(+36) 30 574 6946</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="contact-icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+                    </span>
+                    <div>
+                      <span class="contact-label">E-mail</span>
+                      <span class="contact-value contact-link" id="wc-preview-email1">orangeramp.info@gmail.com</span>
+                      <span class="contact-value contact-link" id="wc-preview-email2">info@hawkstone.hu</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="contact-icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </span>
+                    <div>
+                      <span class="contact-label">Web</span>
+                      <span class="contact-value" id="wc-preview-web">www.orangeramp.com<br>www.hawkstone.hu</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- FÜL 4: ÜZENŐFAL KEZELÉSE (KÖZPONTI WEBOLDAL) -->
+      <div id="webadmin-news-content" style="display: none;">
+        <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; align-items: start; margin-bottom: 30px;">
+            <!-- Bal oldal: Új közlemény / szerkesztés -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 22px; border-radius: 14px; width: 100%;">
+              <h4 id="webadmin-news-form-title" style="font-size: 16px; margin-bottom: 18px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Új közlemény közzététele a weboldalon</h4>
+              <form id="webadmin-news-form" onsubmit="saveWebAdminNews(event)">
+                <input type="hidden" id="webadmin-news-id" value="">
+                <input type="hidden" id="webadmin-news-image" value="">
+
+                <div class="form-group">
+                  <label class="form-label" for="webadmin-news-title">Közlemény Címe</label>
+                  <input type="text" id="webadmin-news-title" class="form-control" placeholder="Például: Új referenciák vagy nyári akció" style="text-align: center;" required oninput="updateWebAdminNewsPreview()">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Közlemény Szövege (középre zárt)</label>
+                  <div class="rich-editor">
+                    <div class="rich-editor-toolbar" style="justify-content: center;">
+                      <button type="button" class="editor-btn" onclick="formatWebAdminEditorText('b')" title="Félkövér"><b>B</b></button>
+                      <button type="button" class="editor-btn" onclick="formatWebAdminEditorText('i')" title="Dőlt"><i>I</i></button>
+                      <button type="button" class="editor-btn" onclick="formatWebAdminEditorText('u')" title="Aláhúzott"><u>U</u></button>
+                    </div>
+                    <textarea id="webadmin-news-content-text" class="editor-textarea" style="text-align: center;" placeholder="Írd ide a közlemény szövegét... Formázáshoz jelöld ki a szöveget és kattints a fenti gombokra!" required oninput="updateWebAdminNewsPreview()"></textarea>
+                  </div>
+                </div>
+
+                <div class="form-group" style="display:flex; align-items:center; gap:15px; margin-top: 15px;">
+                  <label class="form-label" style="margin-bottom:0; cursor:pointer;" for="webadmin-news-active">Aktív közlemény (Azonnali felugrás a főoldalon):</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="webadmin-news-active" onchange="updateWebAdminNewsPreview()">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                  <button type="submit" id="webadmin-news-submit-btn" class="btn btn-primary" style="flex:1;">Közzététel</button>
+                  <button type="button" id="webadmin-news-cancel-btn" onclick="cancelWebAdminNewsEdit()" class="btn btn-secondary" style="display:none;">Mégse</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Jobb oldal: Élő előnézet & tudnivalók -->
+            <div>
+              <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő előnézet (Felugró közlemény)</h4>
+              <div style="background: var(--bg-card-solid, #121622); border: 1px solid var(--border-color); border-radius: 16px; padding: 28px 24px; box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 24px rgba(242,118,32,0.12); position: relative; text-align: center; margin-bottom: 22px;">
+                <span style="position: absolute; top: 12px; right: 16px; color: var(--text-muted); font-size: 20px; line-height: 1; pointer-events: none;">&times;</span>
+                <h3 id="webadmin-news-preview-title" style="font-size: 22px; color: var(--primary); margin: 0 0 14px 0; font-family: 'Montserrat', sans-serif; font-weight: 800; text-align: center;">Közlemény Címe</h3>
+                <div id="webadmin-news-preview-content" class="announcement-modal-content" style="text-align: center; white-space: pre-line; font-size: 15px; line-height: 1.6; color: var(--text-secondary);">Írd be bal oldalon a közlemény címét és szövegét az élő előnézethez!</div>
+              </div>
+
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; text-align: left;">
+                <h5 style="font-size: 14px; margin: 0 0 10px 0; color: var(--text-primary);">Hogyan működik a Weboldal Üzenőfal?</h5>
+                <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0; line-height: 1.65;">
+                  <li><strong>Felugró ablak (Modal):</strong> Ha egy közleményt <strong>Aktív</strong> állapotba helyezel, az automatikusan megnyílik minden látogatónak, aki betölti a központi weboldalt (<code>hawkstone.hu</code>).</li>
+                  <li><strong>Egyszerre csak egy aktív közlemény:</strong> Ha bekapcsolod az aktív státuszt egy hírnél, a rendszer a többi korábbi weboldalas hírt automatikusan inaktívvá teszi (a Mászóklub üzenőfalától függetlenül).</li>
+                  <li><strong>Formázás:</strong> A <b>B</b>, <i>I</i>, <u>U</u> gombokkal kiemelheted a kijelölt szövegrészeket.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0 25px 0;">
+
+          <h4 style="font-size: 16px; margin-bottom: 15px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Eddigi weboldal közlemények</h4>
+          <div id="webadmin-news-list" class="news-list">
+            <p style="color:var(--text-muted);">Közlemények betöltése...</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="pictures/logos/header_logo.png" alt="HawkStone Logo" style="height: 32px; width: auto;">
+          <span style="font-size: 13px; font-weight: 600; color: #ffffff;">HawkStone | Mászófalak</span>
+        </div>
+      </div>
+
+      <p>&copy; 2026 HawkStone | Mászófalak • Hovi-Tech Kft. <a href="webadmin.html" class="footer-admin-link">Adminisztráció</a></p>
+
+      <p style="font-size:12px; margin-top: 8px; margin-bottom: 8px;">
+        <a href="index.html" class="footer-link">Főoldal</a> |
+        <a href="referenciak.html" class="footer-link">Referenciáink</a> |
+        <a href="kapcsolat.html" class="footer-link">Kapcsolat</a> |
+        <a href="adatvedelem.html" class="footer-link">Adatkezelési Tájékoztató</a> |
+        <a href="impresszum.html" class="footer-link">Impresszum</a> |
+        <a href="aszf.html" class="footer-link">ÁSZF</a>
+      </p>
+      <p style="font-size:12px; margin-bottom: 0;">design by: <a href="https://rekalaca-webdesign.hu" target="_blank" class="footer-gold-link">rekalaca-webdesign</a></p>
+    </div>
+  </footer>
+
+  <script src="app.js?v=20261105_c84"></script>
+</body>
+</html>
+
