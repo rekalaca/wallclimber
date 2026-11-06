@@ -508,6 +508,17 @@ async function initDB() {
     await dbRun("INSERT INTO site_settings (setting_key, setting_value) VALUES ('wall_products_seeded', '1')");
   }
 
+  // Seed Homepage Wall Types if not yet seeded
+  const wallTypesSeeded = await dbGet('SELECT setting_value FROM site_settings WHERE setting_key = ?', ['wall_types_seeded']);
+  if (!wallTypesSeeded) {
+    const existingWallTypes = await dbGet('SELECT setting_value FROM site_settings WHERE setting_key = ?', ['home_wall_types']);
+    if (!existingWallTypes || !existingWallTypes.setting_value) {
+      const defaultTypesJson = JSON.stringify(DEFAULT_HOME_WALL_TYPES);
+      await dbRun('INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)', ['home_wall_types', defaultTypesJson]);
+    }
+    await dbRun("INSERT INTO site_settings (setting_key, setting_value) VALUES ('wall_types_seeded', '1')");
+  }
+
   // Seed Locations
   const locationsCount = await dbGet('SELECT COUNT(*) as count FROM locations');
   if (locationsCount.count === 0) {
@@ -3890,6 +3901,112 @@ app.delete('/api/admin/references/:id', authenticateToken, requireRole(['STAFF',
   }
 });
 
+// ---------------- DEFAULT HOME WALL TYPES (MÁSZÓFAL TÍPUSAINK) ----------------
+const DEFAULT_HOME_WALL_TYPES = [
+  {
+    id: 1,
+    nr: '01',
+    badge: 'Beltéri & Kültéri',
+    title: 'Mászófalak',
+    desc: 'A mászófal felülete 21 mm vastag rétegelt lemez, amely kellő felületi keménységet és tartósságot ad a mászófalnak. Felületüket magas kopásállóságú festékkel festjük. Gazdag színvilág. A háromszög alakokkal tudjuk a legjobban imitálni az áthajlásokat és töréseket.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 2,
+    nr: '02',
+    badge: '2.5 – 3 méter',
+    title: 'Boulder mászófalak',
+    desc: 'A fal magassága 2.5–3 méter. A mászó biztosítás nélkül használja a falat. Esés esetén a fal alatt elhelyezett vastag szőnyeg, kültéren esésfelfogó homok védi a mászót. A mászás le-föl és oldalirányban történhet. Használata nem igényel szakmai felügyeletet.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 3,
+    nr: '03',
+    badge: 'EN 1176 szabvány',
+    title: 'Játszótéri mászófalak (Tulip-play.com)',
+    desc: 'Időjárásálló, UV-álló alapanyagok felhasználásával készülnek. A mászófalak élei, sarkai lekerekítettek. Építésnél, tervezésnél az EN 1176 játszótéri szabványt vesszük figyelembe. Áraink az esésfelfogó zónák költségeit és kialakításait nem tartalmazzák.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 4,
+    nr: '04',
+    badge: 'Kompozit textúra',
+    title: 'Sziklahű felületű mászófal',
+    desc: 'A mászófal felületével teljesen imitálni tudjuk a természetes szikla alakjait, formáit, a fal töréseit és repedéseit. Látványos, mászása nagy élményt nyújt. Műgyanta, üvegszövet és finom kvarchomok egységéből álló prémium felület.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 5,
+    nr: '05',
+    badge: 'Fa + Sziklahű',
+    title: 'Kombinált felületű mászófal',
+    desc: 'A mászófal felülete átmenetet képez a sziklahű és a rétegelt lemezes sík fal felülete között. A fafelületre kész formákat dolgozunk fel, felületét a sziklahű mászófal felületéhez hasonlóan kezeljük.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 6,
+    nr: '06',
+    badge: 'Bérelhető & Brandingelhető',
+    title: 'Egyedi mobil mászófalak',
+    desc: 'A falmászás és a legújabb technikák ötvözete! Legyen Ön a következő, aki a rendezvényére bérli vagy brandingeli a forgó mászófalunkat. Kiváló reklámfelület! Felülete: 6 m x 2.4 m.',
+    note_title: 'Működési elve:',
+    note: 'A fal végtelenített alumínium redőnye egy motor segítségével körbeforog. A mászó biztosítás nélkül mászhat a falon. Az esés esetén a fal alatt elhelyezett védőszőnyegek nyújtanak biztonságot. A fal alján és tetején elhelyezett fotocellás érzékelők jeleire a számítógép gyorsítja és lassítja a forgó redőnyt. Ha a mászó karjával beér a felső fotocellába, a redőny forgása gyorsul; ha a mászó lába az alsó fotocella útjába kerül, a forgás lassul.'
+  }
+];
+
+// ---------------- HOME WALL TYPES API (MÁSZÓFAL TÍPUSAINK) ----------------
+app.get('/api/site-settings/wall-types', async (req, res) => {
+  try {
+    const row = await dbGet('SELECT setting_value FROM site_settings WHERE setting_key = ?', ['home_wall_types']);
+    if (!row || !row.setting_value) {
+      return res.json(DEFAULT_HOME_WALL_TYPES);
+    }
+    const parsed = JSON.parse(row.setting_value);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return res.json(DEFAULT_HOME_WALL_TYPES);
+    }
+    res.json(parsed);
+  } catch (error) {
+    res.json(DEFAULT_HOME_WALL_TYPES);
+  }
+});
+
+app.put('/api/admin/site-settings/wall-types', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'A kártyák listájának megadása kötelező.' });
+    }
+
+    const cleanItems = items.map((item, idx) => ({
+      id: Number(item.id) || (idx + 1),
+      nr: String(item.nr || `0${idx + 1}`).trim(),
+      badge: String(item.badge || '').trim(),
+      title: String(item.title || '').trim(),
+      desc: String(item.desc || '').trim(),
+      note_title: String(item.note_title || '').trim(),
+      note: String(item.note || '').trim()
+    }));
+
+    const jsonVal = JSON.stringify(cleanItems);
+    const existing = await dbGet('SELECT setting_key FROM site_settings WHERE setting_key = ?', ['home_wall_types']);
+    if (existing) {
+      await dbRun('UPDATE site_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?', [jsonVal, 'home_wall_types']);
+    } else {
+      await dbRun('INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)', ['home_wall_types', jsonVal]);
+    }
+
+    res.json({ success: true, items: cleanItems });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a mászófal típusok kártyáinak mentésekor: ' + error.message });
+  }
+});
+
 // ---------------- SITE CONTACT SETTINGS API ----------------
 const DEFAULT_CONTACT_SETTINGS = {
   company_name: 'HOVI-TECH Kft.',
@@ -4067,6 +4184,71 @@ app.post('/api/admin/wall-products', authenticateToken, requireRole(['STAFF', 'A
     });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a mászófal kártya mentésekor: ' + error.message });
+  }
+});
+
+app.put('/api/admin/wall-products/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const item = await dbGet('SELECT * FROM wall_products WHERE id = ?', [req.params.id]);
+    if (!item) {
+      return res.status(404).json({ error: 'A módosítani kívánt mászófal kártya nem található.' });
+    }
+
+    const { category, code, title, height, width, surface, anchor_points, filename, imageData } = req.body;
+    if (!code || !title || !height || !width || !surface) {
+      return res.status(400).json({ error: 'A típusszám, megnevezés, méretek és felület megadása kötelező.' });
+    }
+
+    const validCategories = ['iskolai', 'boulder', 'jatszoter', 'egyeb'];
+    const cleanCategory = validCategories.includes(category) ? category : item.category;
+    const cleanCode = String(code).trim();
+    const cleanTitle = String(title).trim();
+    const cleanHeight = String(height).trim();
+    const cleanWidth = String(width).trim();
+    const cleanSurface = String(surface).trim();
+    const cleanAnchors = String(anchor_points || '').trim();
+
+    let cleanFilename = item.filename;
+    let newImageData = item.image_data;
+
+    if (imageData) {
+      cleanFilename = toInternetFriendlyFilename(filename || `${cleanCode}-${cleanTitle}`, 'maszofal');
+      const targetDir = path.join(__dirname, 'public', 'pictures', 'iskolai');
+      try {
+        const base64Part = imageData.includes(',') ? imageData.split(',')[1] : imageData;
+        const buffer = Buffer.from(base64Part, 'base64');
+        fs.mkdirSync(targetDir, { recursive: true });
+        fs.writeFileSync(path.join(targetDir, cleanFilename), buffer);
+      } catch (fsErr) {
+        console.log('[WALL PRODUCT UPDATE] Read-only filesystem, serving from database:', fsErr.message);
+      }
+      newImageData = imageData;
+    }
+
+    await dbRun(
+      'UPDATE wall_products SET category = ?, code = ?, title = ?, height = ?, width = ?, surface = ?, anchor_points = ?, filename = ?, image_data = ? WHERE id = ?',
+      [cleanCategory, cleanCode, cleanTitle, cleanHeight, cleanWidth, cleanSurface, cleanAnchors, cleanFilename, newImageData, req.params.id]
+    );
+
+    res.json({
+      success: true,
+      item: {
+        id: Number(req.params.id),
+        category: cleanCategory,
+        code: cleanCode,
+        title: cleanTitle,
+        height: cleanHeight,
+        width: cleanWidth,
+        surface: cleanSurface,
+        anchor_points: cleanAnchors,
+        filename: cleanFilename,
+        src: newImageData && !fs.existsSync(path.join(__dirname, 'public', 'pictures', 'iskolai', cleanFilename))
+          ? `/api/wall-product-image/${req.params.id}/${encodeURIComponent(cleanFilename)}`
+          : `pictures/iskolai/${cleanFilename}`
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a mászófal kártya módosításakor: ' + error.message });
   }
 });
 

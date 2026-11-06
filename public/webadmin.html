@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
-  <link rel="stylesheet" href="style.css?v=20261105_c84">
+  <link rel="stylesheet" href="style.css?v=20261106_c90">
 </head>
 <body class="theme-silver">
 
@@ -58,20 +58,25 @@
         <h3 id="webadmin-active-tab-title" style="font-size: 16px; color: #ffffff; text-transform: uppercase; margin-top: 8px; font-weight: 700; letter-spacing: 0.08em; font-family: 'Montserrat', sans-serif;">REFERENCIÁK ÉS GALÉRIA KEZELÉSE</h3>
       </div>
 
-      <!-- Gyors fülválasztó gombok -->
-      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 32px;">
-        <button type="button" id="webadmin-tab-btn-references" onclick="switchWebAdminTab('references')" class="btn btn-primary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
-          Referenciák &amp; Galéria Képfeltöltés
-        </button>
-        <button type="button" id="webadmin-tab-btn-walls" onclick="switchWebAdminTab('walls')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
-          Mászófalaink Oldal Kártyák
-        </button>
-        <button type="button" id="webadmin-tab-btn-news" onclick="switchWebAdminTab('news')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
-          Üzenőfal Kezelése
-        </button>
-        <button type="button" id="webadmin-tab-btn-contact" onclick="switchWebAdminTab('contact')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
-          Kapcsolati Adatok Szerkesztése
-        </button>
+      <!-- Gyors fülválasztó gombok (narancssárga kiemelt blokk) -->
+      <div style="background: rgba(242, 118, 32, 0.05); border: 1.5px solid var(--primary); border-radius: 20px; padding: 14px 18px; margin-bottom: 32px; box-shadow: 0 4px 20px rgba(242, 118, 32, 0.12);">
+        <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+          <button type="button" id="webadmin-tab-btn-references" onclick="switchWebAdminTab('references')" class="btn btn-primary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+            Referenciák &amp; Galéria Képfeltöltés
+          </button>
+          <button type="button" id="webadmin-tab-btn-home-types" onclick="switchWebAdminTab('home-types')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+            Mászófal Típusaink Kártyák
+          </button>
+          <button type="button" id="webadmin-tab-btn-walls" onclick="switchWebAdminTab('walls')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+            Mászófalaink Oldal Kártyák
+          </button>
+          <button type="button" id="webadmin-tab-btn-news" onclick="switchWebAdminTab('news')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+            Üzenőfal Kezelése
+          </button>
+          <button type="button" id="webadmin-tab-btn-contact" onclick="switchWebAdminTab('contact')" class="btn btn-secondary btn-sm" style="padding: 10px 22px; font-size: 13px; border-radius: 999px;">
+            Kapcsolati Adatok Szerkesztése
+          </button>
+        </div>
       </div>
 
       <!-- FÜL 1: REFERENCIÁK ÉS GALÉRIA FELTÖLTÉS -->
@@ -184,6 +189,7 @@
               <h4 style="font-size: 16px; margin-bottom: 18px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">+ Új mászófal kártya hozzáadása</h4>
 
               <form id="webadmin-wall-form" onsubmit="handleWebAdminWallSubmit(event)">
+                <input type="hidden" id="ww-id" value="">
                 <div class="form-group">
                   <label class="form-label" for="ww-category">Kategória (Melyik szekcióba kerüljön?)</label>
                   <select id="ww-category" class="form-control" onchange="updateWebAdminWallCategoryDefaults()">
@@ -201,7 +207,7 @@
                   </div>
                   <div class="form-group">
                     <label class="form-label" for="ww-title">Megnevezés</label>
-                    <input type="text" id="ww-title" class="form-control" value="Iskolai Mászófal" placeholder="pl. Iskolai Mászófal" required oninput="updateWebAdminWallPreview()">
+                    <input type="text" id="ww-title" class="form-control" placeholder="pl. Iskolai Mászófal" required oninput="updateWebAdminWallPreview()">
                   </div>
                 </div>
 
@@ -219,7 +225,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                   <div class="form-group">
                     <label class="form-label" for="ww-surface">Felülete*</label>
-                    <input type="text" id="ww-surface" class="form-control" placeholder="pl. kb. 24 m²" required oninput="updateWebAdminWallPreview()">
+                    <input type="text" id="ww-surface" class="form-control" placeholder="pl. 24 vagy kb. 24 (a m² automatikus)" required oninput="updateWebAdminWallPreview()">
                   </div>
                   <div class="form-group">
                     <label class="form-label" for="ww-anchors">Felsőbiztosítási pontok (opcionális)</label>
@@ -234,33 +240,41 @@
 
                 <div class="form-group">
                   <label class="form-label" for="ww-file">Mászófal látványterv / fotó (JPG, PNG, WEBP)</label>
-                  <input type="file" id="ww-file" class="form-control" accept="image/*" required onchange="handleWebAdminWallFileChange(this)" style="padding: 9px 12px;">
+                  <input type="file" id="ww-file" class="form-control" accept="image/*" onchange="handleWebAdminWallFileChange(this)" style="padding: 9px 12px;">
                   <div id="ww-opt-info" style="font-size: 12px; color: #22c55e; margin-top: 6px; display: none;"></div>
                 </div>
 
-                <button type="submit" id="ww-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-weight: 700;">
-                  Mászófal kártya hozzáadása
-                </button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                  <button type="submit" id="ww-submit-btn" class="btn btn-primary" style="flex: 1; font-weight: 700;">
+                    Mászófal kártya hozzáadása
+                  </button>
+                  <button type="button" id="ww-cancel-btn" onclick="cancelWebAdminWallEdit()" class="btn btn-secondary" style="display: none; padding: 10px 18px; font-weight: 600;">
+                    Mégse
+                  </button>
+                </div>
               </form>
             </div>
 
             <!-- Jobb oldal: Élő Mászófalaink kártya előnézet -->
             <div>
               <h4 style="font-size: 16px; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Élő kártya előnézet (Mászófalaink oldal)</h4>
-              <div style="max-width: 340px; margin-bottom: 24px;">
+              <div style="max-width: 340px; margin: 0 auto 24px auto;">
                 <article class="glass-card school-card" style="margin: 0;">
                   <div class="school-card-img">
-                    <img id="ww-preview-img" src="pictures/iskolai/fal1-1.jpg" alt="Előnézet">
+                    <img id="ww-preview-img" src="pictures/maszominta.png" alt="Előnézet">
                   </div>
                   <div class="school-card-body">
-                    <span class="school-nr" id="ww-preview-code">M1110</span>
-                    <h3 id="ww-preview-title">Iskolai Mászófal</h3>
+                    <span class="school-nr" id="ww-preview-code" style="display: none;"></span>
+                    <h3 id="ww-preview-title" style="display: none;"></h3>
                     <ul>
-                      <li><span>Magasság</span><strong id="ww-preview-height">6 m</strong></li>
-                      <li><span>Szélesség</span><strong id="ww-preview-width">3 m</strong></li>
-                      <li><span>Felülete*</span><strong id="ww-preview-surface">kb. 24 m²</strong></li>
-                      <li id="ww-preview-anchors-row"><span>Felsőbiztosítási pontok</span><strong id="ww-preview-anchors">6 db</strong></li>
+                      <li id="ww-preview-height-row" style="display: none;"><span>Magasság</span><strong id="ww-preview-height"></strong></li>
+                      <li id="ww-preview-width-row" style="display: none;"><span>Szélesség</span><strong id="ww-preview-width"></strong></li>
+                      <li id="ww-preview-surface-row" style="display: none;"><span>Felülete*</span><strong id="ww-preview-surface"></strong></li>
+                      <li id="ww-preview-anchors-row" style="display: none;"><span>Felsőbiztosítási pontok</span><strong id="ww-preview-anchors"></strong></li>
                     </ul>
+                    <p id="ww-preview-empty-hint" style="font-size: 12px; color: var(--text-muted); font-style: italic; margin: 8px 0 0 0; text-align: center;">
+                      (Kezdj el gépelni a bal oldali mezőkbe az adatok megjelenítéséhez)
+                    </p>
                   </div>
                 </article>
               </div>
@@ -268,9 +282,10 @@
               <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; text-align: left;">
                 <h5 style="font-size: 14px; color: var(--text-primary); margin: 0 0 10px 0;">Mászófalaink oldal kezelése</h5>
                 <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0; line-height: 1.65;">
-                  <li><strong>4 kategória:</strong> Válaszd ki, hogy az új fal az <em>Iskolai</em>, <em>Boulder</em>, <em>Játszóterekre/parkokba</em> vagy <em>Egyéb mászófalak</em> szekcióban jelenjen meg a <code>maszofalaink.html</code> oldalon.</li>
+                  <li><strong>4 kategória:</strong> Válaszd ki, hogy a fal az <em>Iskolai</em>, <em>Boulder</em>, <em>Játszóterekre/parkokba</em> vagy <em>Egyéb mászófalak</em> szekcióban jelenjen meg a <code>maszofalaink.html</code> oldalon.</li>
+                  <li><strong>Szerkesztés:</strong> Az alábbi listában bármelyik meglévő kártyát módosíthatod a <strong>Szerkesztés</strong> gombbal (a szövegek és a fotó is frissíthető).</li>
                   <li><strong>Felsőbiztosítási pontok:</strong> Ha a mezőt üresen hagyod (pl. Boulder falnál), az a sor automatikusan elrejtőzik a kártyán.</li>
-                  <li><strong>Kártyák törlése:</strong> Az alábbi listában az összes jelenlegi mászófal kártya látható kategóriánként – bármelyiket egyetlen kattintással törölheted.</li>
+                  <li><strong>Kártyák törlése:</strong> Bármelyik kártyát egyetlen kattintással és megerősítéssel törölheted.</li>
                 </ul>
               </div>
             </div>
@@ -475,6 +490,51 @@
         </div>
       </div>
 
+      <!-- FÜL 5: MÁSZÓFAL TÍPUSAINK KÁRTYÁK (FŐOLDAL) -->
+      <div id="webadmin-home-types-content" style="display: none;">
+        <div class="glass-card" style="margin-bottom: 40px; padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+            <div>
+              <h4 style="font-size: 16px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Főoldali Mászófal Típusaink Kártyák Kezelése</h4>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0;">
+                A főoldalon (<code>index.html#walls</code>) megjelenő kártyák szövegei szerkeszthetők, tetszőleges számú <strong>új kártya adható hozzá</strong> vagy törölhető. Az elrendezést és tördelést a rendszer automatikusan és igényesen rendezi el a szekcióban!
+              </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button type="button" onclick="addNewWebAdminHomeWallType()" class="btn btn-primary btn-sm" style="padding: 8px 18px; font-size: 12px; font-weight: 700;">
+                Új kártya hozzáadása
+              </button>
+              <button type="button" onclick="resetWebAdminHomeWallTypes()" class="btn btn-secondary btn-sm" style="padding: 8px 18px; font-size: 12px; font-weight: 600;">
+                Alapértelmezett visszaállítása
+              </button>
+              <button type="button" onclick="saveWebAdminHomeWallTypes()" id="webadmin-home-types-save-top-btn" class="btn btn-primary btn-sm" style="padding: 8px 22px; font-size: 12px; font-weight: 700;">
+                Módosítások mentése
+              </button>
+            </div>
+          </div>
+
+          <form id="webadmin-home-types-form" onsubmit="handleWebAdminHomeWallTypesSubmit(event)">
+            <div id="webadmin-home-types-cards-container" style="display: flex; flex-direction: column; gap: 24px;">
+              <p style="color: var(--text-muted); text-align: center; padding: 30px;">Kártyák betöltése...</p>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
+              <button type="button" onclick="addNewWebAdminHomeWallType()" class="btn btn-outline" style="font-weight: 700; padding: 10px 22px;">
+                + Új kártya hozzáadása
+              </button>
+              <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="resetWebAdminHomeWallTypes()" class="btn btn-secondary" style="font-weight: 600;">
+                  Visszaállítás
+                </button>
+                <button type="submit" id="webadmin-home-types-save-btn" class="btn btn-primary" style="font-weight: 700; padding: 12px 30px;">
+                  Összes kártya mentése
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
   </main>
 
@@ -501,7 +561,7 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20261105_c84"></script>
+  <script src="app.js?v=20261106_c90"></script>
 </body>
 </html>
 

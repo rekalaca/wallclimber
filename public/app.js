@@ -282,6 +282,7 @@ function renderHeader() {
     // Weboldal Admin Menu
     navItems = `
       <li><a href="webadmin.html#references" class="nav-link ${activeClass('webadmin.html', '#references')}">Referenciák &amp; Galéria</a></li>
+      <li><a href="webadmin.html#home-types" class="nav-link ${activeClass('webadmin.html', '#home-types')}">Mászófal Típusaink</a></li>
       <li><a href="webadmin.html#walls" class="nav-link ${activeClass('webadmin.html', '#walls')}">Mászófalaink</a></li>
       <li><a href="webadmin.html#news" class="nav-link ${activeClass('webadmin.html', '#news')}">Üzenőfal</a></li>
       <li><a href="webadmin.html#contact" class="nav-link ${activeClass('webadmin.html', '#contact')}">Kapcsolati adatok</a></li>
@@ -4958,6 +4959,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
   loadDynamicContactInfo();
   loadDynamicWallProducts();
+  loadDynamicHomeWallTypes();
   checkActiveAnnouncement();
   initScrollAnimations();
 
@@ -6586,13 +6588,16 @@ async function loadDynamicContactInfo() {
 }
 
 function switchWebAdminTab(tab) {
-  const cleanTab = (tab === 'contact' || tab === 'walls' || tab === 'news') ? tab : 'references';
+  const validTabs = ['references', 'home-types', 'walls', 'news', 'contact'];
+  const cleanTab = validTabs.includes(tab) ? tab : 'references';
   const titleEl = document.getElementById('webadmin-active-tab-title');
   const refContent = document.getElementById('webadmin-references-content');
+  const homeTypesContent = document.getElementById('webadmin-home-types-content');
   const wallsContent = document.getElementById('webadmin-walls-content');
   const newsContent = document.getElementById('webadmin-news-content');
   const contactContent = document.getElementById('webadmin-contact-content');
   const btnRef = document.getElementById('webadmin-tab-btn-references');
+  const btnHomeTypes = document.getElementById('webadmin-tab-btn-home-types');
   const btnWalls = document.getElementById('webadmin-tab-btn-walls');
   const btnNews = document.getElementById('webadmin-tab-btn-news');
   const btnContact = document.getElementById('webadmin-tab-btn-contact');
@@ -6600,6 +6605,8 @@ function switchWebAdminTab(tab) {
   if (titleEl) {
     if (cleanTab === 'contact') {
       titleEl.textContent = 'KAPCSOLATI ADATOK SZERKESZTÉSE';
+    } else if (cleanTab === 'home-types') {
+      titleEl.textContent = 'MÁSZÓFAL TÍPUSAINK KÁRTYÁK KEZELÉSE';
     } else if (cleanTab === 'walls') {
       titleEl.textContent = 'MÁSZÓFALAINK OLDAL KÁRTYÁK KEZELÉSE';
     } else if (cleanTab === 'news') {
@@ -6610,12 +6617,14 @@ function switchWebAdminTab(tab) {
   }
 
   if (refContent) refContent.style.display = cleanTab === 'references' ? 'block' : 'none';
+  if (homeTypesContent) homeTypesContent.style.display = cleanTab === 'home-types' ? 'block' : 'none';
   if (wallsContent) wallsContent.style.display = cleanTab === 'walls' ? 'block' : 'none';
   if (newsContent) newsContent.style.display = cleanTab === 'news' ? 'block' : 'none';
   if (contactContent) contactContent.style.display = cleanTab === 'contact' ? 'block' : 'none';
 
   const tabBtns = {
     references: btnRef,
+    'home-types': btnHomeTypes,
     walls: btnWalls,
     news: btnNews,
     contact: btnContact
@@ -6656,6 +6665,7 @@ async function initWebAdminPanel() {
   const resolveHashTab = (h) => {
     if (h === '#contact') return 'contact';
     if (h === '#walls') return 'walls';
+    if (h === '#home-types') return 'home-types';
     if (h === '#news') return 'news';
     return 'references';
   };
@@ -6668,10 +6678,13 @@ async function initWebAdminPanel() {
 
   await Promise.all([
     loadAdminReferences(),
+    loadWebAdminHomeWallTypes(),
     loadWebAdminWalls(),
     loadWebAdminNews(),
     loadWebAdminContactForm()
   ]);
+
+  updateWebAdminWallPreview();
 }
 
 async function handleWebAdminLogin(event) {
@@ -6864,6 +6877,11 @@ function buildSchoolCardHTML(item) {
     ? `<li><span>Felsőbiztosítási pontok</span><strong>${esc(item.anchor_points)}</strong></li>`
     : '';
 
+  const surfaceVal = String(item.surface || '').trim();
+  const surfaceFormatted = (surfaceVal && !surfaceVal.includes('m²') && !surfaceVal.toLowerCase().includes('m2'))
+    ? `${surfaceVal} m²`
+    : surfaceVal;
+
   return `
     <article class="glass-card school-card">
       <div class="school-card-img"><img src="${imgSrc}" alt="${altText}" loading="lazy"></div>
@@ -6873,7 +6891,7 @@ function buildSchoolCardHTML(item) {
         <ul>
           <li><span>Magasság</span><strong>${esc(item.height)}</strong></li>
           <li><span>Szélesség</span><strong>${esc(item.width)}</strong></li>
-          <li><span>Felülete*</span><strong>${esc(item.surface)}</strong></li>
+          <li><span>Felülete*</span><strong>${esc(surfaceFormatted)}</strong></li>
           ${anchorsHtml}
         </ul>
       </div>
@@ -6918,17 +6936,55 @@ async function loadDynamicWallProducts() {
   }
 }
 
+function slugifyReferenceFilename(str) {
+  if (typeof toWebFriendlySlug === 'function') {
+    return toWebFriendlySlug(str);
+  }
+  return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+function resizeAndConvertImageFile(file, maxDim = 1600, quality = 0.88) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      return reject(new Error('Nincs fájl kiválasztva.'));
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({ dataUrl, width, height });
+      };
+      img.onerror = () => reject(new Error('Nem sikerült beolvasni a képet.'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Nem sikerült beolvasni a fájlt.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function updateWebAdminWallCategoryDefaults() {
   const cat = document.getElementById('ww-category')?.value || 'iskolai';
-  const titleEl = document.getElementById('ww-title');
   const anchorsEl = document.getElementById('ww-anchors');
-  if (titleEl) {
-    const currentVal = titleEl.value.trim();
-    const isDefaultVal = !currentVal || Object.values(WALL_CATEGORY_DEFAULT_TITLES).includes(currentVal);
-    if (isDefaultVal) {
-      titleEl.value = WALL_CATEGORY_DEFAULT_TITLES[cat] || 'Iskolai Mászófal';
-    }
-  }
   if (anchorsEl && (cat === 'boulder' || cat === 'jatszoter')) {
     if (!anchorsEl.dataset.userTouched) {
       anchorsEl.value = '';
@@ -6938,12 +6994,11 @@ function updateWebAdminWallCategoryDefaults() {
 }
 
 function updateWebAdminWallPreview() {
-  const cat = document.getElementById('ww-category')?.value || 'iskolai';
-  const code = document.getElementById('ww-code')?.value?.trim() || 'M1110';
-  const title = document.getElementById('ww-title')?.value?.trim() || WALL_CATEGORY_DEFAULT_TITLES[cat] || 'Iskolai Mászófal';
-  const height = document.getElementById('ww-height')?.value?.trim() || '6 m';
-  const width = document.getElementById('ww-width')?.value?.trim() || '3 m';
-  const surface = document.getElementById('ww-surface')?.value?.trim() || 'kb. 24 m²';
+  const code = document.getElementById('ww-code')?.value?.trim() || '';
+  const title = document.getElementById('ww-title')?.value?.trim() || '';
+  const height = document.getElementById('ww-height')?.value?.trim() || '';
+  const width = document.getElementById('ww-width')?.value?.trim() || '';
+  const surface = document.getElementById('ww-surface')?.value?.trim() || '';
   const anchors = document.getElementById('ww-anchors')?.value?.trim() || '';
 
   const pCode = document.getElementById('ww-preview-code');
@@ -6952,26 +7007,56 @@ function updateWebAdminWallPreview() {
   const pWidth = document.getElementById('ww-preview-width');
   const pSurface = document.getElementById('ww-preview-surface');
   const pAnchors = document.getElementById('ww-preview-anchors');
-  const pAnchorsRow = document.getElementById('ww-preview-anchors-row');
 
-  if (pCode) pCode.textContent = code;
-  if (pTitle) pTitle.textContent = title;
-  if (pHeight) pHeight.textContent = height;
-  if (pWidth) pWidth.textContent = width;
-  if (pSurface) pSurface.textContent = surface;
+  const pHeightRow = document.getElementById('ww-preview-height-row');
+  const pWidthRow = document.getElementById('ww-preview-width-row');
+  const pSurfaceRow = document.getElementById('ww-preview-surface-row');
+  const pAnchorsRow = document.getElementById('ww-preview-anchors-row');
+  const pHint = document.getElementById('ww-preview-empty-hint');
+
+  if (pCode) {
+    pCode.textContent = code;
+    pCode.style.display = code ? '' : 'none';
+  }
+  if (pTitle) {
+    pTitle.textContent = title;
+    pTitle.style.display = title ? '' : 'none';
+  }
+  if (pHeight && pHeightRow) {
+    pHeight.textContent = height;
+    pHeightRow.style.display = height ? '' : 'none';
+  }
+  if (pWidth && pWidthRow) {
+    pWidth.textContent = width;
+    pWidthRow.style.display = width ? '' : 'none';
+  }
+
+  let surfaceDisplay = surface;
+  if (surfaceDisplay && !surfaceDisplay.includes('m²') && !surfaceDisplay.toLowerCase().includes('m2')) {
+    surfaceDisplay = `${surfaceDisplay} m²`;
+  }
+  if (pSurface && pSurfaceRow) {
+    pSurface.textContent = surfaceDisplay;
+    pSurfaceRow.style.display = surface ? '' : 'none';
+  }
   if (pAnchors && pAnchorsRow) {
-    if (anchors) {
-      pAnchors.textContent = anchors;
-      pAnchorsRow.style.display = '';
-    } else {
-      pAnchorsRow.style.display = 'none';
-    }
+    pAnchors.textContent = anchors;
+    pAnchorsRow.style.display = anchors ? '' : 'none';
+  }
+
+  if (pHint) {
+    const hasAnyContent = code || title || height || width || surface || anchors;
+    pHint.style.display = hasAnyContent ? 'none' : 'block';
   }
 
   const slugEl = document.getElementById('ww-slug');
   if (slugEl && !slugEl.dataset.manual) {
-    const rawSlug = slugifyReferenceFilename(`${title}-${code}`);
-    slugEl.value = rawSlug ? `${rawSlug}.jpg` : 'maszofal.jpg';
+    if (title || code) {
+      const rawSlug = slugifyReferenceFilename(`${title}-${code}`);
+      slugEl.value = rawSlug ? `${rawSlug}.jpg` : '';
+    } else {
+      slugEl.value = '';
+    }
   }
 }
 
@@ -7021,6 +7106,9 @@ async function handleWebAdminWallFileChange(inputOrEvent) {
 
 async function handleWebAdminWallSubmit(event) {
   event.preventDefault();
+  const idEl = document.getElementById('ww-id');
+  const editId = idEl ? idEl.value.trim() : '';
+
   const category = document.getElementById('ww-category')?.value || 'iskolai';
   const code = document.getElementById('ww-code')?.value?.trim() || '';
   const title = document.getElementById('ww-title')?.value?.trim() || '';
@@ -7037,7 +7125,12 @@ async function handleWebAdminWallSubmit(event) {
     return;
   }
 
-  if (!currentWebAdminWallDataUrl) {
+  let cleanSurface = surface;
+  if (cleanSurface && !cleanSurface.includes('m²') && !cleanSurface.toLowerCase().includes('m2')) {
+    cleanSurface = `${cleanSurface} m²`;
+  }
+
+  if (!editId && !currentWebAdminWallDataUrl) {
     showToast('Kérjük, válassz ki egy képet a mászófal kártyához!', 'error');
     return;
   }
@@ -7045,12 +7138,15 @@ async function handleWebAdminWallSubmit(event) {
   const origText = submitBtn ? submitBtn.innerHTML : '';
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = 'Hozzáadás folyamatban...';
+    submitBtn.innerHTML = editId ? 'Mentés folyamatban...' : 'Hozzáadás folyamatban...';
   }
 
   try {
-    const res = await fetch('/api/admin/wall-products', {
-      method: 'POST',
+    const url = editId ? `/api/admin/wall-products/${editId}` : '/api/admin/wall-products';
+    const method = editId ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
       headers: getAuthHeaders(),
       body: JSON.stringify({
         category,
@@ -7058,38 +7154,129 @@ async function handleWebAdminWallSubmit(event) {
         title,
         height,
         width,
-        surface,
+        surface: cleanSurface,
         anchor_points,
         customSlug,
-        imageData: currentWebAdminWallDataUrl
+        filename: slugEl ? slugEl.value.trim() : '',
+        imageData: currentWebAdminWallDataUrl || undefined
       })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Hiba a mászófal kártya mentésekor.');
 
-    showToast(`Mászófal kártya (${code}) sikeresen hozzáadva a Mászófalaink oldalhoz!`, 'success');
-
-    const form = document.getElementById('webadmin-wall-form');
-    if (form) form.reset();
-    if (slugEl) delete slugEl.dataset.manual;
-    currentWebAdminWallDataUrl = null;
-    const previewImg = document.getElementById('ww-preview-img');
-    if (previewImg) previewImg.src = 'pictures/iskolai/fal1-1.jpg';
-    const optInfo = document.getElementById('ww-opt-info');
-    if (optInfo) {
-      optInfo.style.display = 'none';
-      optInfo.innerHTML = '';
+    if (editId) {
+      showToast(`Mászófal kártya (${code}) sikeresen módosítva!`, 'success');
+    } else {
+      showToast(`Mászófal kártya (${code}) sikeresen hozzáadva a Mászófalaink oldalhoz!`, 'success');
     }
-    updateWebAdminWallCategoryDefaults();
+
+    cancelWebAdminWallEdit();
     await loadWebAdminWalls();
   } catch (err) {
-    showToast(err.message || 'Nem sikerült hozzáadni a mászófal kártyát.', 'error');
+    showToast(err.message || 'Nem sikerült menteni a mászófal kártyát.', 'error');
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = origText || 'Mászófal kártya hozzáadása';
+      submitBtn.innerHTML = origText || (editId ? 'Módosítások mentése' : 'Mászófal kártya hozzáadása');
     }
   }
+}
+
+function editWebAdminWall(id) {
+  const item = (window.webAdminWallsList || []).find(w => w.id === id);
+  if (!item) {
+    showToast('A kiválasztott kártya nem található.', 'error');
+    return;
+  }
+
+  const idEl = document.getElementById('ww-id');
+  const catEl = document.getElementById('ww-category');
+  const codeEl = document.getElementById('ww-code');
+  const titleEl = document.getElementById('ww-title');
+  const heightEl = document.getElementById('ww-height');
+  const widthEl = document.getElementById('ww-width');
+  const surfaceEl = document.getElementById('ww-surface');
+  const anchorsEl = document.getElementById('ww-anchors');
+  const slugEl = document.getElementById('ww-slug');
+  const fileEl = document.getElementById('ww-file');
+  const submitBtn = document.getElementById('ww-submit-btn');
+  const cancelBtn = document.getElementById('ww-cancel-btn');
+  const optInfo = document.getElementById('ww-opt-info');
+  const previewImg = document.getElementById('ww-preview-img');
+
+  if (idEl) idEl.value = item.id;
+  if (catEl) catEl.value = item.category || 'iskolai';
+  if (codeEl) codeEl.value = item.code || '';
+  if (titleEl) titleEl.value = item.title || '';
+  if (heightEl) heightEl.value = item.height || '';
+  if (widthEl) widthEl.value = item.width || '';
+  if (surfaceEl) surfaceEl.value = item.surface || '';
+  if (anchorsEl) anchorsEl.value = item.anchor_points || '';
+  if (slugEl) {
+    slugEl.value = item.filename || '';
+    slugEl.dataset.manual = '1';
+  }
+  if (fileEl) fileEl.value = '';
+
+  currentWebAdminWallDataUrl = null;
+
+  if (previewImg) {
+    previewImg.src = item.src || `pictures/iskolai/${item.filename}`;
+  }
+
+  if (optInfo) {
+    optInfo.style.display = 'block';
+    optInfo.style.color = 'var(--text-secondary)';
+    optInfo.textContent = 'A kép cseréje opcionális. Ha nem választasz új képet, az eredeti kép marad érvényben.';
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = 'Módosítások mentése';
+  }
+  if (cancelBtn) {
+    cancelBtn.style.display = 'inline-block';
+  }
+
+  updateWebAdminWallPreview();
+
+  const formCard = document.getElementById('webadmin-wall-form');
+  if (formCard) {
+    formCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  showToast(`Szerkesztés: ${item.code} (${item.title}) betöltve.`, 'info');
+}
+
+function cancelWebAdminWallEdit() {
+  const idEl = document.getElementById('ww-id');
+  const form = document.getElementById('webadmin-wall-form');
+  const slugEl = document.getElementById('ww-slug');
+  const submitBtn = document.getElementById('ww-submit-btn');
+  const cancelBtn = document.getElementById('ww-cancel-btn');
+  const optInfo = document.getElementById('ww-opt-info');
+  const previewImg = document.getElementById('ww-preview-img');
+
+  if (idEl) idEl.value = '';
+  if (form) form.reset();
+  if (slugEl) delete slugEl.dataset.manual;
+  currentWebAdminWallDataUrl = null;
+
+  if (previewImg) {
+    previewImg.src = 'pictures/maszominta.png';
+  }
+
+  if (optInfo) {
+    optInfo.style.display = 'none';
+    optInfo.innerHTML = '';
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = 'Mászófal kártya hozzáadása';
+  }
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+
+  updateWebAdminWallPreview();
 }
 
 async function loadWebAdminWalls() {
@@ -7162,6 +7349,11 @@ function renderWebAdminWallsList() {
       ? `<li><span>Felsőbiztosítási pontok</span><strong>${esc(item.anchor_points)}</strong></li>`
       : '';
 
+    const surfaceVal = String(item.surface || '').trim();
+    const surfaceDisplay = (surfaceVal && !surfaceVal.includes('m²') && !surfaceVal.toLowerCase().includes('m2'))
+      ? `${surfaceVal} m²`
+      : surfaceVal;
+
     return `
       <article class="glass-card school-card" style="display: flex; flex-direction: column;">
         <div class="school-card-img" style="position: relative;">
@@ -7176,12 +7368,15 @@ function renderWebAdminWallsList() {
           <ul style="margin-bottom: 14px;">
             <li><span>Magasság</span><strong>${esc(item.height)}</strong></li>
             <li><span>Szélesség</span><strong>${esc(item.width)}</strong></li>
-            <li><span>Felülete*</span><strong>${esc(item.surface)}</strong></li>
+            <li><span>Felülete*</span><strong>${esc(surfaceDisplay)}</strong></li>
             ${anchorsHtml}
           </ul>
-          <div style="margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <div style="margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
             <a href="maszofalaink.html#${esc(item.category)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 10px; text-decoration: none;">Megtekintés</a>
-            <button type="button" onclick="deleteWebAdminWall(${item.id})" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; border-color: rgba(239,68,68,0.45); color: #f87171;">Kártya törlése</button>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" onclick="editWebAdminWall(${item.id})" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; border-color: rgba(242,118,32,0.6); color: var(--primary);">Szerkesztés</button>
+              <button type="button" onclick="deleteWebAdminWall(${item.id})" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 6px 12px; border-color: rgba(239,68,68,0.45); color: #f87171;">Törlés</button>
+            </div>
           </div>
         </div>
       </article>
@@ -7405,6 +7600,8 @@ window.updateWebAdminWallCategoryDefaults = updateWebAdminWallCategoryDefaults;
 window.updateWebAdminWallPreview = updateWebAdminWallPreview;
 window.handleWebAdminWallFileChange = handleWebAdminWallFileChange;
 window.handleWebAdminWallSubmit = handleWebAdminWallSubmit;
+window.editWebAdminWall = editWebAdminWall;
+window.cancelWebAdminWallEdit = cancelWebAdminWallEdit;
 window.loadWebAdminWalls = loadWebAdminWalls;
 window.filterWebAdminWalls = filterWebAdminWalls;
 window.deleteWebAdminWall = deleteWebAdminWall;
@@ -7414,3 +7611,397 @@ window.saveWebAdminNews = saveWebAdminNews;
 window.editWebAdminNews = editWebAdminNews;
 window.deleteWebAdminNews = deleteWebAdminNews;
 window.cancelWebAdminNewsEdit = cancelWebAdminNewsEdit;
+
+// ---------------- MÁSZÓFAL TÍPUSAINK (FŐOLDAL) DINAMIKUS BETÖLTÉSE ÉS ADMIN KEZELÉSE ----------------
+const DEFAULT_CLIENT_HOME_WALL_TYPES = [
+  {
+    id: 1,
+    nr: '01',
+    badge: 'Beltéri & Kültéri',
+    title: 'Mászófalak',
+    desc: 'A mászófal felülete 21 mm vastag rétegelt lemez, amely kellő felületi keménységet és tartósságot ad a mászófalnak. Felületüket magas kopásállóságú festékkel festjük. Gazdag színvilág. A háromszög alakokkal tudjuk a legjobban imitálni az áthajlásokat és töréseket.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 2,
+    nr: '02',
+    badge: '2.5 – 3 méter',
+    title: 'Boulder mászófalak',
+    desc: 'A fal magassága 2.5–3 méter. A mászó biztosítás nélkül használja a falat. Esés esetén a fal alatt elhelyezett vastag szőnyeg, kültéren esésfelfogó homok védi a mászót. A mászás le-föl és oldalirányban történhet. Használata nem igényel szakmai felügyeletet.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 3,
+    nr: '03',
+    badge: 'EN 1176 szabvány',
+    title: 'Játszótéri mászófalak (Tulip-play.com)',
+    desc: 'Időjárásálló, UV-álló alapanyagok felhasználásával készülnek. A mászófalak élei, sarkai lekerekítettek. Építésnél, tervezésnél az EN 1176 játszótéri szabványt vesszük figyelembe. Áraink az esésfelfogó zónák költségeit és kialakításait nem tartalmazzák.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 4,
+    nr: '04',
+    badge: 'Kompozit textúra',
+    title: 'Sziklahű felületű mászófal',
+    desc: 'A mászófal felületével teljesen imitálni tudjuk a természetes szikla alakjait, formáit, a fal töréseit és repedéseit. Látványos, mászása nagy élményt nyújt. Műgyanta, üvegszövet és finom kvarchomok egységéből álló prémium felület.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 5,
+    nr: '05',
+    badge: 'Fa + Sziklahű',
+    title: 'Kombinált felületű mászófal',
+    desc: 'A mászófal felülete átmenetet képez a sziklahű és a rétegelt lemezes sík fal felülete között. A fafelületre kész formákat dolgozunk fel, felületét a sziklahű mászófal felületéhez hasonlóan kezeljük.',
+    note_title: '',
+    note: ''
+  },
+  {
+    id: 6,
+    nr: '06',
+    badge: 'Bérelhető & Brandingelhető',
+    title: 'Egyedi mobil mászófalak',
+    desc: 'A falmászás és a legújabb technikák ötvözete! Legyen Ön a következő, aki a rendezvényére bérli vagy brandingeli a forgó mászófalunkat. Kiváló reklámfelület! Felülete: 6 m x 2.4 m.',
+    note_title: 'Működési elve:',
+    note: 'A fal végtelenített alumínium redőnye egy motor segítségével körbeforog. A mászó biztosítás nélkül mászhat a falon. Az esés esetén a fal alatt elhelyezett védőszőnyegek nyújtanak biztonságot. A fal alján és tetején elhelyezett fotocellás érzékelők jeleire a számítógép gyorsítja és lassítja a forgó redőnyt. Ha a mászó karjával beér a felső fotocellába, a redőny forgása gyorsul; ha a mászó lába az alsó fotocella útjába kerül, a forgás lassul.'
+  }
+];
+
+window.loadedHomeWallTypes = null;
+
+async function loadDynamicHomeWallTypes() {
+  const container = document.getElementById('home-walls-grid');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/site-settings/wall-types');
+    if (!res.ok) return;
+    const items = await res.json();
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    window.loadedHomeWallTypes = items;
+
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // Dinamikus intelligens elrendezés:
+    // 1-3. kártya: felső sor (span 2-2-2)
+    // 4-5. kártya: középső sor (span 3-3), szépen KÖZÉPRE igazítva
+    // 6+ vagy kiemelt kártyák: teljes szélességű kártyaként (span 6), egymás alatt
+    const count = items.length;
+
+    container.innerHTML = items.map((item, idx) => {
+      const cardNr = item.nr || (idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`);
+      const isFeatured = Boolean(item.note_title || item.note) || (idx >= 5);
+
+      let cardClass = 'wt-card wt-card-third';
+      if (isFeatured) {
+        cardClass = 'wt-card wt-card-featured';
+      } else if (idx === 3 || idx === 4) {
+        cardClass = 'wt-card wt-card-half';
+      }
+
+      const formattedTitle = item.title && item.title.includes('Tulip-play.com')
+        ? esc(item.title).replace('(Tulip-play.com)', '<small>(Tulip-play.com)</small>')
+        : esc(item.title);
+
+      const formattedDesc = item.desc && item.desc.includes('6 m x 2.4 m')
+        ? esc(item.desc).replace('6 m x 2.4 m', '<strong>6 m x 2.4 m</strong>')
+        : esc(item.desc);
+
+      const badgeHtml = item.badge
+        ? `<span class="badge ${isFeatured ? 'badge-primary' : 'badge-secondary'}">${esc(item.badge)}</span>`
+        : '';
+
+      if (isFeatured) {
+        return `
+          <article class="glass-card wt-card wt-card-featured" data-wall-type-id="${item.id || (idx + 1)}">
+            <div class="wall-featured-main">
+              <div class="wt-card-icon">${esc(cardNr)}</div>
+              ${badgeHtml}
+              <h3>${formattedTitle}</h3>
+              <p>${formattedDesc}</p>
+            </div>
+            ${(item.note_title || item.note) ? `
+              <div class="wall-featured-note">
+                ${item.note_title ? `<strong>${esc(item.note_title)}</strong>` : ''}
+                ${item.note ? `<p>${esc(item.note)}</p>` : ''}
+              </div>
+            ` : ''}
+          </article>
+        `;
+      }
+
+      return `
+        <article class="glass-card ${cardClass}" data-wall-type-id="${item.id || (idx + 1)}">
+          <div class="wt-card-icon">${esc(cardNr)}</div>
+          ${badgeHtml}
+          <h3>${formattedTitle}</h3>
+          <p>${formattedDesc}</p>
+        </article>
+      `;
+    }).join('');
+
+    // Re-init scroll animációk az újonnan renderelt kártyákra
+    if (typeof initScrollAnimations === 'function') {
+      initScrollAnimations();
+    }
+  } catch (err) {
+    console.warn('Hiba a Mászófal Típusaink kártyák dinamikus betöltésekor:', err);
+  }
+}
+
+async function loadWebAdminHomeWallTypes() {
+  const container = document.getElementById('webadmin-home-types-cards-container');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/site-settings/wall-types');
+    let items = DEFAULT_CLIENT_HOME_WALL_TYPES;
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) items = data;
+    }
+
+    window.loadedHomeWallTypes = items;
+    renderWebAdminHomeWallTypesCards(items);
+  } catch (err) {
+    console.warn('Nem sikerült betölteni a típus kártyákat:', err);
+    renderWebAdminHomeWallTypesCards(DEFAULT_CLIENT_HOME_WALL_TYPES);
+  }
+}
+
+function renderWebAdminHomeWallTypesCards(items) {
+  const container = document.getElementById('webadmin-home-types-cards-container');
+  if (!container) return;
+
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const count = items.length;
+
+  container.innerHTML = items.map((item, idx) => {
+    const isFeatured = Boolean(item.note_title || item.note) || (count === 6 && idx === 5);
+    const cardNr = item.nr || (idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`);
+
+    return `
+      <div class="glass-card" data-wht-index="${idx}" style="padding: 24px; border: 1px solid var(--border-color); border-radius: 14px; background: rgba(255, 255, 255, 0.02); position: relative;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: rgba(242, 118, 32, 0.15); color: var(--primary); font-weight: 800; font-size: 14px;">${esc(cardNr)}</span>
+            <h5 style="margin: 0; font-size: 16px; color: #ffffff;">${idx + 1}. Kártya – <span style="color: var(--primary);">${esc(item.title || 'Új Mászófal Típus')}</span></h5>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="badge ${isFeatured ? 'badge-primary' : 'badge-secondary'}" style="font-size: 11px;">
+              ${isFeatured ? 'Kiemelt kártya (Működési elv blokkal)' : 'Normál kártya'}
+            </span>
+            ${count > 1 ? `
+              <button type="button" onclick="deleteWebAdminHomeWallType(${idx})" class="btn btn-danger btn-sm" style="padding: 4px 12px; font-size: 11px; font-weight: 600;" title="Kártya törlése">
+                Törlés
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <input type="hidden" class="wht-item-id" value="${item.id || (idx + 1)}">
+
+        <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 12px;">Szám</label>
+            <input type="text" class="form-control wht-item-nr" value="${esc(cardNr)}" required style="text-align: center; font-weight: 700;">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 12px;">Kártya Címe</label>
+            <input type="text" class="form-control wht-item-title" value="${esc(item.title || '')}" placeholder="pl. Boulder mászófalak" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 12px;">Jelvény / Badge (pl. EN szabvány, méret)</label>
+            <input type="text" class="form-control wht-item-badge" value="${esc(item.badge || '')}" placeholder="pl. 2.5 – 3 méter">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" style="font-size: 12px;">Kártya Főszövege / Leírása</label>
+          <textarea class="form-control wht-item-desc" rows="3" style="resize: vertical; font-size: 13px; line-height: 1.6;" placeholder="A mászófal leírása, anyaga, előnyei..." required>${esc(item.desc || '')}</textarea>
+        </div>
+
+        <div style="background: rgba(242, 118, 32, 0.04); border: 1px solid rgba(242, 118, 32, 0.16); border-radius: 10px; padding: 14px; margin-top: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 700; color: var(--primary);">Kiemelt kiegészítő blokk (opcionális – pl. Működési elv):</span>
+            <small style="font-size: 11px; color: var(--text-muted);">Ha kitöltöd, a kártya kiemelt, teljes szélességű elrendezést kap</small>
+          </div>
+          <div style="display: grid; grid-template-columns: 200px 1fr; gap: 14px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11px;">Kiemelt blokk címe</label>
+              <input type="text" class="form-control wht-item-note-title" value="${esc(item.note_title || '')}" placeholder="pl. Működési elve:">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11px;">Kiemelt blokk részletező szövege</label>
+              <textarea class="form-control wht-item-note" rows="2" style="resize: vertical; font-size: 12px; line-height: 1.5;" placeholder="pl. A fal végtelenített redőnye egy motor segítségével körbeforog...">${esc(item.note || '')}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function collectWebAdminHomeWallTypesFromForm() {
+  const container = document.getElementById('webadmin-home-types-cards-container');
+  if (!container) return [];
+
+  const cardEls = container.querySelectorAll('.glass-card');
+  const items = [];
+
+  cardEls.forEach((card, idx) => {
+    const id = Number(card.querySelector('.wht-item-id')?.value) || (idx + 1);
+    const nr = card.querySelector('.wht-item-nr')?.value?.trim() || (idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`);
+    const title = card.querySelector('.wht-item-title')?.value?.trim() || '';
+    const badge = card.querySelector('.wht-item-badge')?.value?.trim() || '';
+    const desc = card.querySelector('.wht-item-desc')?.value?.trim() || '';
+    const note_title = card.querySelector('.wht-item-note-title')?.value?.trim() || '';
+    const note = card.querySelector('.wht-item-note')?.value?.trim() || '';
+
+    items.push({ id, nr, title, badge, desc, note_title, note });
+  });
+
+  return items;
+}
+
+function addNewWebAdminHomeWallType() {
+  const currentItems = collectWebAdminHomeWallTypesFromForm();
+  const nextNrNum = currentItems.length + 1;
+  const nextNr = nextNrNum < 10 ? `0${nextNrNum}` : `${nextNrNum}`;
+
+  currentItems.push({
+    id: Date.now(),
+    nr: nextNr,
+    badge: 'Új Típus',
+    title: 'Új mászófal típus',
+    desc: 'Add meg a kártya részletes leírását, felületét és jellemzőit.',
+    note_title: '',
+    note: ''
+  });
+
+  window.loadedHomeWallTypes = currentItems;
+  renderWebAdminHomeWallTypesCards(currentItems);
+  showToast('Új kártya hozzáadva az űrlaphoz a lista végén! Töltsd ki az adatokat és mentsd el.', 'info');
+
+  // Legörgetés az új kártyához
+  setTimeout(() => {
+    const cards = document.querySelectorAll('#webadmin-home-types-cards-container .glass-card');
+    if (cards.length > 0) {
+      cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
+}
+
+async function deleteWebAdminHomeWallType(index) {
+  const currentItems = collectWebAdminHomeWallTypesFromForm();
+  if (index < 0 || index >= currentItems.length) return;
+  const targetItem = currentItems[index];
+
+  const confirmed = await showConfirmModal({
+    title: 'Kártya törlése',
+    message: `Biztosan törölni szeretnéd a(z) "${targetItem.title || (index + 1) + '. kártya'}" elemet?`,
+    confirmText: 'Törlés',
+    cancelText: 'Mégse',
+    variant: 'danger'
+  });
+
+  if (!confirmed) return;
+
+  currentItems.splice(index, 1);
+  currentItems.forEach((it, i) => {
+    if (/^\d{2}$/.test(it.nr)) {
+      it.nr = (i + 1 < 10 ? `0${i + 1}` : `${i + 1}`);
+    }
+  });
+
+  window.loadedHomeWallTypes = currentItems;
+  renderWebAdminHomeWallTypesCards(currentItems);
+
+  // Azonnal elmentjük a törlést a szerverre is, hogy ne kelljen külön a Mentés gombra kattintani
+  await saveWebAdminHomeWallTypes();
+  showToast('Kártya sikeresen törölve a weboldalról!', 'success');
+}
+
+async function handleWebAdminHomeWallTypesSubmit(event) {
+  if (event) event.preventDefault();
+  await saveWebAdminHomeWallTypes();
+}
+
+async function saveWebAdminHomeWallTypes() {
+  const container = document.getElementById('webadmin-home-types-cards-container');
+  const btn = document.getElementById('webadmin-home-types-save-btn');
+  const btnTop = document.getElementById('webadmin-home-types-save-top-btn');
+  if (!container) return;
+
+  const items = collectWebAdminHomeWallTypesFromForm();
+
+  if (items.length === 0) {
+    showToast('Legalább 1 kártyának lennie kell a listában!', 'error');
+    return;
+  }
+
+  if (items.some(it => !it.title || !it.desc)) {
+    showToast('A cím és a leírás mező kitöltése minden kártyánál kötelező!', 'error');
+    return;
+  }
+
+  const setBtnState = (loading) => {
+    if (btn) {
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Mentés folyamatban...' : 'Összes kártya mentése';
+    }
+    if (btnTop) {
+      btnTop.disabled = loading;
+      btnTop.textContent = loading ? 'Mentés...' : 'Módosítások mentése';
+    }
+  };
+
+  setBtnState(true);
+
+  try {
+    const res = await fetch('/api/admin/site-settings/wall-types', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ items })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hiba a mentés során.');
+
+    window.loadedHomeWallTypes = data.items;
+    showToast('A Mászófal Típusaink kártyák sikeresen elmentve!', 'success');
+    renderWebAdminHomeWallTypesCards(data.items);
+  } catch (err) {
+    showToast(err.message || 'Nem sikerült menteni a kártyák adatait.', 'error');
+    showAlertModal(err.message || 'Nem sikerült menteni a kártyák adatait.', 'Mentési hiba');
+  } finally {
+    setBtnState(false);
+  }
+}
+
+async function resetWebAdminHomeWallTypes() {
+  const confirmed = await showConfirmModal({
+    title: 'Visszaállítás megerősítése',
+    message: 'Biztosan visszaállítod a Mászófal Típusaink kártyák eredeti, gyári szövegeit?',
+    confirmText: 'Visszaállítás',
+    cancelText: 'Mégse',
+    variant: 'warning'
+  });
+
+  if (!confirmed) return;
+
+  renderWebAdminHomeWallTypesCards(DEFAULT_CLIENT_HOME_WALL_TYPES);
+  showToast('Alapértelmezett szövegek betöltve az űrlapba. Ne felejts el a mentésre kattintani!', 'info');
+}
+
+window.loadDynamicHomeWallTypes = loadDynamicHomeWallTypes;
+window.loadWebAdminHomeWallTypes = loadWebAdminHomeWallTypes;
+window.saveWebAdminHomeWallTypes = saveWebAdminHomeWallTypes;
+window.resetWebAdminHomeWallTypes = resetWebAdminHomeWallTypes;
+window.handleWebAdminHomeWallTypesSubmit = handleWebAdminHomeWallTypesSubmit;
+window.addNewWebAdminHomeWallType = addNewWebAdminHomeWallType;
+window.deleteWebAdminHomeWallType = deleteWebAdminHomeWallType;
