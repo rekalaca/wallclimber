@@ -148,10 +148,282 @@ function getUserRole() {
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('hawkstone_last_activity');
   showToast('Sikeres kijelentkezés!');
   setTimeout(() => {
     window.location.href = 'index.html';
   }, 800);
+}
+
+// ---------------- INACTIVITY AUTO-LOGOUT (10 MINUTES) ----------------
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (60 seconds countdown)
+const ACTIVITY_THROTTLE_MS = 4000;            // update localStorage at most every 4 seconds
+
+let inactivityWarningModal = null;
+let inactivityCountdownTimer = null;
+let lastRecordedActivityTime = Date.now();
+
+function recordUserActivity() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  const now = Date.now();
+  if (now - lastRecordedActivityTime > ACTIVITY_THROTTLE_MS) {
+    lastRecordedActivityTime = now;
+    localStorage.setItem('hawkstone_last_activity', String(now));
+    if (inactivityWarningModal) {
+      dismissInactivityWarning();
+    }
+  }
+}
+
+function playInactivityWarningSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const playTone = (freq, startTime, duration, maxGain = 0.22) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(maxGain, startTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    const now = ctx.currentTime;
+    // Kellemes, jól hallható háromhangú figyelemfelhívó dallam: D5 -> F#5 -> A5
+    playTone(587.33, now, 0.24, 0.22);
+    playTone(739.99, now + 0.16, 0.24, 0.24);
+    playTone(880.00, now + 0.32, 0.48, 0.28);
+
+    setTimeout(() => {
+      try { ctx.close(); } catch (_) {}
+    }, 1200);
+  } catch (err) {
+    console.warn('Inactivity sound playback prevented:', err);
+  }
+}
+
+function playInactivityUrgentSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.24, ctx.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+
+    setTimeout(() => {
+      try { ctx.close(); } catch (_) {}
+    }, 600);
+  } catch (_) {}
+}
+
+function dismissInactivityWarning() {
+  if (inactivityCountdownTimer) {
+    clearInterval(inactivityCountdownTimer);
+    inactivityCountdownTimer = null;
+  }
+  if (inactivityWarningModal) {
+    inactivityWarningModal.remove();
+    inactivityWarningModal = null;
+  }
+}
+
+function showInactivityWarningModal(secondsLeft) {
+  if (inactivityWarningModal) return;
+
+  let remaining = typeof secondsLeft === 'number' && secondsLeft > 0 ? secondsLeft : 60;
+
+  // Hangjelzés lejátszása a felugró megjelenésekor
+  playInactivityWarningSound();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'hs-inactivity-modal';
+  backdrop.className = 'hs-dialog-backdrop open';
+  backdrop.style.zIndex = '999999';
+
+  backdrop.innerHTML = `
+    <div class="hs-dialog-card hs-dialog-warning" style="text-align: center; max-width: 440px;">
+      <span class="hs-dialog-badge">Biztonsági Figyelmeztetés</span>
+      <h3 class="hs-dialog-title" style="margin-top: 8px;">Inaktivitási időkorlát</h3>
+      <p class="hs-dialog-message" style="margin-bottom: 18px; line-height: 1.6;">
+        Mivel nem észleltünk aktivitást, adatvédelmi okokból (online fizetések és időpontfoglalások védelme érdekében)
+        a munkameneted hamarosan automatikusan lezárul:
+      </p>
+      <div style="font-size: 36px; font-weight: 800; color: #fbbf24; margin-bottom: 22px; font-variant-numeric: tabular-nums;">
+        <span id="hs-inactivity-countdown">${remaining}</span> mp
+      </div>
+      <div class="hs-dialog-actions" style="justify-content: center; gap: 10px;">
+        <button type="button" id="hs-stay-logged-in-btn" class="btn btn-primary" style="padding: 10px 22px; font-weight: 700;">
+          Munkamenet folytatása
+        </button>
+        <button type="button" id="hs-logout-now-btn" class="btn btn-secondary btn-sm" style="padding: 10px 16px;">
+          Kijelentkezés most
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+  inactivityWarningModal = backdrop;
+
+  const countdownSpan = document.getElementById('hs-inactivity-countdown');
+  const stayBtn = document.getElementById('hs-stay-logged-in-btn');
+  const logoutNowBtn = document.getElementById('hs-logout-now-btn');
+
+  if (stayBtn) {
+    stayBtn.onclick = () => {
+      lastRecordedActivityTime = Date.now();
+      localStorage.setItem('hawkstone_last_activity', String(Date.now()));
+      dismissInactivityWarning();
+      showToast('Munkamenet sikeresen meghosszabbítva!', 'success');
+    };
+  }
+
+  if (logoutNowBtn) {
+    logoutNowBtn.onclick = () => {
+      dismissInactivityWarning();
+      performInactivityLogout();
+    };
+  }
+
+  inactivityCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (countdownSpan) countdownSpan.textContent = remaining;
+
+    if (remaining === 10) {
+      playInactivityUrgentSound();
+    }
+
+    if (remaining <= 0) {
+      clearInterval(inactivityCountdownTimer);
+      inactivityCountdownTimer = null;
+      dismissInactivityWarning();
+      performInactivityLogout();
+    }
+  }, 1000);
+}
+
+function performInactivityLogout() {
+  dismissInactivityWarning();
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('hawkstone_last_activity');
+  sessionStorage.setItem('hawkstone_inactivity_logged_out', '1');
+
+  const path = window.location.pathname;
+  const isWebAdminPage = path.endsWith('webadmin.html') || path.endsWith('/webadmin');
+  const isClubAdminPage = !isWebAdminPage && (path.endsWith('/admin.html') || path === 'admin.html' || path.endsWith('scanner.html'));
+  const isDashboardPage = path.endsWith('dashboard.html');
+
+  if (isWebAdminPage) {
+    window.location.href = 'webadmin.html';
+  } else if (isClubAdminPage || isDashboardPage) {
+    window.location.href = 'auth.html';
+  } else {
+    renderHeader();
+    showAlertModal(
+      'Biztonsági okokból (10 perc tétlenség után) a rendszer automatikusan kijelentkeztetett az időpontfoglalások és tranzakciók védelme érdekében. Kérjük, jelentkezz be újra a folytatáshoz.',
+      'Munkamenet lezárva',
+      'warning'
+    );
+  }
+}
+
+function checkInactivity() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    if (inactivityWarningModal) dismissInactivityWarning();
+    return;
+  }
+
+  let storedLast = parseInt(localStorage.getItem('hawkstone_last_activity') || '0', 10);
+  if (!storedLast || isNaN(storedLast)) {
+    storedLast = Date.now();
+    localStorage.setItem('hawkstone_last_activity', String(storedLast));
+  }
+
+  const elapsed = Date.now() - storedLast;
+
+  if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+    performInactivityLogout();
+  } else if (elapsed >= INACTIVITY_WARNING_MS && !inactivityWarningModal) {
+    const secondsLeft = Math.max(1, Math.round((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+    showInactivityWarningModal(secondsLeft);
+  }
+}
+
+function initInactivityWatcher() {
+  if (sessionStorage.getItem('hawkstone_inactivity_logged_out')) {
+    sessionStorage.removeItem('hawkstone_inactivity_logged_out');
+    setTimeout(() => {
+      showAlertModal(
+        'Biztonsági okokból (10 perc tétlenség után) a rendszer automatikusan kijelentkeztetett az időpontfoglalások és tranzakciók védelme érdekében. Kérjük, jelentkezz be újra a folytatáshoz.',
+        'Munkamenet lezárva',
+        'warning'
+      );
+    }, 450);
+  }
+
+  const token = localStorage.getItem('token');
+  if (token) {
+    if (!localStorage.getItem('hawkstone_last_activity')) {
+      localStorage.setItem('hawkstone_last_activity', String(Date.now()));
+    }
+  }
+
+  const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+  activityEvents.forEach((ev) => {
+    window.addEventListener(ev, recordUserActivity, { passive: true });
+  });
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'hawkstone_last_activity') {
+      const newTimestamp = parseInt(e.newValue || '0', 10);
+      if (newTimestamp > lastRecordedActivityTime) {
+        lastRecordedActivityTime = newTimestamp;
+        if (inactivityWarningModal) {
+          dismissInactivityWarning();
+        }
+      }
+    } else if (e.key === 'token' && !e.newValue) {
+      if (inactivityWarningModal) dismissInactivityWarning();
+      renderHeader();
+    }
+  });
+
+  setInterval(checkInactivity, 4000);
 }
 
 // ---------------- DYNAMIC HEADER/NAV ----------------
@@ -4962,6 +5234,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDynamicHomeWallTypes();
   checkActiveAnnouncement();
   initScrollAnimations();
+  initInactivityWatcher();
 
   const path = window.location.pathname;
   const hostname = (window.location.hostname || '').toLowerCase();
@@ -6720,6 +6993,7 @@ async function handleWebAdminLogin(event) {
 
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('hawkstone_last_activity', String(Date.now()));
     showToast('Sikeres belépés a Weboldal Adminisztrációba!', 'success');
     await initWebAdminPanel();
   } catch (err) {
@@ -6735,6 +7009,7 @@ async function handleWebAdminLogin(event) {
 function logoutWebAdmin() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('hawkstone_last_activity');
   showToast('Sikeres kijelentkezés!');
   setTimeout(() => {
     window.location.href = 'webadmin.html';
@@ -7611,6 +7886,8 @@ window.saveWebAdminNews = saveWebAdminNews;
 window.editWebAdminNews = editWebAdminNews;
 window.deleteWebAdminNews = deleteWebAdminNews;
 window.cancelWebAdminNewsEdit = cancelWebAdminNewsEdit;
+window.testInactivityWarning = () => showInactivityWarningModal(60);
+window.playInactivityWarningSound = playInactivityWarningSound;
 
 // ---------------- MÁSZÓFAL TÍPUSAINK (FŐOLDAL) DINAMIKUS BETÖLTÉSE ÉS ADMIN KEZELÉSE ----------------
 const DEFAULT_CLIENT_HOME_WALL_TYPES = [

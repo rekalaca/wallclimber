@@ -40,7 +40,7 @@
   <meta name="twitter:title" content="Bejelentkezés & Regisztráció | HawkStone">
   <meta name="twitter:description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261106_c90">
+  <link rel="stylesheet" href="style.css?v=20261106_c92">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -323,6 +323,7 @@
 
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('hawkstone_last_activity', String(Date.now()));
         
         showToast('Sikeres bejelentkezés! Átirányítás...');
         setTimeout(() => {
@@ -534,6 +535,6 @@
       }
     });
   </script>
-  <script src="app.js?v=20261106_c90"></script>
+  <script src="app.js?v=20261106_c92"></script>
 </body>
 </html>
