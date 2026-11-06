@@ -1685,7 +1685,7 @@ header.admin-header {
   }
 
   header .logo img {
-    max-height: 40px !important;
+    max-height: none !important;
   }
 
   header .navbar .nav-auth,
@@ -8428,10 +8428,10 @@ header.club-header .logo:hover img {
   header.club-header .logo img.club-header-logo-img,
   header .club-logo-link img,
   .club-header-logo-img {
-    height: 98px !important;
+    height: 102px !important;
     max-height: none !important;
     width: auto !important;
-    top: 14px;
+    top: 16px;
     filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(242, 118, 32, 0.3));
   }
 }
@@ -8451,10 +8451,10 @@ header.club-header .logo:hover img {
   header.club-header .logo img.club-header-logo-img,
   header .club-logo-link img,
   .club-header-logo-img {
-    height: 92px !important;
+    height: 96px !important;
     max-height: none !important;
     width: auto !important;
-    top: 13px;
+    top: 15px;
     filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(242, 118, 32, 0.3));
   }
 }
@@ -8474,10 +8474,10 @@ header.club-header .logo:hover img {
   header.club-header .logo img.club-header-logo-img,
   header .club-logo-link img,
   .club-header-logo-img {
-    height: 86px !important;
+    height: 90px !important;
     max-height: none !important;
     width: auto !important;
-    top: 11px;
+    top: 14px;
     filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 8px rgba(242, 118, 32, 0.35));
   }
 }
@@ -8515,10 +8515,10 @@ header .logo:hover img.header-logo-img {
   header .logo img.header-logo-img,
   header .company-logo-link img,
   .header-logo-img {
-    height: 88px !important;
+    height: 98px !important;
     max-height: none !important;
     width: auto !important;
-    top: 11px;
+    top: 15px;
     filter: drop-shadow(0 5px 12px rgba(40, 52, 78, 0.24));
   }
 }
@@ -8527,10 +8527,10 @@ header .logo:hover img.header-logo-img {
   header .logo img.header-logo-img,
   header .company-logo-link img,
   .header-logo-img {
-    height: 80px !important;
+    height: 92px !important;
     max-height: none !important;
     width: auto !important;
-    top: 10px;
+    top: 14px;
     filter: drop-shadow(0 5px 12px rgba(40, 52, 78, 0.24));
   }
 }
@@ -8539,11 +8539,93 @@ header .logo:hover img.header-logo-img {
   header .logo img.header-logo-img,
   header .company-logo-link img,
   .header-logo-img {
-    height: 74px !important;
+    height: 86px !important;
     max-height: none !important;
     width: auto !important;
-    top: 9px;
+    top: 13px;
     filter: drop-shadow(0 4px 10px rgba(40, 52, 78, 0.26));
+  }
+}
+
+/* ==========================================================================
+   MOBIL HEADER KONTÚR ÉS LELÓGÓ LOGÓ FÜL (CREST BADGE CONTOUR)
+   ========================================================================== */
+@media (max-width: 991px) {
+  header,
+  header.admin-header,
+  header.club-header {
+    border-bottom: 2px solid rgba(242, 118, 32, 0.75) !important;
+    box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45);
+  }
+
+  body.theme-silver header {
+    border-bottom: 2px solid rgba(242, 118, 32, 0.8) !important;
+    box-shadow: 0 4px 18px rgba(40, 52, 78, 0.16);
+  }
+
+  header .logo,
+  header .company-logo-link,
+  header .club-logo-link {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 35 !important;
+    padding: 0 8px !important;
+    margin-right: auto;
+  }
+
+  /* A header alsó kontúrja elegánsan megkerüli a logó alsó részét */
+  header .logo::before,
+  header .company-logo-link::before,
+  header .club-logo-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -4px;
+    right: -4px;
+    bottom: -24px;
+    background: rgba(12, 14, 23, 0.96);
+    border-left: 2px solid rgba(242, 118, 32, 0.75);
+    border-right: 2px solid rgba(242, 118, 32, 0.75);
+    border-bottom: 2px solid rgba(242, 118, 32, 0.75);
+    border-top: none;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 14px rgba(242, 118, 32, 0.25);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  body.theme-silver header .logo::before,
+  body.theme-silver header .company-logo-link::before {
+    background: rgba(246, 247, 250, 0.98);
+    border-left: 2px solid rgba(242, 118, 32, 0.8);
+    border-right: 2px solid rgba(242, 118, 32, 0.8);
+    border-bottom: 2px solid rgba(242, 118, 32, 0.8);
+    box-shadow: 0 8px 20px rgba(40, 52, 78, 0.22), 0 0 12px rgba(242, 118, 32, 0.2);
+  }
+
+  header .logo img,
+  header .logo img.header-logo-img,
+  header .logo img.club-header-logo-img,
+  header .company-logo-link img,
+  header .club-logo-link img {
+    position: relative !important;
+    z-index: 2 !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  header .logo::before,
+  header .company-logo-link::before,
+  header .club-logo-link::before {
+    left: -3px;
+    right: -3px;
+    bottom: -21px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
   }
 }
 

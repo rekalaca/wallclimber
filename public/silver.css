@@ -88,10 +88,10 @@ body.theme-silver header .logo:hover img {
   body.theme-silver .header-logo-img,
   body.theme-silver header .logo img,
   body.theme-silver header .company-logo-link img {
-    height: 88px !important;
+    height: 98px !important;
     max-height: none !important;
     width: auto !important;
-    top: 11px;
+    top: 15px;
     filter: drop-shadow(0 5px 12px rgba(40, 52, 78, 0.24));
   }
 }
@@ -109,10 +109,10 @@ body.theme-silver header .logo:hover img {
   body.theme-silver .header-logo-img,
   body.theme-silver header .logo img,
   body.theme-silver header .company-logo-link img {
-    height: 80px !important;
+    height: 92px !important;
     max-height: none !important;
     width: auto !important;
-    top: 10px;
+    top: 14px;
     filter: drop-shadow(0 5px 12px rgba(40, 52, 78, 0.24));
   }
 }
@@ -130,10 +130,10 @@ body.theme-silver header .logo:hover img {
   body.theme-silver .header-logo-img,
   body.theme-silver header .logo img,
   body.theme-silver header .company-logo-link img {
-    height: 74px !important;
+    height: 86px !important;
     max-height: none !important;
     width: auto !important;
-    top: 9px;
+    top: 13px;
     filter: drop-shadow(0 4px 10px rgba(40, 52, 78, 0.26));
   }
 }
