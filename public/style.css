@@ -8934,6 +8934,113 @@ header .logo:hover img.header-logo-img {
   gap: 10px;
 }
 
+/* Role Select Card Base (Inactive State) */
+.role-select-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  opacity: 0.65;
+}
+
+.role-select-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  opacity: 0.85;
+}
+
+.role-select-card input {
+  margin-top: 3px;
+  transform: scale(1.15);
+  cursor: pointer;
+}
+
+.role-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: block;
+  line-height: 1.25;
+  margin-top: 2px;
+}
+
+.role-active-indicator {
+  display: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+/* ACTIVE STATE - HIGHLIGHTED AND BORDERED */
+.role-select-card:has(input:checked),
+.role-select-card.is-active {
+  opacity: 1 !important;
+}
+
+.role-select-card:has(input:checked) .role-active-indicator,
+.role-select-card.is-active .role-active-indicator {
+  display: inline-block;
+}
+
+/* ADMIN ACTIVE */
+.role-select-card.role-admin:has(input:checked),
+.role-select-card.role-admin.is-active {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35), inset 0 0 12px rgba(245, 158, 11, 0.08) !important;
+}
+.role-select-card.role-admin:has(input:checked) .role-card-title,
+.role-select-card.role-admin.is-active .role-card-title {
+  color: #fbbf24 !important;
+  font-weight: 800;
+}
+
+/* STAFF ACTIVE */
+.role-select-card.role-staff:has(input:checked),
+.role-select-card.role-staff.is-active {
+  background: rgba(79, 70, 229, 0.16) !important;
+  border: 2px solid #818cf8 !important;
+  box-shadow: 0 0 16px rgba(79, 70, 229, 0.35), inset 0 0 12px rgba(79, 70, 229, 0.08) !important;
+}
+.role-select-card.role-staff:has(input:checked) .role-card-title,
+.role-select-card.role-staff.is-active .role-card-title {
+  color: #a5b4fc !important;
+  font-weight: 800;
+}
+
+/* ZÖLD KÁRTYA ACTIVE */
+.role-select-card.card-zold:has(input:checked),
+.role-select-card.card-zold.is-active {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35), inset 0 0 12px rgba(16, 185, 129, 0.08) !important;
+}
+.role-select-card.card-zold:has(input:checked) .role-card-title,
+.role-select-card.card-zold.is-active .role-card-title {
+  color: #34d399 !important;
+  font-weight: 800;
+}
+
+/* PIROS KÁRTYA ACTIVE */
+.role-select-card.card-piros:has(input:checked),
+.role-select-card.card-piros.is-active {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35), inset 0 0 12px rgba(239, 68, 68, 0.08) !important;
+}
+.role-select-card.card-piros:has(input:checked) .role-card-title,
+.role-select-card.card-piros.is-active .role-card-title {
+  color: #f87171 !important;
+  font-weight: 800;
+}
+
 @media (max-width: 991px) {
   .admin-edit-modal-card {
     max-width: 680px;

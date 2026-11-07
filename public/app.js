@@ -3440,54 +3440,69 @@ function openEditUserModal(userId) {
         <div class="edit-user-split-2">
           
           <!-- JOGOSULTSÁGOK PANEL -->
-          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:15px;">
-            <h4 style="margin:0 0 6px 0; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
-              Jogosultságok &amp; Szerepkörök
-            </h4>
-            <p style="font-size:11px; color:var(--text-secondary); margin:0 0 10px 0;">
+          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
+                Jogosultságok &amp; Szerepkörök
+              </h4>
+              <span style="font-size:11px; color:var(--text-muted);">Egyéni beállítás</span>
+            </div>
+            <p style="font-size:11px; color:var(--text-secondary); margin:0 0 14px 0;">
               Egy felhasználó több jogosultsággal is rendelkezhet (pl. Admin, Staff, Zöld kártya).
             </p>
 
-            <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; flex-direction:column; gap:14px;">
               <!-- Rendszer jogosultságok -->
               <div>
-                <span style="font-size:11px; color:#ffffff; font-weight:600; display:block; margin-bottom:5px;">Rendszerbeli hozzáférés:</span>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
-                    <input type="checkbox" id="edit-modal-role-admin" style="margin-top:2px; accent-color:#f59e0b;" ${isAdmin ? 'checked' : ''} ${isSuperAdminUser ? 'disabled title="Az Admin Főnök szerepköre kötelezően ADMIN!"' : ''}>
-                    <div>
-                      <strong style="display:block; font-size:12px; color:#f59e0b;">Admin</strong>
-                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Teljes hozzáférés</span>
+                <span style="font-size:11px; color:#ffffff; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:8px;">Rendszerbeli hozzáférés:</span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                  <label class="role-select-card role-admin ${isAdmin ? 'is-active' : ''}">
+                    <input type="checkbox" id="edit-modal-role-admin" onchange="updateRoleCardVisuals()" style="accent-color:#f59e0b;" ${isAdmin ? 'checked' : ''} ${isSuperAdminUser ? 'disabled title="Az Admin Főnök szerepköre kötelezően ADMIN!"' : ''}>
+                    <div style="flex:1;">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong class="role-card-title" style="font-size:13px; color:#f59e0b;">Admin</strong>
+                        <span class="role-active-indicator" style="background:#f59e0b; color:#000;">AKTÍV</span>
+                      </div>
+                      <span class="role-card-desc">Teljes hozzáférés</span>
                     </div>
                   </label>
 
-                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(79,70,229,0.06); border:1px solid rgba(79,70,229,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
-                    <input type="checkbox" id="edit-modal-role-staff" style="margin-top:2px; accent-color:#4f46e5;" ${isStaff ? 'checked' : ''}>
-                    <div>
-                      <strong style="display:block; font-size:12px; color:#818cf8;">Staff (Falmester)</strong>
-                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Scanner &amp; Foglalások</span>
+                  <label class="role-select-card role-staff ${isStaff ? 'is-active' : ''}">
+                    <input type="checkbox" id="edit-modal-role-staff" onchange="updateRoleCardVisuals()" style="accent-color:#818cf8;" ${isStaff ? 'checked' : ''}>
+                    <div style="flex:1;">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong class="role-card-title" style="font-size:13px; color:#818cf8;">Staff (Falmester)</strong>
+                        <span class="role-active-indicator" style="background:#818cf8; color:#000;">AKTÍV</span>
+                      </div>
+                      <span class="role-card-desc">Scanner &amp; Foglalások</span>
                     </div>
                   </label>
                 </div>
               </div>
 
               <!-- Mászókártya minősítés -->
-              <div style="border-top:1px dashed rgba(255,255,255,0.08); padding-top:8px;">
-                <span style="font-size:11px; color:#ffffff; font-weight:600; display:block; margin-bottom:5px;">Mászókártya minősítés:</span>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
-                    <input type="radio" name="edit-modal-card" id="edit-modal-card-zold" value="ZÖLD" style="margin-top:2px; accent-color:#10b981;" ${isZold ? 'checked' : ''}>
-                    <div>
-                      <strong style="display:block; font-size:12px; color:#10b981;">ZÖLD KÁRTYA</strong>
-                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Mások biztosítására jogosult</span>
+              <div style="border-top:1px dashed rgba(255,255,255,0.08); padding-top:12px;">
+                <span style="font-size:11px; color:#ffffff; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:8px;">Mászókártya minősítés:</span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                  <label class="role-select-card card-zold ${isZold ? 'is-active' : ''}">
+                    <input type="radio" name="edit-modal-card" id="edit-modal-card-zold" value="ZÖLD" onchange="updateRoleCardVisuals()" style="accent-color:#10b981;" ${isZold ? 'checked' : ''}>
+                    <div style="flex:1;">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong class="role-card-title" style="font-size:13px; color:#10b981;">ZÖLD KÁRTYA</strong>
+                        <span class="role-active-indicator" style="background:#10b981; color:#000;">AKTÍV</span>
+                      </div>
+                      <span class="role-card-desc">Mások biztosítására jogosult</span>
                     </div>
                   </label>
 
-                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
-                    <input type="radio" name="edit-modal-card" id="edit-modal-card-piros" value="PIROS" style="margin-top:2px; accent-color:#ef4444;" ${isPiros ? 'checked' : ''}>
-                    <div>
-                      <strong style="display:block; font-size:12px; color:#ef4444;">PIROS KÁRTYA</strong>
-                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Önálló mászás &amp; auto-belay</span>
+                  <label class="role-select-card card-piros ${isPiros ? 'is-active' : ''}">
+                    <input type="radio" name="edit-modal-card" id="edit-modal-card-piros" value="PIROS" onchange="updateRoleCardVisuals()" style="accent-color:#ef4444;" ${isPiros ? 'checked' : ''}>
+                    <div style="flex:1;">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong class="role-card-title" style="font-size:13px; color:#ef4444;">PIROS KÁRTYA</strong>
+                        <span class="role-active-indicator" style="background:#ef4444; color:#fff;">AKTÍV</span>
+                      </div>
+                      <span class="role-card-desc">Önálló mászás &amp; auto-belay</span>
                     </div>
                   </label>
                 </div>
@@ -3555,6 +3570,17 @@ function openEditUserModal(userId) {
 function closeEditUserModal() {
   const modal = document.getElementById('admin-edit-user-modal');
   if (modal) modal.remove();
+}
+
+function updateRoleCardVisuals() {
+  document.querySelectorAll('.role-select-card').forEach(card => {
+    const input = card.querySelector('input');
+    if (input && input.checked) {
+      card.classList.add('is-active');
+    } else {
+      card.classList.remove('is-active');
+    }
+  });
 }
 
 async function submitEditUserModal(e, userId) {
@@ -6589,6 +6615,7 @@ window.closeQRModal = closeQRModal;
 window.openNoTicketModal = openNoTicketModal;
 window.closeNoTicketModal = closeNoTicketModal;
 window.buyTicket = buyTicket;
+window.updateRoleCardVisuals = updateRoleCardVisuals;
 window.loadUserBookingsInModal = loadUserBookingsInModal;
 window.loadAdminCheckins = loadAdminCheckins;
 window.applyCheckinsFilters = applyCheckinsFilters;
