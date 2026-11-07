@@ -350,9 +350,27 @@ async function initDB() {
       location_id INTEGER,
       status TEXT NOT NULL,
       message TEXT,
+      staff_id INTEGER,
+      staff_name TEXT,
       FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: Add staff columns and indexes to entry_logs
+  try {
+    await dbRun("ALTER TABLE entry_logs ADD COLUMN staff_id INTEGER");
+  } catch (err) {}
+  try {
+    await dbRun("ALTER TABLE entry_logs ADD COLUMN staff_name TEXT");
+  } catch (err) {}
+
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_ticket ON entry_logs(ticket_id)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_scan_time ON entry_logs(scan_time)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_staff ON entry_logs(staff_id)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_location ON entry_logs(location_id)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id)");
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS slot_cancellations (
@@ -2545,6 +2563,9 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     const climber = await dbGet('SELECT id, name, phone, license_number, card_type FROM users WHERE id = ?', [ticket.user_id]);
     const today = new Date().toISOString().split('T')[0];
 
+    const staffId = req.user?.id || null;
+    const staffName = req.user?.name || req.user?.email || 'Staff';
+
     // Double check-in protection: Check for successful entry in last 10 seconds
     const recentScan = await dbGet(`
       SELECT * FROM entry_logs 
@@ -2571,7 +2592,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     // Check expiration date
     if (ticket.expires_date < today) {
       await dbRun("UPDATE tickets SET status = 'EXPIRED' WHERE id = ?", [ticket.id]);
-      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id) VALUES (?, 'FAILED', ?, ?)", [ticket.id, 'Jegy/bérlet lejárt', locationId || null]);
+      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Jegy/bérlet lejárt', locationId || null, staffId, staffName]);
       return res.status(400).json({
         valid: false,
         reason: 'A bérlet/jegy érvényessége lejárt!',
@@ -2582,7 +2603,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
 
     // Check if status is ACTIVE
     if (ticket.status !== 'ACTIVE') {
-      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id) VALUES (?, 'FAILED', ?, ?)", [ticket.id, 'Már felhasznált vagy érvénytelen jegy', locationId || null]);
+      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Már felhasznált vagy érvénytelen jegy', locationId || null, staffId, staffName]);
       return res.status(400).json({
         valid: false,
         reason: 'Ez a jegy már elhasznált vagy érvénytelenített!',
@@ -2604,7 +2625,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
       if (ticket.sessions_remaining <= 0) {
         updatedStatus = 'USED';
         await dbRun("UPDATE tickets SET status = 'USED' WHERE id = ?", [ticket.id]);
-        await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id) VALUES (?, 'FAILED', ?, ?)", [ticket.id, 'Bérlet alkalmak elfogytak', locationId || null]);
+        await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Bérlet alkalmak elfogytak', locationId || null, staffId, staffName]);
         return res.status(400).json({
           valid: false,
           reason: 'A 10 alkalmas bérlet minden alkalma elhasználásra került!',
@@ -2629,8 +2650,8 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
       [updatedSessions, updatedStatus, ticket.id]
     );
 
-    // Log successful scan
-    await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id) VALUES (?, 'SUCCESS', ?, ?)", [ticket.id, message, locationId || null]);
+    // Log successful scan with staff attribution
+    await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'SUCCESS', ?, ?, ?, ?)", [ticket.id, message, locationId || null, staffId, staffName]);
 
     res.json({
       valid: true,
@@ -2668,12 +2689,44 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
 
     const tickets = await dbAll("SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC", [userId]);
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended,
+             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_name,
+             (SELECT el.staff_id FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_id,
+             (SELECT el.scan_time FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_at
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
       WHERE b.user_id = ?
-      ORDER BY b.booking_date ASC, s.start_time ASC
+      ORDER BY b.booking_date DESC, s.start_time DESC
     `, [userId]);
 
     const logs = await dbAll(`
@@ -3083,14 +3136,39 @@ app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']
     let query = `
       SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, 
              l.name as location_name, l.id as location_id,
-             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id,
+             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id, u.card_type as user_card_type,
              (SELECT COUNT(*) FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
                 AND el.status = 'SUCCESS' 
                 AND el.location_id = s.location_id
                 AND date(el.scan_time) = b.booking_date
-             ) as attended
+             ) as attended,
+             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_name,
+             (SELECT el.staff_id FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_id,
+             (SELECT el.scan_time FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_at
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN locations l ON s.location_id = l.id
@@ -3119,6 +3197,314 @@ app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------- ADMIN CHECKINS & PAST BOOKINGS ROUTES ----------------
+
+// Get user specific bookings with full checkin / attendance data
+app.get('/api/admin/users/:id/bookings', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const bookings = await dbAll(`
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended,
+             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_name,
+             (SELECT el.staff_id FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_id,
+             (SELECT el.scan_time FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_at
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN locations l ON s.location_id = l.id
+      WHERE b.user_id = ?
+      ORDER BY b.booking_date DESC, s.start_time DESC
+    `, [userId]);
+
+    res.json(bookings);
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a felhasználó foglalásainak lekérésekor: ' + error.message });
+  }
+});
+
+// Get staff & admin members for checkin filters
+app.get('/api/admin/checkins/staff-list', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const staffMembers = await dbAll(`
+      SELECT id, name, email, role 
+      FROM users 
+      WHERE role LIKE '%STAFF%' OR role LIKE '%ADMIN%' 
+      ORDER BY name ASC
+    `);
+    res.json(staffMembers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get paginated checkin entry logs with advanced filters and export support
+app.get('/api/admin/checkins', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const offset = (page - 1) * limit;
+
+    const { locationId, staffId, status, search, exportType } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+
+    if (locationId) {
+      whereConditions.push('el.location_id = ?');
+      params.push(parseInt(locationId));
+    }
+
+    if (staffId) {
+      whereConditions.push('el.staff_id = ?');
+      params.push(parseInt(staffId));
+    }
+
+    if (status && status !== 'ALL') {
+      whereConditions.push('el.status = ?');
+      params.push(status);
+    }
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR t.qr_code_uuid LIKE ?)');
+      params.push(s, s, s, s);
+    }
+
+    const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+    // If export is requested, return up to 2000 records without pagination
+    if (exportType === 'all' || exportType === 'csv') {
+      const exportRows = await dbAll(`
+        SELECT 
+          el.id,
+          el.scan_time,
+          el.status,
+          el.message,
+          el.location_id,
+          l.name as location_name,
+          el.staff_id,
+          COALESCE(el.staff_name, su.name, su.email, 'Rendszer') as staff_name,
+          su.email as staff_email,
+          t.id as ticket_id,
+          t.ticket_type,
+          t.qr_code_uuid,
+          u.id as user_id,
+          u.name as user_name,
+          u.email as user_email,
+          u.phone as user_phone,
+          u.card_type as user_card_type
+        FROM entry_logs el
+        JOIN tickets t ON el.ticket_id = t.id
+        JOIN users u ON t.user_id = u.id
+        LEFT JOIN locations l ON el.location_id = l.id
+        LEFT JOIN users su ON el.staff_id = su.id
+        ${whereClause}
+        ORDER BY el.scan_time DESC, el.id DESC
+        LIMIT 2000
+      `, params);
+      return res.json({ checkins: exportRows });
+    }
+
+    // Count query
+    const countRow = await dbGet(`
+      SELECT COUNT(*) as total
+      FROM entry_logs el
+      JOIN tickets t ON el.ticket_id = t.id
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN locations l ON el.location_id = l.id
+      LEFT JOIN users su ON el.staff_id = su.id
+      ${whereClause}
+    `, params);
+    const total = countRow ? countRow.total : 0;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    // Paginated rows
+    const queryParams = [...params, limit, offset];
+    const checkins = await dbAll(`
+      SELECT 
+        el.id,
+        el.scan_time,
+        el.status,
+        el.message,
+        el.location_id,
+        l.name as location_name,
+        el.staff_id,
+        COALESCE(el.staff_name, su.name, su.email, 'Rendszer') as staff_name,
+        su.email as staff_email,
+        t.id as ticket_id,
+        t.ticket_type,
+        t.qr_code_uuid,
+        u.id as user_id,
+        u.name as user_name,
+        u.email as user_email,
+        u.phone as user_phone,
+        u.card_type as user_card_type
+      FROM entry_logs el
+      JOIN tickets t ON el.ticket_id = t.id
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN locations l ON el.location_id = l.id
+      LEFT JOIN users su ON el.staff_id = su.id
+      ${whereClause}
+      ORDER BY el.scan_time DESC, el.id DESC
+      LIMIT ? OFFSET ?
+    `, queryParams);
+
+    res.json({
+      checkins,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a beléptetések lekérdezésekor: ' + error.message });
+  }
+});
+
+// Get paginated past bookings with attendance & staff checkin details
+app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const offset = (page - 1) * limit;
+
+    const { locationId, search, attended, staffId, exportType } = req.query;
+
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayStr = formatter.format(new Date());
+
+    let whereConditions = ['b.booking_date < ?'];
+    let params = [todayStr];
+
+    if (locationId) {
+      whereConditions.push('s.location_id = ?');
+      params.push(parseInt(locationId));
+    }
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)');
+      params.push(s, s, s);
+    }
+
+    const whereClause = 'WHERE ' + whereConditions.join(' AND ');
+
+    let baseQuery = `
+      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, 
+             l.name as location_name, l.id as location_id,
+             u.name as user_name, u.email as user_email, u.phone as user_phone, u.id as user_id, u.card_type as user_card_type,
+             (SELECT COUNT(*) FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+             ) as attended,
+             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_name,
+             (SELECT el.staff_id FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_id,
+             (SELECT el.scan_time FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_at
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN locations l ON s.location_id = l.id
+      JOIN users u ON b.user_id = u.id
+      ${whereClause}
+    `;
+
+    let outerConditions = [];
+    if (attended === 'yes') {
+      outerConditions.push('attended > 0');
+    } else if (attended === 'no') {
+      outerConditions.push('attended = 0');
+    }
+
+    if (staffId) {
+      outerConditions.push(`scanned_by_staff_id = ${parseInt(staffId)}`);
+    }
+
+    const outerWhere = outerConditions.length > 0 ? 'WHERE ' + outerConditions.join(' AND ') : '';
+
+    if (exportType === 'all' || exportType === 'csv') {
+      const exportBookings = await dbAll(`SELECT * FROM (${baseQuery}) ${outerWhere} ORDER BY booking_date DESC, start_time DESC LIMIT 2000`, params);
+      return res.json({ bookings: exportBookings });
+    }
+
+    const countRow = await dbGet(`SELECT COUNT(*) as total FROM (${baseQuery}) ${outerWhere}`, params);
+    const total = countRow ? countRow.total : 0;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const bookings = await dbAll(`SELECT * FROM (${baseQuery}) ${outerWhere} ORDER BY booking_date DESC, start_time DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+
+    res.json({
+      bookings,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a múltbéli foglalások lekérdezésekor: ' + error.message });
   }
 });
 

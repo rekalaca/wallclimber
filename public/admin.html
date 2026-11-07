@@ -32,7 +32,7 @@
   <meta name="twitter:title" content="Adminisztrációs Panel | HawkStone">
   <meta name="twitter:description" content="Adminisztrációs kezelőfelület.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261107_c96">
+  <link rel="stylesheet" href="style.css?v=20261107_c97">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -66,6 +66,7 @@
     <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
     <div class="auth-tabs" style="display: none;">
       <div id="tab-dashboard" class="auth-tab active" onclick="switchAdminTab('dashboard')">Kezdőlap</div>
+      <div id="tab-checkins" class="auth-tab" onclick="switchAdminTab('checkins')">Beléptetések</div>
       <div id="tab-slots" class="auth-tab" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
       <div id="tab-news" class="auth-tab" onclick="switchAdminTab('news')">Üzenőfal Kezelése</div>
@@ -138,6 +139,68 @@
           </svg>
           <h4 style="font-size: 16px; color: var(--text-primary); margin-bottom: 8px; font-family: 'Montserrat', sans-serif; font-weight: 600;">Nincs aktív keresés</h4>
           <p style="font-size: 14px; color: var(--text-secondary); max-width: 500px; margin: 0 auto; line-height: 1.5;">Adj meg egy nevet, e-mail címet, telefonszámot vagy fizetési azonosítót a fenti mezőkben a tagok és Barion befizetések szűréséhez.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Checkins Content -->
+    <div id="admin-checkins-content" style="display: none;">
+      <div class="glass-card" style="padding: 30px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 22px;">
+          <div>
+            <h3 style="font-size: 20px; color: var(--primary); margin: 0 0 5px 0; font-family: 'Montserrat', sans-serif; font-weight: 700;">
+              BELÉPTETÉSEK NAPLÓJA
+            </h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+              Időrendi beléptetési napló: mikor, melyik mászófalnál kit, melyik staff engedett be.
+            </p>
+          </div>
+          <!-- Export actions -->
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" onclick="exportCheckinsToExcel()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📥 Excel Export (CSV)
+            </button>
+            <button type="button" onclick="exportCheckinsToPDF()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📄 PDF / Nyomtatás
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Mászófal</label>
+            <select id="admin-checkins-filter-location" class="form-control" onchange="applyCheckinsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes mászófal</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Beléptető Személyzet</label>
+            <select id="admin-checkins-filter-staff" class="form-control" onchange="applyCheckinsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes személyzet</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Státusz</label>
+            <select id="admin-checkins-filter-status" class="form-control" onchange="applyCheckinsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="SUCCESS">Csak sikeres belépések</option>
+              <option value="ALL">Összes (sikertelenek is)</option>
+              <option value="FAILED">Csak sikertelen próbálkozások</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Keresés (Tag neve / Email)</label>
+            <input type="text" id="admin-checkins-filter-search" class="form-control" placeholder="Keresés tagra..." oninput="debounceCheckinsSearch()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div id="admin-checkins-table-container" class="admin-table-wrapper">
+          <p style="color:var(--text-muted); text-align:center; padding: 25px;">Beléptetési adatok betöltése...</p>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div id="admin-checkins-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 15px;">
         </div>
       </div>
     </div>
@@ -482,6 +545,79 @@
     </div>
     <!-- Tab Bookings Content -->
     <div id="admin-bookings-content" style="display: none;">
+      <!-- Bookings Mode Toggle -->
+      <div style="display: flex; justify-content: center; margin-bottom: 25px;">
+        <div style="display: inline-flex; gap: 4px; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+          <button id="bookings-toggle-active-btn" type="button" onclick="switchBookingsMode('active')" class="btn btn-primary btn-sm" style="margin: 0; padding: 8px 18px; font-weight: 600; border-radius: 8px;">
+            📅 Heti Órarend &amp; Aktuális Foglalások
+          </button>
+          <button id="bookings-toggle-past-btn" type="button" onclick="switchBookingsMode('past')" class="btn btn-secondary btn-sm" style="margin: 0; padding: 8px 18px; font-weight: 600; border-radius: 8px;">
+            📜 Múltbéli Foglalások Archívuma
+          </button>
+        </div>
+      </div>
+
+      <!-- Past Bookings Archive View (Hidden by default) -->
+      <div id="admin-bookings-past-view" class="glass-card" style="display: none; padding: 30px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 22px;">
+          <div>
+            <h3 style="font-size: 20px; color: var(--primary); margin: 0 0 5px 0; font-family: 'Montserrat', sans-serif; font-weight: 700;">
+              MÚLTBÉLI FOGLALÁSOK ARCHÍVUMA
+            </h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+              Lezárt korábbi foglalások naplója: megjelent-e a tag és ki engedte be.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" onclick="exportPastBookingsToExcel()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📥 Excel Export (CSV)
+            </button>
+            <button type="button" onclick="exportPastBookingsToPDF()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📄 PDF / Nyomtatás
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Mászófal</label>
+            <select id="admin-past-bookings-filter-location" class="form-control" onchange="applyPastBookingsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes mászófal</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Részvétel</label>
+            <select id="admin-past-bookings-filter-attended" class="form-control" onchange="applyPastBookingsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="all">Összes státusz</option>
+              <option value="yes">Csak megjelentek</option>
+              <option value="no">Nem jelent meg</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Beléptető Személyzet</label>
+            <select id="admin-past-bookings-filter-staff" class="form-control" onchange="applyPastBookingsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes személyzet</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Keresés (Tag neve / Email)</label>
+            <input type="text" id="admin-past-bookings-filter-search" class="form-control" placeholder="Keresés névre vagy emailre..." oninput="debouncePastBookingsSearch()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div id="admin-past-bookings-table-container" class="admin-table-wrapper">
+          <p style="color:var(--text-muted); text-align:center; padding: 25px;">Múltbéli foglalások betöltése...</p>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div id="admin-past-bookings-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 15px;">
+        </div>
+      </div>
+
+      <!-- Active Bookings Container -->
+      <div id="admin-bookings-active-wrapper">
       <!-- Grid of Location Cards -->
       <div id="admin-bookings-locations-view" class="glass-card" style="padding: 30px;">
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
@@ -512,6 +648,7 @@
           <p style="color:var(--text-muted);">Foglalások betöltése...</p>
         </div>
       </div>
+      </div><!-- End #admin-bookings-active-wrapper -->
     </div>
     
     <!-- Tab Withdrawals Content -->
@@ -579,6 +716,7 @@
           if (headingEl) headingEl.textContent = 'ADMINISZTRÁCIÓS PANEL';
           if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
           else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
+          else if (tab === 'checkins') activeTitleEl.textContent = 'BELÉPTETÉSEK NAPLÓJA';
           else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
           else if (tab === 'news') activeTitleEl.textContent = 'ÜZENŐFAL KEZELÉSE';
           else if (tab === 'bookings') activeTitleEl.textContent = 'FOGLALÁSOK';
@@ -587,6 +725,7 @@
       }
 
       const tabDashboard = document.getElementById('tab-dashboard');
+      const tabCheckins = document.getElementById('tab-checkins');
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
       const tabNews = document.getElementById('tab-news');
@@ -594,14 +733,14 @@
       const tabWithdrawals = document.getElementById('tab-withdrawals');
       
       const contentDashboard = document.getElementById('admin-dashboard-content');
+      const contentCheckins = document.getElementById('admin-checkins-content');
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
       const contentNews = document.getElementById('admin-news-content');
       const contentBookings = document.getElementById('admin-bookings-content');
       const contentWithdrawals = document.getElementById('admin-withdrawals-content');
       
-      if (!tabDashboard || !tabSlots || !tabUsers || !tabNews || !tabBookings || !tabWithdrawals ||
-          !contentDashboard || !contentSlots || !contentUsers || !contentNews || !contentBookings || !contentWithdrawals) return;
+      if (!tabDashboard || !contentDashboard) return;
 
       // Update URL hash without reload
       if (history.pushState) {
@@ -611,30 +750,36 @@
       }
 
       // Deactivate all
-      [tabDashboard, tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].forEach(t => t.classList.remove('active'));
-      [contentDashboard, contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].forEach(c => c.style.display = 'none');
+      [tabDashboard, tabCheckins, tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].filter(Boolean).forEach(t => t.classList.remove('active'));
+      [contentDashboard, contentCheckins, contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].filter(Boolean).forEach(c => c.style.display = 'none');
 
       if (tab === 'dashboard') {
         tabDashboard.classList.add('active');
         contentDashboard.style.display = 'block';
+      } else if (tab === 'checkins') {
+        if (tabCheckins) tabCheckins.classList.add('active');
+        if (contentCheckins) contentCheckins.style.display = 'block';
+        if (typeof window.loadAdminCheckins === 'function') {
+          window.loadAdminCheckins();
+        }
       } else if (tab === 'slots') {
-        tabSlots.classList.add('active');
-        contentSlots.style.display = 'block';
+        if (tabSlots) tabSlots.classList.add('active');
+        if (contentSlots) contentSlots.style.display = 'block';
       } else if (tab === 'users') {
-        tabUsers.classList.add('active');
-        contentUsers.style.display = 'block';
+        if (tabUsers) tabUsers.classList.add('active');
+        if (contentUsers) contentUsers.style.display = 'block';
       } else if (tab === 'news') {
-        tabNews.classList.add('active');
-        contentNews.style.display = 'block';
+        if (tabNews) tabNews.classList.add('active');
+        if (contentNews) contentNews.style.display = 'block';
       } else if (tab === 'bookings') {
-        tabBookings.classList.add('active');
-        contentBookings.style.display = 'block';
+        if (tabBookings) tabBookings.classList.add('active');
+        if (contentBookings) contentBookings.style.display = 'block';
         if (typeof window.loadAdminBookings === 'function') {
           window.loadAdminBookings();
         }
       } else if (tab === 'withdrawals') {
-        tabWithdrawals.classList.add('active');
-        contentWithdrawals.style.display = 'block';
+        if (tabWithdrawals) tabWithdrawals.classList.add('active');
+        if (contentWithdrawals) contentWithdrawals.style.display = 'block';
         if (typeof window.loadAdminWithdrawals === 'function') {
           window.loadAdminWithdrawals();
         }
@@ -642,6 +787,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20261107_c96"></script>
+  <script src="app.js?v=20261107_c97"></script>
 </body>
 </html>

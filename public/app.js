@@ -573,6 +573,7 @@ function renderHeader() {
       // Teljes Rendszergazda (Admin) Menu
       navItems = `
         <li><a href="admin.html#dashboard" class="nav-link ${activeClass('admin.html', '#dashboard')}">Kezdőlap</a></li>
+        <li><a href="admin.html#checkins" class="nav-link ${activeClass('admin.html', '#checkins')}">Beléptetések</a></li>
         <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
         <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
         <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
@@ -3139,7 +3140,8 @@ async function initAdminPanel() {
   if (isStaffOnly) {
     initialTab = 'bookings';
   } else {
-    if (hash === '#users') initialTab = 'users';
+    if (hash === '#checkins') initialTab = 'checkins';
+    else if (hash === '#users') initialTab = 'users';
     else if (hash === '#news') initialTab = 'news';
     else if (hash === '#schedule') initialTab = 'slots';
     else if (hash === '#bookings') initialTab = 'bookings';
@@ -3186,7 +3188,8 @@ async function initAdminPanel() {
     if (isStaffOnly) {
       tab = 'bookings';
     } else {
-      if (currentHash === '#users') tab = 'users';
+      if (currentHash === '#checkins') tab = 'checkins';
+      else if (currentHash === '#users') tab = 'users';
       else if (currentHash === '#news') tab = 'news';
       else if (currentHash === '#schedule') tab = 'slots';
       else if (currentHash === '#bookings') tab = 'bookings';
@@ -3501,6 +3504,24 @@ function openEditUserModal(userId) {
           </small>
         </div>
 
+        <!-- FOGLALÁSOK ÉS BELÉPTETÉSEK LEKÉRDEZÉSE -->
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:16px; margin-bottom:22px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:16px;">📅</span>
+              <h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
+                Felhasználó foglalásai &amp; beléptetései
+              </h4>
+            </div>
+            <button type="button" onclick="loadUserBookingsInModal(${user.id})" class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:11px; height:auto; display:inline-flex; align-items:center; gap:4px;">
+              🔄 Frissítés
+            </button>
+          </div>
+          <div id="modal-user-bookings-container" style="max-height:220px; overflow-y:auto; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:10px;">
+            <p style="color:var(--text-muted); font-size:12px; margin:0; text-align:center;">Foglalások betöltése...</p>
+          </div>
+        </div>
+
         <div style="display:flex; gap:12px; justify-content:flex-end;">
           <button type="button" onclick="closeEditUserModal()" class="btn btn-secondary" style="padding:10px 20px;">Mégse</button>
           <button type="submit" class="btn btn-primary" style="padding:10px 26px; font-weight:600;">Módosítások mentése</button>
@@ -3510,6 +3531,11 @@ function openEditUserModal(userId) {
   `;
 
   document.body.appendChild(modal);
+
+  // Auto-fetch user bookings for convenient viewing
+  setTimeout(() => {
+    loadUserBookingsInModal(user.id);
+  }, 50);
 
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeEditUserModal();
@@ -3898,13 +3924,21 @@ function renderSubpageBookingsList(filter) {
     bookingDiv.style.justifyContent = 'space-between';
     bookingDiv.style.alignItems = 'center';
     
+    let badgeHtml = '';
+    if (isAttended) {
+      const staffWho = b.scanned_by_staff_name ? ` (Staff: ${b.scanned_by_staff_name})` : '';
+      badgeHtml = `<span class="badge badge-green" style="font-size: 9px; padding: 2px 6px; opacity: 0.95;" title="Beléptetve: ${b.scanned_at || ''}${staffWho}">✓ Megjelent${staffWho}</span>`;
+    } else if (filter === 'past') {
+      badgeHtml = `<span class="badge badge-secondary" style="font-size: 9px; padding: 2px 6px; opacity: 0.7;">Nem jelent meg</span>`;
+    }
+
     bookingDiv.innerHTML = `
       <div>
         <span style="font-weight:600; color:#fff;">${b.booking_date}</span> | 
         <span>${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span> 
         <span style="color:var(--primary);">(${b.location_name})</span>
       </div>
-      ${isAttended ? '<span class="badge badge-secondary" style="font-size: 9px; padding: 1px 4px; opacity: 0.6;">Megjelent</span>' : ''}
+      ${badgeHtml}
     `;
     bookingsContainer.appendChild(bookingDiv);
   });
@@ -5268,7 +5302,14 @@ function renderAdminBookings() {
       `;
 
       grouped[date][slotTime].forEach(b => {
-        const attendedBadge = b.attended > 0 ? `<span class="badge badge-green" style="font-size: 9px; padding: 2px 6px; opacity: 0.8; margin-left: 8px;">Megjelent</span>` : '';
+        const isPastBooking = isBookingExpired(b.booking_date, b.end_time);
+        let attendedBadge = '';
+        if (b.attended > 0) {
+          const staffText = b.scanned_by_staff_name ? ` (Beléptette: ${b.scanned_by_staff_name})` : '';
+          attendedBadge = `<span class="badge badge-green" style="font-size: 9px; padding: 2px 6px; opacity: 0.95; margin-left: 8px;" title="Beléptetve: ${b.scanned_at || ''}${staffText}">✓ Megjelent${staffText}</span>`;
+        } else if (isPastBooking) {
+          attendedBadge = `<span class="badge badge-secondary" style="font-size: 9px; padding: 2px 6px; opacity: 0.7; margin-left: 8px;">Nem jelent meg</span>`;
+        }
         dateHtml += `
           <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; font-size: 13px;">
             <div>
@@ -5716,12 +5757,843 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ---------------- CHECKINS & PAST BOOKINGS MANAGEMENT ----------------
+
+// State variables for Checkins
+let currentCheckinsPage = 1;
+const checkinsPageLimit = 25;
+let checkinsSearchTimeout = null;
+let checkinsStaffListCache = null;
+
+// State variables for Past Bookings
+let currentPastBookingsPage = 1;
+const pastBookingsPageLimit = 25;
+let pastBookingsSearchTimeout = null;
+
+// 1. Load user bookings inside edit modal
+async function loadUserBookingsInModal(userId) {
+  const container = document.getElementById('modal-user-bookings-container');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted); font-size:12px; margin:0; text-align:center;">Foglalások lekérdezése...</p>';
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}/bookings`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Hiba a foglalások lekérdezésekor');
+    const bookings = await res.json();
+
+    if (!bookings || bookings.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted); font-size:12px; margin:0; text-align:center;">Ennek a felhasználónak még nincsenek foglalásai.</p>';
+      return;
+    }
+
+    let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+    bookings.forEach(b => {
+      const isPast = isBookingExpired(b.booking_date, b.end_time);
+      const isAttended = b.attended > 0;
+
+      let statusBadge = '';
+      if (isAttended) {
+        const staffWho = b.scanned_by_staff_name ? ` · Beléptette: <strong>${escapeHtml(b.scanned_by_staff_name)}</strong>` : '';
+        const scanTimeText = b.scanned_at ? ` (${b.scanned_at.substring(0, 16).replace('T', ' ')})` : '';
+        statusBadge = `<span class="badge badge-green" style="font-size:10px; padding:3px 8px; font-weight:600;">✅ Megjelent &amp; Felhasználva${staffWho}${scanTimeText}</span>`;
+      } else if (isPast) {
+        statusBadge = '<span class="badge badge-secondary" style="font-size:10px; padding:3px 8px; opacity:0.75;">❌ Nem jelent meg (Lejárt)</span>';
+      } else {
+        statusBadge = '<span class="badge badge-primary" style="font-size:10px; padding:3px 8px; font-weight:600;">⏳ Aktuális foglalás</span>';
+      }
+
+      html += `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <span style="font-weight:700; color:#fff; font-size:13px;">${b.booking_date}</span>
+            <span style="color:var(--text-secondary); font-size:12px; margin-left:6px;">${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span>
+            <span style="color:var(--primary); font-size:12px; margin-left:6px; font-weight:600;">(${escapeHtml(b.location_name)})</span>
+          </div>
+          <div>
+            ${statusBadge}
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading user bookings in modal:', err);
+    container.innerHTML = '<p style="color:var(--danger); font-size:12px; margin:0; text-align:center;">Nem sikerült betölteni a foglalási adatokat.</p>';
+  }
+}
+
+// 2. Load Checkins Filters (Locations & Staff)
+async function initCheckinsFilters() {
+  const locSelect = document.getElementById('admin-checkins-filter-location');
+  const staffSelect = document.getElementById('admin-checkins-filter-staff');
+
+  // Load locations if empty
+  if (locSelect && locSelect.options.length <= 1) {
+    try {
+      const res = await fetch('/api/locations');
+      if (res.ok) {
+        const locations = await res.json();
+        locations.forEach(loc => {
+          const opt = document.createElement('option');
+          opt.value = loc.id;
+          opt.textContent = loc.name;
+          locSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+
+  // Load staff list if empty
+  if (staffSelect && staffSelect.options.length <= 1) {
+    try {
+      if (!checkinsStaffListCache) {
+        const res = await fetch('/api/admin/checkins/staff-list', { headers: getAuthHeaders() });
+        if (res.ok) checkinsStaffListCache = await res.json();
+      }
+      if (checkinsStaffListCache) {
+        checkinsStaffListCache.forEach(staff => {
+          const opt = document.createElement('option');
+          opt.value = staff.id;
+          opt.textContent = `${staff.name} (${staff.role})`;
+          staffSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+}
+
+// 3. Load Admin Checkins List with Pagination & Filters
+async function loadAdminCheckins(page = 1) {
+  currentCheckinsPage = page;
+  await initCheckinsFilters();
+
+  const container = document.getElementById('admin-checkins-table-container');
+  const paginationEl = document.getElementById('admin-checkins-pagination');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 25px;">Beléptetési adatok betöltése...</p>';
+
+  const locVal = document.getElementById('admin-checkins-filter-location')?.value || '';
+  const staffVal = document.getElementById('admin-checkins-filter-staff')?.value || '';
+  const statusVal = document.getElementById('admin-checkins-filter-status')?.value || 'SUCCESS';
+  const searchVal = document.getElementById('admin-checkins-filter-search')?.value.trim() || '';
+
+  const queryParams = new URLSearchParams({
+    page: currentCheckinsPage,
+    limit: checkinsPageLimit
+  });
+  if (locVal) queryParams.set('locationId', locVal);
+  if (staffVal) queryParams.set('staffId', staffVal);
+  if (statusVal) queryParams.set('status', statusVal);
+  if (searchVal) queryParams.set('search', searchVal);
+
+  try {
+    const res = await fetch(`/api/admin/checkins?${queryParams.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Nem sikerült betölteni a beléptetési naplót.');
+    const data = await res.json();
+    const { checkins, pagination } = data;
+
+    window.currentAdminCheckins = checkins;
+    window.currentAdminCheckinsPagination = pagination;
+
+    renderCheckinsTable(checkins);
+    renderCheckinsPagination(pagination);
+  } catch (err) {
+    console.error('Error loading checkins:', err);
+    container.innerHTML = `<p style="color:var(--danger); text-align:center; padding: 25px;">${err.message}</p>`;
+    if (paginationEl) paginationEl.innerHTML = '';
+  }
+}
+
+function renderCheckinsTable(checkins) {
+  const container = document.getElementById('admin-checkins-table-container');
+  if (!container) return;
+
+  if (!checkins || checkins.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 35px; font-size:14px;">A megadott szűrési feltételekkel nem található beléptetés.</p>';
+    return;
+  }
+
+  let tableHtml = `
+    <table class="admin-table admin-checkins-table">
+      <thead>
+        <tr>
+          <th style="min-width:140px;">Mikor (Időpont)</th>
+          <th style="min-width:130px;">Melyik falnál</th>
+          <th style="min-width:180px;">Kit (Mászó / Tag)</th>
+          <th style="min-width:120px;">Jegy / Bérlet</th>
+          <th style="min-width:160px;">Ki engedte be (Staff)</th>
+          <th style="min-width:130px;">Státusz</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  checkins.forEach(c => {
+    const dateFormatted = c.scan_time ? c.scan_time.substring(0, 16).replace('T', ' ') : '-';
+    const locBadge = c.location_name ? `<span class="badge badge-primary" style="font-size:11px;">${escapeHtml(c.location_name)}</span>` : '<span style="color:var(--text-muted);">-</span>';
+    
+    // Ticket type label
+    let ticketTypeLabel = c.ticket_type || 'JEGY';
+    if (ticketTypeLabel === 'NAPI') ticketTypeLabel = 'Napijegy';
+    else if (ticketTypeLabel === 'TIZ_ALKALMAS') ticketTypeLabel = '10 Alkalmas';
+    else if (ticketTypeLabel === 'HAVI') ticketTypeLabel = 'Havi Bérlet';
+
+    // Status label
+    const isSuccess = c.status === 'SUCCESS';
+    const statusBadge = isSuccess 
+      ? '<span class="badge badge-green" style="font-size:11px; padding:3px 8px; font-weight:600;">✓ Sikeres belépés</span>'
+      : `<span class="badge badge-danger" style="font-size:11px; padding:3px 8px; font-weight:600;" title="${escapeHtml(c.message || '')}">✕ Sikertelen</span>`;
+
+    // Climber card type
+    let cardBadge = '';
+    if (c.user_card_type === 'ZÖLD') cardBadge = '<span class="badge user-badge-green" style="font-size:10px; padding:1px 5px; margin-left:4px;">ZÖLD</span>';
+    else if (c.user_card_type === 'PIROS') cardBadge = '<span class="badge user-badge-red" style="font-size:10px; padding:1px 5px; margin-left:4px;">PIROS</span>';
+
+    tableHtml += `
+      <tr>
+        <td style="font-weight:600; font-family:'Outfit',monospace; font-size:13px; color:#fff;">
+          ${dateFormatted}
+        </td>
+        <td>
+          ${locBadge}
+        </td>
+        <td>
+          <div style="font-weight:600; color:#fff; font-size:13px;">
+            ${escapeHtml(c.user_name)} ${cardBadge}
+          </div>
+          <div style="font-size:11px; color:var(--text-muted);">
+            ${escapeHtml(c.user_email)} ${c.user_phone ? ' · ' + escapeHtml(c.user_phone) : ''}
+          </div>
+        </td>
+        <td>
+          <span class="badge badge-secondary" style="font-size:11px; font-weight:600;">${ticketTypeLabel}</span>
+          ${c.qr_code_uuid ? `<div style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-top:2px;">#${c.qr_code_uuid.substring(0,8)}</div>` : ''}
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge user-badge-role-staff" style="font-size:10px; padding:2px 6px;">STAFF</span>
+            <strong style="font-size:13px; color:#fff;">${escapeHtml(c.staff_name || 'Rendszer')}</strong>
+          </div>
+          ${c.staff_email ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHtml(c.staff_email)}</div>` : ''}
+        </td>
+        <td>
+          ${statusBadge}
+          ${(!isSuccess && c.message) ? `<div style="font-size:10px; color:var(--danger); margin-top:3px; max-width:160px; line-height:1.2;">${escapeHtml(c.message)}</div>` : ''}
+        </td>
+      </tr>
+    `;
+  });
+
+  tableHtml += '</tbody></table>';
+  container.innerHTML = tableHtml;
+}
+
+function renderCheckinsPagination(pagination) {
+  const el = document.getElementById('admin-checkins-pagination');
+  if (!el || !pagination) return;
+
+  const { total, page, totalPages, limit } = pagination;
+  if (total <= limit && totalPages <= 1) {
+    el.innerHTML = `<div style="color:var(--text-muted); font-size:12px;">Összesen ${total} beléptetés</div>`;
+    return;
+  }
+
+  const startIdx = (page - 1) * limit + 1;
+  const endIdx = Math.min(page * limit, total);
+
+  el.innerHTML = `
+    <div style="color:var(--text-muted); font-size:13px;">
+      Megjelenítve: <strong>${startIdx} - ${endIdx}</strong> / ${total} beléptetés
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button type="button" onclick="changeCheckinsPage(${page - 1})" class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="padding:4px 10px; font-size:12px;">
+        ‹ Előző
+      </button>
+      <span style="font-size:13px; color:#fff; font-weight:600; padding:0 8px;">
+        ${page} / ${totalPages}
+      </span>
+      <button type="button" onclick="changeCheckinsPage(${page + 1})" class="btn btn-secondary btn-sm" ${page >= totalPages ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="padding:4px 10px; font-size:12px;">
+        Következő ›
+      </button>
+    </div>
+  `;
+}
+
+function changeCheckinsPage(newPage) {
+  const totalPages = window.currentAdminCheckinsPagination?.totalPages || 1;
+  if (newPage < 1 || newPage > totalPages) return;
+  loadAdminCheckins(newPage);
+}
+
+function applyCheckinsFilters() {
+  currentCheckinsPage = 1;
+  loadAdminCheckins(1);
+}
+
+function debounceCheckinsSearch() {
+  clearTimeout(checkinsSearchTimeout);
+  checkinsSearchTimeout = setTimeout(() => {
+    applyCheckinsFilters();
+  }, 350);
+}
+
+// 4. Export Checkins to Excel (CSV with UTF-8 BOM)
+async function exportCheckinsToExcel() {
+  const locVal = document.getElementById('admin-checkins-filter-location')?.value || '';
+  const staffVal = document.getElementById('admin-checkins-filter-staff')?.value || '';
+  const statusVal = document.getElementById('admin-checkins-filter-status')?.value || 'SUCCESS';
+  const searchVal = document.getElementById('admin-checkins-filter-search')?.value.trim() || '';
+
+  const queryParams = new URLSearchParams({ exportType: 'all' });
+  if (locVal) queryParams.set('locationId', locVal);
+  if (staffVal) queryParams.set('staffId', staffVal);
+  if (statusVal) queryParams.set('status', statusVal);
+  if (searchVal) queryParams.set('search', searchVal);
+
+  try {
+    showToast('Excel export előkészítése...', 'info');
+    const res = await fetch(`/api/admin/checkins?${queryParams.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Hiba az adatok letöltésekor');
+    const data = await res.json();
+    const rows = data.checkins || [];
+
+    if (rows.length === 0) {
+      showToast('Nincs exportálható adat a megadott szűréshez!', 'warning');
+      return;
+    }
+
+    const headers = ['Időpont', 'Mászófal', 'Mászó Neve', 'Mászó Email', 'Mászó Telefon', 'Mászókártya', 'Jegy Típus', 'Beléptető Személyzet (Staff)', 'Staff Email', 'Státusz', 'Üzenet'];
+    const csvLines = [headers.map(h => `"${h}"`).join(';')];
+
+    rows.forEach(r => {
+      const line = [
+        r.scan_time ? r.scan_time.substring(0, 16).replace('T', ' ') : '',
+        r.location_name || '',
+        r.user_name || '',
+        r.user_email || '',
+        r.user_phone || '',
+        r.user_card_type || 'NINCS',
+        r.ticket_type || '',
+        r.staff_name || 'Rendszer',
+        r.staff_email || '',
+        r.status === 'SUCCESS' ? 'Sikeres' : 'Sikertelen',
+        r.message || ''
+      ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+      csvLines.push(line.join(';'));
+    });
+
+    const csvContent = '﻿' + csvLines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const today = new Date().toISOString().split('T')[0];
+    link.download = `hawkstone_beleptetesek_${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast('Excel fájl sikeresen letöltve!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// 5. Export Checkins to PDF / Print
+async function exportCheckinsToPDF() {
+  const rows = window.currentAdminCheckins || [];
+  if (rows.length === 0) {
+    showToast('Nincs nyomtatható adat a jelenlegi nézetben!', 'warning');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast('Kérjük, engedélyezd a felugró ablakokat a nyomtatáshoz!', 'error');
+    return;
+  }
+
+  let tableRowsHtml = '';
+  rows.forEach(r => {
+    tableRowsHtml += `
+      <tr>
+        <td>${r.scan_time ? r.scan_time.substring(0, 16).replace('T', ' ') : '-'}</td>
+        <td>${escapeHtml(r.location_name || '-')}</td>
+        <td><strong>${escapeHtml(r.user_name)}</strong><br><small>${escapeHtml(r.user_email)}</small></td>
+        <td>${escapeHtml(r.ticket_type || '-')}</td>
+        <td><strong>${escapeHtml(r.staff_name || 'Rendszer')}</strong></td>
+        <td>${r.status === 'SUCCESS' ? '<span style="color:green;font-weight:bold;">Sikeres</span>' : '<span style="color:red;font-weight:bold;">Sikertelen</span>'}</td>
+      </tr>
+    `;
+  });
+
+  const todayStr = new Date().toLocaleString('hu-HU');
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>HawkStone - Beléptetések Naplója</title>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; margin: 25px; }
+        h2 { margin: 0 0 5px 0; color: #f27620; text-transform: uppercase; }
+        .meta { font-size: 11px; color: #666; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        th { background: #f8f8f8; font-weight: bold; }
+        @media print {
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <h2>HawkStone Mászóklub – Beléptetések Naplója</h2>
+      <div class="meta">Nyomtatva: ${todayStr} | Összesen ${rows.length} bejegyzés a jelenlegi nézetben</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Időpont</th>
+            <th>Mászófal</th>
+            <th>Mászó / Tag</th>
+            <th>Jegy / Bérlet</th>
+            <th>Beléptető Staff</th>
+            <th>Státusz</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+// ---------------- PAST BOOKINGS ARCHIVE MANAGEMENT ----------------
+
+// Toggle between Active Bookings view and Past Archive view
+function switchBookingsMode(mode) {
+  const activeBtn = document.getElementById('bookings-toggle-active-btn');
+  const pastBtn = document.getElementById('bookings-toggle-past-btn');
+  const activeWrapper = document.getElementById('admin-bookings-active-wrapper');
+  const pastWrapper = document.getElementById('admin-bookings-past-view');
+
+  if (!activeBtn || !pastBtn || !activeWrapper || !pastWrapper) return;
+
+  if (mode === 'past') {
+    activeBtn.className = 'btn btn-secondary btn-sm';
+    pastBtn.className = 'btn btn-primary btn-sm';
+    activeWrapper.style.display = 'none';
+    pastWrapper.style.display = 'block';
+    loadPastAdminBookings(1);
+  } else {
+    activeBtn.className = 'btn btn-primary btn-sm';
+    pastBtn.className = 'btn btn-secondary btn-sm';
+    activeWrapper.style.display = 'block';
+    pastWrapper.style.display = 'none';
+  }
+}
+
+// Load Past Bookings Filters (Locations & Staff)
+async function initPastBookingsFilters() {
+  const locSelect = document.getElementById('admin-past-bookings-filter-location');
+  const staffSelect = document.getElementById('admin-past-bookings-filter-staff');
+
+  if (locSelect && locSelect.options.length <= 1) {
+    try {
+      const res = await fetch('/api/locations');
+      if (res.ok) {
+        const locations = await res.json();
+        locations.forEach(loc => {
+          const opt = document.createElement('option');
+          opt.value = loc.id;
+          opt.textContent = loc.name;
+          locSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+
+  if (staffSelect && staffSelect.options.length <= 1) {
+    try {
+      if (!checkinsStaffListCache) {
+        const res = await fetch('/api/admin/checkins/staff-list', { headers: getAuthHeaders() });
+        if (res.ok) checkinsStaffListCache = await res.json();
+      }
+      if (checkinsStaffListCache) {
+        checkinsStaffListCache.forEach(staff => {
+          const opt = document.createElement('option');
+          opt.value = staff.id;
+          opt.textContent = `${staff.name} (${staff.role})`;
+          staffSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+}
+
+// Load Past Admin Bookings List with Pagination & Filters
+async function loadPastAdminBookings(page = 1) {
+  currentPastBookingsPage = page;
+  await initPastBookingsFilters();
+
+  const container = document.getElementById('admin-past-bookings-table-container');
+  const paginationEl = document.getElementById('admin-past-bookings-pagination');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 25px;">Múltbéli foglalások betöltése...</p>';
+
+  const locVal = document.getElementById('admin-past-bookings-filter-location')?.value || '';
+  const attendedVal = document.getElementById('admin-past-bookings-filter-attended')?.value || 'all';
+  const staffVal = document.getElementById('admin-past-bookings-filter-staff')?.value || '';
+  const searchVal = document.getElementById('admin-past-bookings-filter-search')?.value.trim() || '';
+
+  const queryParams = new URLSearchParams({
+    page: currentPastBookingsPage,
+    limit: pastBookingsPageLimit
+  });
+  if (locVal) queryParams.set('locationId', locVal);
+  if (attendedVal && attendedVal !== 'all') queryParams.set('attended', attendedVal);
+  if (staffVal) queryParams.set('staffId', staffVal);
+  if (searchVal) queryParams.set('search', searchVal);
+
+  try {
+    const res = await fetch(`/api/admin/bookings/past?${queryParams.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Nem sikerült betölteni a múltbéli foglalásokat.');
+    const data = await res.json();
+    const { bookings, pagination } = data;
+
+    window.currentPastAdminBookings = bookings;
+    window.currentPastAdminBookingsPagination = pagination;
+
+    renderPastBookingsTable(bookings);
+    renderPastBookingsPagination(pagination);
+  } catch (err) {
+    console.error('Error loading past bookings:', err);
+    container.innerHTML = `<p style="color:var(--danger); text-align:center; padding: 25px;">${err.message}</p>`;
+    if (paginationEl) paginationEl.innerHTML = '';
+  }
+}
+
+function renderPastBookingsTable(bookings) {
+  const container = document.getElementById('admin-past-bookings-table-container');
+  if (!container) return;
+
+  if (!bookings || bookings.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 35px; font-size:14px;">A megadott szűrési feltételekkel nem található lezárt múltbéli foglalás.</p>';
+    return;
+  }
+
+  let tableHtml = `
+    <table class="admin-table admin-past-bookings-table">
+      <thead>
+        <tr>
+          <th style="min-width:130px;">Dátum &amp; Idősáv</th>
+          <th style="min-width:130px;">Melyik falnál</th>
+          <th style="min-width:180px;">Kit (Mászó / Tag)</th>
+          <th style="min-width:130px;">Megjelent-e?</th>
+          <th style="min-width:170px;">Ki engedte be (Staff)</th>
+          <th style="min-width:80px; text-align:center;">Művelet</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  bookings.forEach(b => {
+    const isAttended = b.attended > 0;
+    const locBadge = b.location_name ? `<span class="badge badge-primary" style="font-size:11px;">${escapeHtml(b.location_name)}</span>` : '-';
+
+    let cardBadge = '';
+    if (b.user_card_type === 'ZÖLD') cardBadge = '<span class="badge user-badge-green" style="font-size:10px; padding:1px 5px; margin-left:4px;">ZÖLD</span>';
+    else if (b.user_card_type === 'PIROS') cardBadge = '<span class="badge user-badge-red" style="font-size:10px; padding:1px 5px; margin-left:4px;">PIROS</span>';
+
+    // Attended badge
+    const attendedBadge = isAttended 
+      ? '<span class="badge badge-green" style="font-size:11px; padding:3px 8px; font-weight:600;">✓ Megjelent</span>'
+      : '<span class="badge badge-secondary" style="font-size:11px; padding:3px 8px; opacity:0.75;">Nem jelent meg</span>';
+
+    // Staff info
+    let staffHtml = '<span style="color:var(--text-muted); font-size:12px;">-</span>';
+    if (isAttended && b.scanned_by_staff_name) {
+      const scanTimeStr = b.scanned_at ? b.scanned_at.substring(11, 16) : '';
+      staffHtml = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="badge user-badge-role-staff" style="font-size:10px; padding:2px 5px;">STAFF</span>
+          <strong style="font-size:12px; color:#fff;">${escapeHtml(b.scanned_by_staff_name)}</strong>
+        </div>
+        ${scanTimeStr ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Beléptetve: ${scanTimeStr}</div>` : ''}
+      `;
+    }
+
+    tableHtml += `
+      <tr>
+        <td>
+          <div style="font-weight:700; color:#fff; font-size:13px; font-family:'Outfit',monospace;">${b.booking_date}</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</div>
+        </td>
+        <td>
+          ${locBadge}
+        </td>
+        <td>
+          <div style="font-weight:600; color:#fff; font-size:13px;">
+            ${escapeHtml(b.user_name)} ${cardBadge}
+          </div>
+          <div style="font-size:11px; color:var(--text-muted);">
+            ${escapeHtml(b.user_email)} ${b.user_phone ? ' · ' + escapeHtml(b.user_phone) : ''}
+          </div>
+        </td>
+        <td>
+          ${attendedBadge}
+        </td>
+        <td>
+          ${staffHtml}
+        </td>
+        <td style="text-align:center;">
+          <button onclick="deletePastAdminBooking(${b.booking_id})" class="btn btn-danger btn-sm" title="Foglalás törlése az adatbázisból" style="padding: 4px 8px; font-size: 11px;">
+            🗑️
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  tableHtml += '</tbody></table>';
+  container.innerHTML = tableHtml;
+}
+
+function renderPastBookingsPagination(pagination) {
+  const el = document.getElementById('admin-past-bookings-pagination');
+  if (!el || !pagination) return;
+
+  const { total, page, totalPages, limit } = pagination;
+  if (total <= limit && totalPages <= 1) {
+    el.innerHTML = `<div style="color:var(--text-muted); font-size:12px;">Összesen ${total} múltbéli foglalás</div>`;
+    return;
+  }
+
+  const startIdx = (page - 1) * limit + 1;
+  const endIdx = Math.min(page * limit, total);
+
+  el.innerHTML = `
+    <div style="color:var(--text-muted); font-size:13px;">
+      Megjelenítve: <strong>${startIdx} - ${endIdx}</strong> / ${total} múltbéli foglalás
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button type="button" onclick="changePastBookingsPage(${page - 1})" class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="padding:4px 10px; font-size:12px;">
+        ‹ Előző
+      </button>
+      <span style="font-size:13px; color:#fff; font-weight:600; padding:0 8px;">
+        ${page} / ${totalPages}
+      </span>
+      <button type="button" onclick="changePastBookingsPage(${page + 1})" class="btn btn-secondary btn-sm" ${page >= totalPages ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="padding:4px 10px; font-size:12px;">
+        Következő ›
+      </button>
+    </div>
+  `;
+}
+
+function changePastBookingsPage(newPage) {
+  const totalPages = window.currentPastAdminBookingsPagination?.totalPages || 1;
+  if (newPage < 1 || newPage > totalPages) return;
+  loadPastAdminBookings(newPage);
+}
+
+function applyPastBookingsFilters() {
+  currentPastBookingsPage = 1;
+  loadPastAdminBookings(1);
+}
+
+function debouncePastBookingsSearch() {
+  clearTimeout(pastBookingsSearchTimeout);
+  pastBookingsSearchTimeout = setTimeout(() => {
+    applyPastBookingsFilters();
+  }, 350);
+}
+
+async function deletePastAdminBooking(bookingId) {
+  const confirmed = await showConfirmModal({
+    title: 'Múltbéli foglalás törlése',
+    message: 'Biztosan törölni szeretnéd ezt a múltbéli foglalási bejegyzést az archívumból?',
+    confirmText: 'Törlés',
+    cancelText: 'Mégse',
+    variant: 'danger'
+  });
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/bookings/${bookingId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hiba a törlés során');
+    showToast('Foglalás sikeresen törölve!', 'success');
+    loadPastAdminBookings(currentPastBookingsPage);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Export Past Bookings to Excel (CSV)
+async function exportPastBookingsToExcel() {
+  const locVal = document.getElementById('admin-past-bookings-filter-location')?.value || '';
+  const attendedVal = document.getElementById('admin-past-bookings-filter-attended')?.value || 'all';
+  const staffVal = document.getElementById('admin-past-bookings-filter-staff')?.value || '';
+  const searchVal = document.getElementById('admin-past-bookings-filter-search')?.value.trim() || '';
+
+  const queryParams = new URLSearchParams({ exportType: 'all' });
+  if (locVal) queryParams.set('locationId', locVal);
+  if (attendedVal && attendedVal !== 'all') queryParams.set('attended', attendedVal);
+  if (staffVal) queryParams.set('staffId', staffVal);
+  if (searchVal) queryParams.set('search', searchVal);
+
+  try {
+    showToast('Múltbéli foglalások exportálása...', 'info');
+    const res = await fetch(`/api/admin/bookings/past?${queryParams.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Hiba az adatok letöltésekor');
+    const data = await res.json();
+    const rows = data.bookings || [];
+
+    if (rows.length === 0) {
+      showToast('Nincs exportálható adat a megadott szűréshez!', 'warning');
+      return;
+    }
+
+    const headers = ['Dátum', 'Kezdés', 'Befejezés', 'Mászófal', 'Mászó Neve', 'Mászó Email', 'Mászó Telefon', 'Mászókártya', 'Megjelent-e', 'Beléptető Személyzet (Staff)', 'Beléptetés Időpontja'];
+    const csvLines = [headers.map(h => `"${h}"`).join(';')];
+
+    rows.forEach(r => {
+      const line = [
+        r.booking_date || '',
+        r.start_time ? r.start_time.substring(0, 5) : '',
+        r.end_time ? r.end_time.substring(0, 5) : '',
+        r.location_name || '',
+        r.user_name || '',
+        r.user_email || '',
+        r.user_phone || '',
+        r.user_card_type || 'NINCS',
+        r.attended > 0 ? 'Megjelent' : 'Nem jelent meg',
+        r.scanned_by_staff_name || '-',
+        r.scanned_at ? r.scanned_at.substring(0, 16).replace('T', ' ') : '-'
+      ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+      csvLines.push(line.join(';'));
+    });
+
+    const csvContent = '﻿' + csvLines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const today = new Date().toISOString().split('T')[0];
+    link.download = `hawkstone_multbeli_foglalasok_${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast('Excel fájl sikeresen letöltve!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Export Past Bookings to PDF / Print
+async function exportPastBookingsToPDF() {
+  const rows = window.currentPastAdminBookings || [];
+  if (rows.length === 0) {
+    showToast('Nincs nyomtatható adat a jelenlegi nézetben!', 'warning');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast('Kérjük, engedélyezd a felugró ablakokat a nyomtatáshoz!', 'error');
+    return;
+  }
+
+  let tableRowsHtml = '';
+  rows.forEach(r => {
+    tableRowsHtml += `
+      <tr>
+        <td>${r.booking_date} ${r.start_time ? r.start_time.substring(0, 5) : ''} - ${r.end_time ? r.end_time.substring(0, 5) : ''}</td>
+        <td>${escapeHtml(r.location_name || '-')}</td>
+        <td><strong>${escapeHtml(r.user_name)}</strong><br><small>${escapeHtml(r.user_email)}</small></td>
+        <td>${r.attended > 0 ? '<span style="color:green;font-weight:bold;">Megjelent</span>' : '<span style="color:#666;">Nem jelent meg</span>'}</td>
+        <td>${escapeHtml(r.scanned_by_staff_name || '-')}</td>
+      </tr>
+    `;
+  });
+
+  const todayStr = new Date().toLocaleString('hu-HU');
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>HawkStone - Múltbéli Foglalások Archívuma</title>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; margin: 25px; }
+        h2 { margin: 0 0 5px 0; color: #f27620; text-transform: uppercase; }
+        .meta { font-size: 11px; color: #666; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        th { background: #f8f8f8; font-weight: bold; }
+        @media print {
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <h2>HawkStone Mászóklub – Múltbéli Foglalások Archívuma</h2>
+      <div class="meta">Nyomtatva: ${todayStr} | Összesen ${rows.length} foglalás a jelenlegi nézetben</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Dátum &amp; Idősáv</th>
+            <th>Mászófal</th>
+            <th>Mászó / Tag</th>
+            <th>Részvétel</th>
+            <th>Beléptető Staff</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
 // Explicit window bindings to ensure inline HTML onClick triggers resolve properly
 window.openQRModal = openQRModal;
 window.closeQRModal = closeQRModal;
 window.openNoTicketModal = openNoTicketModal;
 window.closeNoTicketModal = closeNoTicketModal;
 window.buyTicket = buyTicket;
+window.loadUserBookingsInModal = loadUserBookingsInModal;
+window.loadAdminCheckins = loadAdminCheckins;
+window.applyCheckinsFilters = applyCheckinsFilters;
+window.debounceCheckinsSearch = debounceCheckinsSearch;
+window.changeCheckinsPage = changeCheckinsPage;
+window.exportCheckinsToExcel = exportCheckinsToExcel;
+window.exportCheckinsToPDF = exportCheckinsToPDF;
+window.switchBookingsMode = switchBookingsMode;
+window.loadPastAdminBookings = loadPastAdminBookings;
+window.applyPastBookingsFilters = applyPastBookingsFilters;
+window.debouncePastBookingsSearch = debouncePastBookingsSearch;
+window.changePastBookingsPage = changePastBookingsPage;
+window.deletePastAdminBooking = deletePastAdminBooking;
+window.exportPastBookingsToExcel = exportPastBookingsToExcel;
+window.exportPastBookingsToPDF = exportPastBookingsToPDF;
 window.bookSlot = bookSlot;
 window.cancelBooking = cancelBooking;
 window.downloadRulesPDF = downloadRulesPDF;
