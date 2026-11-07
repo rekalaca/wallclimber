@@ -6930,11 +6930,10 @@ function renderAdminStats(data) {
       <div class="stat-kpi-card">
         <div class="stat-kpi-header">
           <span class="stat-kpi-title">Regisztrált Tagok</span>
-          <span class="stat-kpi-icon">👥</span>
         </div>
         <div class="stat-kpi-value">${summary.total_users}</div>
         <div class="stat-kpi-sub">
-          <span class="stat-trend-up">▲ +${summary.new_users_7d}</span> az elmúlt 7 napban
+          <span class="stat-trend-up">+${summary.new_users_7d}</span> az elmúlt 7 napban
         </div>
       </div>
 
@@ -6942,7 +6941,6 @@ function renderAdminStats(data) {
       <div class="stat-kpi-card">
         <div class="stat-kpi-header">
           <span class="stat-kpi-title">Összes Foglalás</span>
-          <span class="stat-kpi-icon">🧗</span>
         </div>
         <div class="stat-kpi-value">${summary.total_bookings}</div>
         <div class="stat-kpi-sub">
@@ -6954,7 +6952,6 @@ function renderAdminStats(data) {
       <div class="stat-kpi-card">
         <div class="stat-kpi-header">
           <span class="stat-kpi-title">Megjelenési Arány</span>
-          <span class="stat-kpi-icon">🎯</span>
         </div>
         <div class="stat-kpi-value" style="color: ${attendanceColor};">${summary.attendance_rate}%</div>
         <div class="stat-kpi-sub">
@@ -6966,7 +6963,6 @@ function renderAdminStats(data) {
       <div class="stat-kpi-card">
         <div class="stat-kpi-header">
           <span class="stat-kpi-title">Fal Belépések</span>
-          <span class="stat-kpi-icon">🎟️</span>
         </div>
         <div class="stat-kpi-value">${summary.total_scans}</div>
         <div class="stat-kpi-sub">
@@ -6978,7 +6974,6 @@ function renderAdminStats(data) {
       <div class="stat-kpi-card">
         <div class="stat-kpi-header">
           <span class="stat-kpi-title">Elállási Arány</span>
-          <span class="stat-kpi-icon">🛡️</span>
         </div>
         <div class="stat-kpi-value" style="color: ${withdrawalBadgeColor};">${summary.withdrawal_rate}%</div>
         <div class="stat-kpi-sub">
@@ -7060,7 +7055,7 @@ function renderAdminStats(data) {
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div style="font-weight:700; color:#34d399; font-size:13px;">🟢 ZÖLD KÁRTYA</div>
+            <div style="font-weight:700; color:#34d399; font-size:13px;">ZÖLD KÁRTYA</div>
             <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Mások biztosítására jogosultak</div>
           </div>
           <div style="text-align:right;">
@@ -7071,7 +7066,7 @@ function renderAdminStats(data) {
 
         <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div style="font-weight:700; color:#f87171; font-size:13px;">🔴 PIROS KÁRTYA</div>
+            <div style="font-weight:700; color:#f87171; font-size:13px;">PIROS KÁRTYA</div>
             <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Kezdő / Csak mászásra jogosultak</div>
           </div>
           <div style="text-align:right;">
@@ -7140,11 +7135,10 @@ function renderAdminStats(data) {
     } else {
       let staffHtml = '';
       staff_leaderboard.forEach((s, idx) => {
-        const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : '👤'));
         staffHtml += `
           <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:18px;">${medal}</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:12px; font-weight:800; color:var(--primary); font-family:monospace; min-width:26px;">#${idx + 1}</span>
               <div>
                 <strong style="font-size:13px; color:#fff;">${escapeHtml(s.staff_name)}</strong>
                 <div style="font-size:11px; color:var(--text-muted);">Falmester / Admin</div>
@@ -7192,7 +7186,7 @@ async function exportAdminStatsToPDF() {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>HawkStone - Nyitány Statisztikai Riport</title>
+      <title>HawkStone - Mászóklub Statisztika</title>
       <meta charset="utf-8">
       <style>
         body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 30px; line-height: 1.4; }
@@ -7210,7 +7204,7 @@ async function exportAdminStatsToPDF() {
       </style>
     </head>
     <body>
-      <h1>HawkStone Mászóklub – Nyitány Statisztikai Riport</h1>
+      <h1>HawkStone Mászóklub Statisztika</h1>
       <div class="meta">Időszak: ${data.range === 'all' ? 'Nyitástól összesen' : data.range} | Generálva: ${todayStr}</div>
 
       <div class="grid-kpi">
