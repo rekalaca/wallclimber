@@ -9070,3 +9070,214 @@ header .logo:hover img.header-logo-img {
     gap: 12px;
   }
 }
+
+/* ==========================================================================
+   HAWKSTONE LAUNCH & OPERATIONS ANALYTICS (STATISZTIKA DASHBOARD)
+   ========================================================================== */
+
+.pulse-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.stat-kpi-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), transparent);
+  opacity: 0.4;
+}
+
+.stat-kpi-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(242, 118, 32, 0.4);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), 0 0 18px rgba(242, 118, 32, 0.12);
+}
+
+.stat-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stat-kpi-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.stat-kpi-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.stat-kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'Outfit', 'Montserrat', sans-serif;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.stat-kpi-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-trend-up {
+  color: #10b981;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.stat-micro-bar {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.stat-micro-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Location Occupancy Progress Bars */
+.stat-location-item {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: border-color 0.2s;
+}
+
+.stat-location-item:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.stat-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stat-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #f27620, #ff9f43);
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(242, 118, 32, 0.5);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hourly Heatmap & Bar Chart */
+.stats-hourly-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 160px;
+  padding: 10px 4px 0 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stat-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.stat-chart-col:hover {
+  transform: translateY(-4px);
+}
+
+.stat-chart-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+  height: 14px;
+}
+
+.stat-chart-bar-wrap {
+  width: 100%;
+  max-width: 34px;
+  height: 115px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px 6px 0 0;
+  padding: 0 4px;
+}
+
+.stat-chart-bar {
+  width: 100%;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.6), rgba(148, 163, 184, 0.2));
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s ease, background 0.3s;
+}
+
+.stat-chart-col.is-peak .stat-chart-bar {
+  background: linear-gradient(180deg, #ff8833, #f27620);
+  box-shadow: 0 0 16px rgba(242, 118, 32, 0.65);
+}
+
+.stat-chart-col.is-peak .stat-chart-count {
+  color: #ff8833;
+  font-weight: 800;
+}
+
+.stat-chart-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-family: monospace;
+}

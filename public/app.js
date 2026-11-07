@@ -573,6 +573,7 @@ function renderHeader() {
       // Teljes Rendszergazda (Admin) Menu
       navItems = `
         <li><a href="admin.html#dashboard" class="nav-link ${activeClass('admin.html', '#dashboard')}">Kezdőlap</a></li>
+        <li><a href="admin.html#stats" class="nav-link ${activeClass('admin.html', '#stats')}">Statisztika</a></li>
         <li><a href="admin.html#checkins" class="nav-link ${activeClass('admin.html', '#checkins')}">Beléptetések</a></li>
         <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
         <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
@@ -3140,7 +3141,8 @@ async function initAdminPanel() {
   if (isStaffOnly) {
     initialTab = 'bookings';
   } else {
-    if (hash === '#checkins') initialTab = 'checkins';
+    if (hash === '#stats' || hash === '#analytics') initialTab = 'stats';
+    else if (hash === '#checkins') initialTab = 'checkins';
     else if (hash === '#users') initialTab = 'users';
     else if (hash === '#news') initialTab = 'news';
     else if (hash === '#schedule') initialTab = 'slots';
@@ -3188,7 +3190,8 @@ async function initAdminPanel() {
     if (isStaffOnly) {
       tab = 'bookings';
     } else {
-      if (currentHash === '#checkins') tab = 'checkins';
+      if (currentHash === '#stats' || currentHash === '#analytics') tab = 'stats';
+      else if (currentHash === '#checkins') tab = 'checkins';
       else if (currentHash === '#users') tab = 'users';
       else if (currentHash === '#news') tab = 'news';
       else if (currentHash === '#schedule') tab = 'slots';
@@ -4859,7 +4862,12 @@ function formatHungarianDateTime(utcStr) {
 }
 
 window.currentWithdrawalFilter = 'pending';
+window.currentWithdrawalMonth = '';
+window.currentWithdrawalSearch = '';
 window.adminWithdrawals = [];
+window.currentFilteredWithdrawals = [];
+
+let withdrawalsSearchTimeout = null;
 
 async function loadAdminWithdrawals() {
   const container = document.getElementById('admin-withdrawals-list');
@@ -4873,10 +4881,55 @@ async function loadAdminWithdrawals() {
     const data = await res.json();
 
     window.adminWithdrawals = data;
+    initWithdrawalsMonthFilter(data);
     renderAdminWithdrawals();
   } catch (err) {
     container.innerHTML = `<p style="text-align:center; color: var(--danger); padding: 20px;">Hiba történt az elállások betöltésekor: ${err.message}</p>`;
   }
+}
+
+function initWithdrawalsMonthFilter(list) {
+  const monthSelect = document.getElementById('admin-withdrawals-filter-month');
+  if (!monthSelect) return;
+
+  const monthsSet = new Set();
+  (list || []).forEach(w => {
+    if (w.withdrawal_time) {
+      monthsSet.add(w.withdrawal_time.substring(0, 7));
+    }
+  });
+
+  const months = Array.from(monthsSet).sort().reverse();
+  const currentVal = monthSelect.value;
+  monthSelect.innerHTML = '<option value="">Összes elállási időszak</option>';
+
+  months.forEach(m => {
+    const [y, mo] = m.split('-');
+    const d = new Date(parseInt(y), parseInt(mo) - 1, 1);
+    const monthName = d.toLocaleString('hu-HU', { month: 'long' });
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = `${y}. ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`;
+    if (m === currentVal) opt.selected = true;
+    monthSelect.appendChild(opt);
+  });
+}
+
+function applyWithdrawalsFilters() {
+  const monthSelect = document.getElementById('admin-withdrawals-filter-month');
+  const searchInput = document.getElementById('admin-withdrawals-filter-search');
+
+  window.currentWithdrawalMonth = monthSelect ? monthSelect.value : '';
+  window.currentWithdrawalSearch = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  renderAdminWithdrawals();
+}
+
+function debounceWithdrawalsSearch() {
+  clearTimeout(withdrawalsSearchTimeout);
+  withdrawalsSearchTimeout = setTimeout(() => {
+    applyWithdrawalsFilters();
+  }, 350);
 }
 
 function renderAdminWithdrawals() {
@@ -4884,33 +4937,46 @@ function renderAdminWithdrawals() {
   if (!container || !window.adminWithdrawals) return;
 
   const currentFilter = window.currentWithdrawalFilter || 'pending';
-  
-  // Filter the withdrawals:
-  // 'pending' -> w.refund_status is PENDING or UNDER_REVIEW or missing
-  // 'completed' -> w.refund_status is REFUNDED or REJECTED
-  const filtered = window.adminWithdrawals.filter(w => {
-    const status = w.refund_status || 'PENDING';
-    if (currentFilter === 'pending') {
-      return status === 'PENDING' || status === 'UNDER_REVIEW';
-    } else {
-      return status === 'REFUNDED' || status === 'REJECTED';
-    }
-  });
+  const monthVal = window.currentWithdrawalMonth || '';
+  const searchVal = window.currentWithdrawalSearch || '';
 
   const tabPending = document.getElementById('withdrawal-tab-pending');
   const tabCompleted = document.getElementById('withdrawal-tab-completed');
+  const tabAll = document.getElementById('withdrawal-tab-all');
   if (tabPending && tabCompleted) {
-    if (currentFilter === 'pending') {
-      tabPending.className = 'btn btn-primary btn-sm';
-      tabCompleted.className = 'btn btn-secondary btn-sm';
-    } else {
-      tabPending.className = 'btn btn-secondary btn-sm';
-      tabCompleted.className = 'btn btn-primary btn-sm';
-    }
+    tabPending.className = currentFilter === 'pending' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    tabCompleted.className = currentFilter === 'completed' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    if (tabAll) tabAll.className = currentFilter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
   }
 
+  const filtered = window.adminWithdrawals.filter(w => {
+    const status = w.refund_status || 'PENDING';
+
+    if (currentFilter === 'pending') {
+      if (!(status === 'PENDING' || status === 'UNDER_REVIEW')) return false;
+    } else if (currentFilter === 'completed') {
+      if (!(status === 'REFUNDED' || status === 'REJECTED')) return false;
+    }
+
+    if (monthVal && !(w.withdrawal_time || '').startsWith(monthVal)) return false;
+
+    if (searchVal) {
+      const name = (w.customer_name || w.user_name || '').toLowerCase();
+      const email = (w.customer_email || w.user_email || '').toLowerCase();
+      const contract = (w.contract_id || '').toLowerCase();
+      if (!name.includes(searchVal) && !email.includes(searchVal) && !contract.includes(searchVal)) return false;
+    }
+
+    return true;
+  });
+
+  window.currentFilteredWithdrawals = filtered;
+
   if (filtered.length === 0) {
-    container.innerHTML = `<p style="text-align:center; color: var(--text-muted); padding: 40px 20px;">Nincsenek ${currentFilter === 'pending' ? 'folyamatban lévő' : 'kivizsgált'} elállási igények.</p>`;
+    let emptyMsg = 'Nincsenek a megadott szűrésnek megfelelő elállási igények.';
+    if (currentFilter === 'pending') emptyMsg = 'Nincsenek folyamatban lévő elállási igények a megadott szűrésben.';
+    else if (currentFilter === 'completed') emptyMsg = 'Nincsenek kivizsgált elállási igények a megadott szűrésben.';
+    container.innerHTML = `<p style="text-align:center; color: var(--text-muted); padding: 40px 20px;">${emptyMsg}</p>`;
     return;
   }
 
@@ -4941,16 +5007,16 @@ function renderAdminWithdrawals() {
         <!-- Left: Customer & ticket info -->
         <div style="flex: 1; min-width: 220px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
-            <span style="font-size: 15px; font-weight: 700; color: #fff;">${w.customer_name}</span>
+            <span style="font-size: 15px; font-weight: 700; color: #fff;">${escapeHtml(w.customer_name || w.user_name)}</span>
             <span style="font-size: 11px; background: ${rf.bg}; border: 1px solid ${rf.border}; color: ${rf.color}; padding: 3px 9px; border-radius: 20px; font-weight: 600;">${rf.label}</span>
           </div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${w.customer_email}</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${escapeHtml(w.customer_email || w.user_email)} ${w.user_phone ? '· ' + escapeHtml(w.user_phone) : ''}</div>
           <div style="font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px;">
             <span>🎫 <strong style="color:#fff;">${typeLabel}</strong> &nbsp;|&nbsp; ID: <code style="font-size:12px; color: var(--primary);">#${w.ticket_id}</code></span>
             <span>💰 Vételár (becsült): <strong style="color:#fff;">${priceText}</strong></span>
             <span>📅 Vásárlás: <strong style="color:#fff;">${purchaseDisplay}</strong></span>
             <span>⏱️ Elállás: <strong style="color: var(--primary);">${formattedWithdrawal}</strong></span>
-            ${w.admin_note ? `<span style="margin-top:6px; font-size:11px; color:#94a3b8; font-style:italic;">📝 Megjegyzés: ${w.admin_note.substring(0,80)}${w.admin_note.length > 80 ? '...' : ''}</span>` : ''}
+            ${w.admin_note ? `<span style="margin-top:6px; font-size:11px; color:#94a3b8; font-style:italic;">📝 Megjegyzés: ${escapeHtml(w.admin_note)}</span>` : ''}
           </div>
         </div>
 
@@ -4974,6 +5040,183 @@ function renderAdminWithdrawals() {
 function switchWithdrawalFilter(filter) {
   window.currentWithdrawalFilter = filter;
   renderAdminWithdrawals();
+}
+
+// Export Withdrawals to Excel (CSV with UTF-8 BOM)
+async function exportWithdrawalsToExcel() {
+  const rows = window.currentFilteredWithdrawals || window.adminWithdrawals || [];
+  if (rows.length === 0) {
+    showToast('Nincs exportálható elállási adat a megadott szűréshez!', 'warning');
+    return;
+  }
+
+  const headers = [
+    'Bejelentés Időpontja',
+    'Tag / Vásárló Neve',
+    'E-mail Cím',
+    'Telefonszám',
+    'Szerződés / Bizonylat ID',
+    'Jegy / Bérlet Típusa',
+    'Visszatérítendő Becsült Összeg',
+    'Fennmaradó Alkalmak',
+    'Eredeti Vásárlás Dátuma',
+    'Bérlet Lejárata',
+    'Elállás Státusza',
+    'Adminisztrátori Megjegyzés'
+  ];
+
+  const csvLines = [headers.map(h => `"${h}"`).join(';')];
+
+  rows.forEach(w => {
+    let typeLabel = '';
+    let priceText = '';
+    if (w.ticket_type === 'NAPI') { typeLabel = 'Napijegy'; priceText = '2800 Ft'; }
+    else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22000 Ft'; }
+    else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet'; priceText = '28000 Ft'; }
+
+    let statusLabel = 'Folyamatban';
+    if (w.refund_status === 'REFUNDED') statusLabel = 'Visszatérítve';
+    else if (w.refund_status === 'REJECTED') statusLabel = 'Elutasítva';
+    else if (w.refund_status === 'UNDER_REVIEW') statusLabel = 'Vizsgálat alatt';
+
+    const line = [
+      w.withdrawal_time ? w.withdrawal_time.substring(0, 19).replace('T', ' ') : '',
+      w.customer_name || w.user_name || '',
+      w.customer_email || w.user_email || '',
+      w.user_phone || '',
+      w.contract_id || '',
+      typeLabel,
+      priceText,
+      w.sessions_remaining != null ? w.sessions_remaining : '-',
+      w.purchase_date ? w.purchase_date.substring(0, 10) : '',
+      w.ticket_expires_date ? w.ticket_expires_date.substring(0, 10) : '',
+      statusLabel,
+      w.admin_note || ''
+    ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+
+    csvLines.push(line.join(';'));
+  });
+
+  const csvContent = '\uFEFF' + csvLines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  const today = new Date().toISOString().split('T')[0];
+  const monthTag = window.currentWithdrawalMonth ? `_${window.currentWithdrawalMonth}` : '';
+  link.download = `hawkstone_elallasok${monthTag}_${today}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast('Elállási adatok sikeresen letöltve Excel formátumban!', 'success');
+}
+
+// Export Withdrawals to PDF / Print
+async function exportWithdrawalsToPDF() {
+  const rows = window.currentFilteredWithdrawals || window.adminWithdrawals || [];
+  if (rows.length === 0) {
+    showToast('Nincs nyomtatható elállási adat a megadott szűréshez!', 'warning');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast('Kérjük, engedélyezd a felugró ablakokat a nyomtatáshoz!', 'error');
+    return;
+  }
+
+  let tableRowsHtml = '';
+  let totalPending = 0;
+  let totalRefunded = 0;
+
+  rows.forEach(w => {
+    let typeLabel = '';
+    let priceText = '';
+    if (w.ticket_type === 'NAPI') { typeLabel = 'Napijegy'; priceText = '2 800 Ft'; }
+    else if (w.ticket_type === 'TIZ_ALKALMAS') { typeLabel = '10 Alkalmas Bérlet'; priceText = '22 000 Ft'; }
+    else if (w.ticket_type === 'HAVI') { typeLabel = 'Korlátlan Havi Bérlet'; priceText = '28 000 Ft'; }
+
+    let statusStyle = 'color:#f59e0b;font-weight:bold;';
+    let statusLabel = 'Folyamatban';
+    if (w.refund_status === 'REFUNDED') {
+      statusLabel = 'Visszatérítve';
+      statusStyle = 'color:#10b981;font-weight:bold;';
+      totalRefunded++;
+    } else if (w.refund_status === 'REJECTED') {
+      statusLabel = 'Elutasítva';
+      statusStyle = 'color:#ef4444;font-weight:bold;';
+    } else {
+      totalPending++;
+    }
+
+    tableRowsHtml += `
+      <tr>
+        <td>${w.withdrawal_time ? w.withdrawal_time.substring(0, 16).replace('T', ' ') : '-'}</td>
+        <td><strong>${escapeHtml(w.customer_name || w.user_name || '-')}</strong><br><small>${escapeHtml(w.customer_email || w.user_email || '')}</small></td>
+        <td><code style="background:#f4f4f4;padding:2px 4px;border-radius:3px;">${escapeHtml(w.contract_id || '-')}</code></td>
+        <td>${escapeHtml(typeLabel)}<br><small style="color:#666;">${priceText}</small></td>
+        <td>${w.sessions_remaining != null ? w.sessions_remaining : '-'} alkalom</td>
+        <td style="${statusStyle}">${statusLabel}</td>
+        <td><small>${escapeHtml(w.admin_note || '-')}</small></td>
+      </tr>
+    `;
+  });
+
+  const todayStr = new Date().toLocaleString('hu-HU');
+  const monthHeader = window.currentWithdrawalMonth ? ` (${window.currentWithdrawalMonth} havi szűrés)` : '';
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>HawkStone - Elállási Nyilatkozatok & Visszatérítések</title>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; margin: 25px; }
+        h2 { margin: 0 0 4px 0; color: #f27620; text-transform: uppercase; }
+        .meta { font-size: 11px; color: #666; margin-bottom: 15px; }
+        .kpi-box { display: flex; gap: 15px; margin-bottom: 20px; }
+        .kpi { background: #f9f9f9; border: 1px solid #e5e5e5; padding: 10px 14px; border-radius: 6px; }
+        .kpi strong { display: block; font-size: 16px; color: #111; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 7px 9px; text-align: left; }
+        th { background: #f4f4f4; font-weight: bold; font-size: 11px; }
+        @media print {
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <h2>HawkStone Mászóklub – Elállási Jegyzék & Visszatérítések${monthHeader}</h2>
+      <div class="meta">Generálva: ${todayStr} | Összesen ${rows.length} bejegyzés a nézetben</div>
+      <div class="kpi-box">
+        <div class="kpi"><span>Összes elállás:</span><strong>${rows.length} db</strong></div>
+        <div class="kpi"><span>Visszatérítve:</span><strong style="color:#10b981;">${totalRefunded} db</strong></div>
+        <div class="kpi"><span>Folyamatban lévő:</span><strong style="color:#f59e0b;">${totalPending} db</strong></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Időpont</th>
+            <th>Tag / Fogyasztó</th>
+            <th>Szerződés ID</th>
+            <th>Jegytípus</th>
+            <th>Fennmaradt</th>
+            <th>Státusz</th>
+            <th>Megjegyzés</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 // Open investigation modal for a withdrawal record
@@ -6236,10 +6479,29 @@ function switchBookingsMode(mode) {
   }
 }
 
-// Load Past Bookings Filters (Locations & Staff)
+// Load Past Bookings Filters (Locations & Staff & Months)
 async function initPastBookingsFilters() {
   const locSelect = document.getElementById('admin-past-bookings-filter-location');
   const staffSelect = document.getElementById('admin-past-bookings-filter-staff');
+  const monthSelect = document.getElementById('admin-past-bookings-filter-month');
+
+  if (monthSelect && monthSelect.options.length <= 1) {
+    try {
+      const res = await fetch('/api/admin/bookings/months', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const months = await res.json();
+        months.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          const [y, mo] = m.split('-');
+          const d = new Date(parseInt(y), parseInt(mo) - 1, 1);
+          const monthName = d.toLocaleString('hu-HU', { month: 'long' });
+          opt.textContent = `${y}. ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`;
+          monthSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
 
   if (locSelect && locSelect.options.length <= 1) {
     try {
@@ -6285,6 +6547,7 @@ async function loadPastAdminBookings(page = 1) {
 
   container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding: 25px;">Múltbéli foglalások betöltése...</p>';
 
+  const monthVal = document.getElementById('admin-past-bookings-filter-month')?.value || '';
   const locVal = document.getElementById('admin-past-bookings-filter-location')?.value || '';
   const attendedVal = document.getElementById('admin-past-bookings-filter-attended')?.value || 'all';
   const staffVal = document.getElementById('admin-past-bookings-filter-staff')?.value || '';
@@ -6294,6 +6557,7 @@ async function loadPastAdminBookings(page = 1) {
     page: currentPastBookingsPage,
     limit: pastBookingsPageLimit
   });
+  if (monthVal) queryParams.set('month', monthVal);
   if (locVal) queryParams.set('locationId', locVal);
   if (attendedVal && attendedVal !== 'all') queryParams.set('attended', attendedVal);
   if (staffVal) queryParams.set('staffId', staffVal);
@@ -6478,12 +6742,14 @@ async function deletePastAdminBooking(bookingId) {
 
 // Export Past Bookings to Excel (CSV)
 async function exportPastBookingsToExcel() {
+  const monthVal = document.getElementById('admin-past-bookings-filter-month')?.value || '';
   const locVal = document.getElementById('admin-past-bookings-filter-location')?.value || '';
   const attendedVal = document.getElementById('admin-past-bookings-filter-attended')?.value || 'all';
   const staffVal = document.getElementById('admin-past-bookings-filter-staff')?.value || '';
   const searchVal = document.getElementById('admin-past-bookings-filter-search')?.value.trim() || '';
 
   const queryParams = new URLSearchParams({ exportType: 'all' });
+  if (monthVal) queryParams.set('month', monthVal);
   if (locVal) queryParams.set('locationId', locVal);
   if (attendedVal && attendedVal !== 'all') queryParams.set('attended', attendedVal);
   if (staffVal) queryParams.set('staffId', staffVal);
@@ -6521,12 +6787,13 @@ async function exportPastBookingsToExcel() {
       csvLines.push(line.join(';'));
     });
 
-    const csvContent = '﻿' + csvLines.join('\r\n');
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     const today = new Date().toISOString().split('T')[0];
-    link.download = `hawkstone_multbeli_foglalasok_${today}.csv`;
+    const monthTag = monthVal ? `_${monthVal}` : '';
+    link.download = `hawkstone_multbeli_foglalasok${monthTag}_${today}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
     showToast('Excel fájl sikeresen letöltve!', 'success');
@@ -6602,6 +6869,377 @@ async function exportPastBookingsToPDF() {
         window.onload = function() {
           window.print();
         };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+// ---------------- STATISZTIKA & NYITÁNY ANALYTICS ----------------
+
+window.currentStatsRange = 'all';
+window.currentStatsData = null;
+
+async function loadAdminStats(range = window.currentStatsRange || 'all') {
+  window.currentStatsRange = range;
+
+  // Update pills
+  ['all', 'month', '30d', '7d'].forEach(r => {
+    const btn = document.getElementById(`stats-range-${r}`);
+    if (btn) {
+      btn.className = r === range ? 'btn btn-primary btn-sm stats-range-btn' : 'btn btn-secondary btn-sm stats-range-btn';
+    }
+  });
+
+  const kpiGrid = document.getElementById('stats-kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-muted);">Statisztikák betöltése...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/admin/stats?range=${range}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Nem sikerült betölteni a statisztikai adatokat.');
+    const data = await res.json();
+    window.currentStatsData = data;
+    renderAdminStats(data);
+  } catch (err) {
+    console.error('Error loading stats:', err);
+    if (kpiGrid) {
+      kpiGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--danger);">${err.message}</div>`;
+    }
+  }
+}
+
+function changeStatsRange(range) {
+  loadAdminStats(range);
+}
+
+function renderAdminStats(data) {
+  if (!data) return;
+  const { summary, locations, hourly_distribution, card_distribution, ticket_types, withdrawals, staff_leaderboard } = data;
+
+  // 1. Render KPI Grid
+  const kpiGrid = document.getElementById('stats-kpi-grid');
+  if (kpiGrid) {
+    const attendanceColor = summary.attendance_rate >= 85 ? '#10b981' : (summary.attendance_rate >= 70 ? '#f59e0b' : '#ef4444');
+    const withdrawalBadgeColor = summary.withdrawal_rate <= 15 ? '#10b981' : '#f59e0b';
+
+    kpiGrid.innerHTML = `
+      <!-- KPI 1: Users -->
+      <div class="stat-kpi-card">
+        <div class="stat-kpi-header">
+          <span class="stat-kpi-title">Regisztrált Tagok</span>
+          <span class="stat-kpi-icon">👥</span>
+        </div>
+        <div class="stat-kpi-value">${summary.total_users}</div>
+        <div class="stat-kpi-sub">
+          <span class="stat-trend-up">▲ +${summary.new_users_7d}</span> az elmúlt 7 napban
+        </div>
+      </div>
+
+      <!-- KPI 2: Bookings -->
+      <div class="stat-kpi-card">
+        <div class="stat-kpi-header">
+          <span class="stat-kpi-title">Összes Foglalás</span>
+          <span class="stat-kpi-icon">🧗</span>
+        </div>
+        <div class="stat-kpi-value">${summary.total_bookings}</div>
+        <div class="stat-kpi-sub">
+          <strong style="color:#fff;">${summary.future_bookings}</strong> aktív / <strong style="color:var(--text-muted);">${summary.past_bookings}</strong> lezárt
+        </div>
+      </div>
+
+      <!-- KPI 3: Attendance Rate -->
+      <div class="stat-kpi-card">
+        <div class="stat-kpi-header">
+          <span class="stat-kpi-title">Megjelenési Arány</span>
+          <span class="stat-kpi-icon">🎯</span>
+        </div>
+        <div class="stat-kpi-value" style="color: ${attendanceColor};">${summary.attendance_rate}%</div>
+        <div class="stat-kpi-sub">
+          <div class="stat-micro-bar"><div class="stat-micro-fill" style="width: ${summary.attendance_rate}%; background: ${attendanceColor};"></div></div>
+        </div>
+      </div>
+
+      <!-- KPI 4: Scans -->
+      <div class="stat-kpi-card">
+        <div class="stat-kpi-header">
+          <span class="stat-kpi-title">Fal Belépések</span>
+          <span class="stat-kpi-icon">🎟️</span>
+        </div>
+        <div class="stat-kpi-value">${summary.total_scans}</div>
+        <div class="stat-kpi-sub">
+          Sikeres QR kód érvényesítés
+        </div>
+      </div>
+
+      <!-- KPI 5: Withdrawals -->
+      <div class="stat-kpi-card">
+        <div class="stat-kpi-header">
+          <span class="stat-kpi-title">Elállási Arány</span>
+          <span class="stat-kpi-icon">🛡️</span>
+        </div>
+        <div class="stat-kpi-value" style="color: ${withdrawalBadgeColor};">${summary.withdrawal_rate}%</div>
+        <div class="stat-kpi-sub">
+          ${summary.total_withdrawals} kérelem / ${summary.total_tickets_sold} jegyvásárlás
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Render Locations List
+  const locContainer = document.getElementById('stats-locations-list');
+  if (locContainer) {
+    if (!locations || locations.length === 0) {
+      locContainer.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">Nincs forgalmi adat a mászófalakhoz.</p>';
+    } else {
+      let locHtml = '';
+      locations.forEach(l => {
+        locHtml += `
+          <div class="stat-location-item">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+              <strong style="font-size:14px; color:#fff;">${escapeHtml(l.location_name)}</strong>
+              <div style="font-size:12px; color:var(--text-secondary);">
+                <strong style="color:var(--primary); font-size:13px;">${l.booking_count}</strong> foglalás · <strong>${l.scan_count}</strong> belépés
+              </div>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" style="width: ${Math.max(4, l.percent)}%;"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; font-size:11px; color:var(--text-muted); margin-top:3px;">
+              ${l.percent}% részesedés
+            </div>
+          </div>
+        `;
+      });
+      locContainer.innerHTML = locHtml;
+    }
+  }
+
+  // 3. Render Prime Time / Hourly Distribution Chart
+  const hourlyContainer = document.getElementById('stats-hourly-chart');
+  if (hourlyContainer) {
+    const standardHours = ['08:00', '10:00', '12:00', '14:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+    const hourMap = {};
+    (hourly_distribution || []).forEach(h => {
+      hourMap[h.hour_slot] = h.count;
+    });
+
+    const maxCount = Math.max(1, ...(hourly_distribution || []).map(h => h.count));
+    let chartHtml = '';
+
+    standardHours.forEach(hr => {
+      const count = hourMap[hr] || 0;
+      const heightPercent = count > 0 ? Math.max(14, Math.round((count / maxCount) * 100)) : 8;
+      const isPeak = count > 0 && count === maxCount;
+
+      chartHtml += `
+        <div class="stat-chart-col ${isPeak ? 'is-peak' : ''}" title="${hr}: ${count} foglalás">
+          <div class="stat-chart-count">${count > 0 ? count : ''}</div>
+          <div class="stat-chart-bar-wrap">
+            <div class="stat-chart-bar" style="height: ${heightPercent}%;"></div>
+          </div>
+          <div class="stat-chart-label">${hr.substring(0, 5)}</div>
+        </div>
+      `;
+    });
+    hourlyContainer.innerHTML = chartHtml;
+  }
+
+  // 4. Render Card Qualifications Breakdown
+  const cardsContainer = document.getElementById('stats-cards-breakdown');
+  if (cardsContainer) {
+    const green = card_distribution?.['ZÖLD'] || 0;
+    const red = card_distribution?.['PIROS'] || 0;
+    const totalCards = green + red;
+    const greenPct = totalCards > 0 ? Math.round((green / totalCards) * 100) : 0;
+    const redPct = totalCards > 0 ? Math.round((red / totalCards) * 100) : 0;
+
+    cardsContainer.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:700; color:#34d399; font-size:13px;">🟢 ZÖLD KÁRTYA</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Mások biztosítására jogosultak</div>
+          </div>
+          <div style="text-align:right;">
+            <strong style="font-size:18px; color:#fff;">${green}</strong>
+            <div style="font-size:11px; color:#34d399;">${greenPct}%</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:700; color:#f87171; font-size:13px;">🔴 PIROS KÁRTYA</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Kezdő / Csak mászásra jogosultak</div>
+          </div>
+          <div style="text-align:right;">
+            <strong style="font-size:18px; color:#fff;">${red}</strong>
+            <div style="font-size:11px; color:#f87171;">${redPct}%</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 5. Render Ticket & Pass Mix Breakdown
+  const ticketsContainer = document.getElementById('stats-tickets-breakdown');
+  if (ticketsContainer) {
+    let tickHtml = '<div style="display:flex; flex-direction:column; gap:8px;">';
+    const typeNames = {
+      'NAPI': 'Egyszeri Napijegy',
+      'TIZ_ALKALMAS': '10 Alkalmas Bérlet',
+      'HAVI': 'Korlátlan Havi Bérlet'
+    };
+
+    (ticket_types || []).forEach(t => {
+      const name = typeNames[t.ticket_type] || t.ticket_type;
+      tickHtml += `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:600; font-size:13px; color:#fff;">${name}</div>
+            <div style="font-size:11px; color:var(--text-muted);">Aktív: ${t.active_count || 0} db</div>
+          </div>
+          <div>
+            <span class="badge badge-primary" style="font-size:12px; padding:3px 8px;">${t.count} eladva</span>
+          </div>
+        </div>
+      `;
+    });
+    tickHtml += '</div>';
+    ticketsContainer.innerHTML = tickHtml;
+  }
+
+  // 6. Render Withdrawals Breakdown
+  const withContainer = document.getElementById('stats-withdrawals-breakdown');
+  if (withContainer) {
+    withContainer.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; color:#fbbf24; font-weight:600;">Folyamatban lévő</span>
+          <strong style="font-size:15px; color:#fff;">${withdrawals.pending} db</strong>
+        </div>
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; color:#34d399; font-weight:600;">Visszatérítve (lezárt)</span>
+          <strong style="font-size:15px; color:#fff;">${withdrawals.refunded} db</strong>
+        </div>
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; color:#f87171; font-weight:600;">Elutasítva</span>
+          <strong style="font-size:15px; color:#fff;">${withdrawals.rejected} db</strong>
+        </div>
+      </div>
+    `;
+  }
+
+  // 7. Render Staff Leaderboard
+  const staffContainer = document.getElementById('stats-staff-leaderboard');
+  if (staffContainer) {
+    if (!staff_leaderboard || staff_leaderboard.length === 0) {
+      staffContainer.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">Még nincs beléptetési aktivitás rögzítve.</p>';
+    } else {
+      let staffHtml = '';
+      staff_leaderboard.forEach((s, idx) => {
+        const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : '👤'));
+        staffHtml += `
+          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">${medal}</span>
+              <div>
+                <strong style="font-size:13px; color:#fff;">${escapeHtml(s.staff_name)}</strong>
+                <div style="font-size:11px; color:var(--text-muted);">Falmester / Admin</div>
+              </div>
+            </div>
+            <div>
+              <span class="badge user-badge-role-staff" style="font-size:12px; padding:3px 8px; font-weight:700;">${s.scan_count} scan</span>
+            </div>
+          </div>
+        `;
+      });
+      staffContainer.innerHTML = staffHtml;
+    }
+  }
+}
+
+// Export Statistics to PDF / Print
+async function exportAdminStatsToPDF() {
+  const data = window.currentStatsData;
+  if (!data) {
+    showToast('A statisztikai adatok még nem töltődtek be!', 'warning');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast('Kérjük, engedélyezd a felugró ablakokat a nyomtatáshoz!', 'error');
+    return;
+  }
+
+  const { summary, locations, hourly_distribution, card_distribution, ticket_types, withdrawals, staff_leaderboard } = data;
+  const todayStr = new Date().toLocaleString('hu-HU');
+
+  let locRowsHtml = '';
+  (locations || []).forEach(l => {
+    locRowsHtml += `<tr><td><strong>${escapeHtml(l.location_name)}</strong></td><td>${l.booking_count} db</td><td>${l.scan_count} db</td><td>${l.percent}%</td></tr>`;
+  });
+
+  let hourRowsHtml = '';
+  (hourly_distribution || []).forEach(h => {
+    hourRowsHtml += `<tr><td>${h.hour_slot}</td><td>${h.count} foglalás</td></tr>`;
+  });
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>HawkStone - Nyitány Statisztikai Riport</title>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 30px; line-height: 1.4; }
+        h1 { margin: 0 0 5px 0; color: #f27620; font-size: 20px; text-transform: uppercase; }
+        .meta { font-size: 11px; color: #666; margin-bottom: 25px; }
+        .grid-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; }
+        .kpi { border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #fafafa; }
+        .kpi span { font-size: 11px; color: #666; display: block; text-transform: uppercase; margin-bottom: 4px; }
+        .kpi strong { font-size: 20px; color: #000; }
+        .section-title { font-size: 14px; font-weight: bold; margin: 20px 0 10px 0; border-bottom: 2px solid #f27620; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        th { background: #f4f4f4; font-weight: bold; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>HawkStone Mászóklub – Nyitány Statisztikai Riport</h1>
+      <div class="meta">Időszak: ${data.range === 'all' ? 'Nyitástól összesen' : data.range} | Generálva: ${todayStr}</div>
+
+      <div class="grid-kpi">
+        <div class="kpi"><span>Regisztrált Tagok</span><strong>${summary.total_users}</strong></div>
+        <div class="kpi"><span>Összes Foglalás</span><strong>${summary.total_bookings}</strong></div>
+        <div class="kpi"><span>Megjelenési Arány</span><strong>${summary.attendance_rate}%</strong></div>
+        <div class="kpi"><span>Fal Belépések</span><strong>${summary.total_scans}</strong></div>
+      </div>
+
+      <div class="section-title">Mászófalankénti Kihasználtság</div>
+      <table>
+        <thead><tr><th>Mászófal</th><th>Foglalások</th><th>Belépések</th><th>Forgalmi Részesedés</th></tr></thead>
+        <tbody>${locRowsHtml}</tbody>
+      </table>
+
+      <div class="section-title">Csúcsidőszakok (Idősávok szerint)</div>
+      <table>
+        <thead><tr><th>Idősáv</th><th>Foglalások Száma</th></tr></thead>
+        <tbody>${hourRowsHtml}</tbody>
+      </table>
+
+      <div class="section-title">Mászókártyás Minősítések & Közösség</div>
+      <p>Zöld kártyások (önálló biztosítók): <strong>${card_distribution?.['ZÖLD'] || 0} fő</strong> | Piros kártyások (alapszint): <strong>${card_distribution?.['PIROS'] || 0} fő</strong></p>
+
+      <div class="section-title">Elállások & Visszatérítések</div>
+      <p>Összes elállási kérelem: <strong>${withdrawals.total} db</strong> (Visszatérítve: ${withdrawals.refunded} db, Folyamatban: ${withdrawals.pending} db, Elutasítva: ${withdrawals.rejected} db)</p>
+
+      <script>
+        window.onload = function() { window.print(); };
       </script>
     </body>
     </html>
@@ -9641,3 +10279,14 @@ window.resetWebAdminHomeWallTypes = resetWebAdminHomeWallTypes;
 window.handleWebAdminHomeWallTypesSubmit = handleWebAdminHomeWallTypesSubmit;
 window.addNewWebAdminHomeWallType = addNewWebAdminHomeWallType;
 window.deleteWebAdminHomeWallType = deleteWebAdminHomeWallType;
+
+// Statistics & Withdrawals Exports & Filters
+window.loadAdminStats = loadAdminStats;
+window.changeStatsRange = changeStatsRange;
+window.renderAdminStats = renderAdminStats;
+window.exportAdminStatsToPDF = exportAdminStatsToPDF;
+window.exportWithdrawalsToExcel = exportWithdrawalsToExcel;
+window.exportWithdrawalsToPDF = exportWithdrawalsToPDF;
+window.applyWithdrawalsFilters = applyWithdrawalsFilters;
+window.debounceWithdrawalsSearch = debounceWithdrawalsSearch;
+window.switchWithdrawalFilter = switchWithdrawalFilter;

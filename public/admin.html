@@ -32,7 +32,7 @@
   <meta name="twitter:title" content="Adminisztrációs Panel | HawkStone">
   <meta name="twitter:description" content="Adminisztrációs kezelőfelület.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261107_c99">
+  <link rel="stylesheet" href="style.css?v=20261107_c100">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -66,6 +66,7 @@
     <!-- Tab Selector (Hidden: tab switching is handled via hash routing from the header menu) -->
     <div class="auth-tabs" style="display: none;">
       <div id="tab-dashboard" class="auth-tab active" onclick="switchAdminTab('dashboard')">Kezdőlap</div>
+      <div id="tab-stats" class="auth-tab" onclick="switchAdminTab('stats')">Statisztika</div>
       <div id="tab-checkins" class="auth-tab" onclick="switchAdminTab('checkins')">Beléptetések</div>
       <div id="tab-slots" class="auth-tab" onclick="switchAdminTab('slots')">Heti Órarend Kezelés</div>
       <div id="tab-users" class="auth-tab" onclick="switchAdminTab('users')">Felhasználók Kezelése</div>
@@ -581,6 +582,12 @@
         <!-- Filter bar -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
           <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Időszak / Hónap</label>
+            <select id="admin-past-bookings-filter-month" class="form-control" onchange="applyPastBookingsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes múltbéli időszak</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Mászófal</label>
             <select id="admin-past-bookings-filter-location" class="form-control" onchange="applyPastBookingsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
               <option value="">Összes mászófal</option>
@@ -651,18 +658,168 @@
       </div><!-- End #admin-bookings-active-wrapper -->
     </div>
     
+    <!-- Tab Stats (Analytics & Launch Dashboard) Content -->
+    <div id="admin-stats-content" style="display: none;">
+      <div class="stats-hero-banner glass-card" style="padding: 24px 28px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="pulse-indicator"></span>
+            <h3 style="font-size: 20px; color: var(--primary); margin: 0; font-family: 'Montserrat', sans-serif; font-weight: 800; letter-spacing: 0.04em;">
+              NYITÁNY VEZÉRLŐPULT &amp; KLUB STATISZTIKA
+            </h3>
+          </div>
+          <p style="font-size: 13px; color: var(--text-secondary); margin: 4px 0 0 0;">
+            Élő teremkihasználtság, csúcsidőszakok hőtérképe, kártyás tagok és lemondási / elállási mutatók.
+          </p>
+        </div>
+        
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <div class="stats-range-pills" style="display: inline-flex; gap: 4px; background: rgba(255,255,255,0.03); padding: 3px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+            <button id="stats-range-all" type="button" onclick="changeStatsRange('all')" class="btn btn-primary btn-sm stats-range-btn" style="margin: 0; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px;">Nyitástól</button>
+            <button id="stats-range-month" type="button" onclick="changeStatsRange('month')" class="btn btn-secondary btn-sm stats-range-btn" style="margin: 0; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px;">Ez a hónap</button>
+            <button id="stats-range-30d" type="button" onclick="changeStatsRange('30d')" class="btn btn-secondary btn-sm stats-range-btn" style="margin: 0; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px;">30 nap</button>
+            <button id="stats-range-7d" type="button" onclick="changeStatsRange('7d')" class="btn btn-secondary btn-sm stats-range-btn" style="margin: 0; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px;">7 nap</button>
+          </div>
+          <button type="button" onclick="exportAdminStatsToPDF()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+            📄 Riport Nyomtatása / PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Top Cards Grid -->
+      <div id="stats-kpi-grid" class="stats-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 25px;">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Split 2-Column Section: Location Breakdown & Hourly Peak Heatmap -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 25px;">
+        <!-- Location Breakdown Card -->
+        <div class="glass-card" style="padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h4 style="margin: 0; font-size: 16px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <span>🧗</span> Mászófalankénti Terhelés &amp; Népszerűség
+            </h4>
+            <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Forgalmi arány</span>
+          </div>
+          <div id="stats-locations-list" style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Prime Time / Hourly Heatmap Card -->
+        <div class="glass-card" style="padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h4 style="margin: 0; font-size: 16px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <span>⏱️</span> Idősáv Hőtérkép &amp; Csúcsidők
+            </h4>
+            <span style="font-size: 11px; color: var(--primary); font-weight: 700; background: rgba(242,118,32,0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(242,118,32,0.25);">Csúcsidő elemzés</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 16px 0;">
+            A foglalások napszakos eloszlása óránkénti bontásban. Segít a falmesterek beosztásában és a terhelés optimalizálásában.
+          </p>
+          <div id="stats-hourly-chart" class="stats-hourly-chart" style="display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Split 3-Column Section: Climber Demographics, Pass Mix, Refunds & Staff -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px;">
+        <!-- Card Distribution -->
+        <div class="glass-card" style="padding: 24px;">
+          <h4 style="margin: 0 0 14px 0; font-size: 15px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🪪</span> Mászókártya Minősítések
+          </h4>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Zöld kártyás biztosítók és piros kártyás tagok aránya a klubban.
+          </p>
+          <div id="stats-cards-breakdown">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Ticket & Pass Mix -->
+        <div class="glass-card" style="padding: 24px;">
+          <h4 style="margin: 0 0 14px 0; font-size: 15px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🎟️</span> Bérlet- és Jegy Mix
+          </h4>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Havi bérlet, 10 alkalmas bérlet és napijegy értékesítés megoszlása.
+          </p>
+          <div id="stats-tickets-breakdown">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Withdrawals & Cancellations Health -->
+        <div class="glass-card" style="padding: 24px;">
+          <h4 style="margin: 0 0 14px 0; font-size: 15px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🛡️</span> Elállások &amp; Visszatérítések
+          </h4>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Benyújtott elállási igények feldolgozottsági állapota.
+          </p>
+          <div id="stats-withdrawals-breakdown">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Staff Activity Leaderboard -->
+      <div class="glass-card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h4 style="margin: 0; font-size: 16px; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🏆</span> Beléptető Személyzet (Staff) Aktivitási Rangsor
+          </h4>
+          <span style="font-size: 11px; color: var(--text-muted);">Pult / Scanner leolvasások</span>
+        </div>
+        <div id="stats-staff-leaderboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+
     <!-- Tab Withdrawals Content -->
     <div id="admin-withdrawals-content" style="display: none;">
       <div class="glass-card" style="padding: 30px;">
-        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 25px;">
-          Itt találhatók a tagok által az online elállási gombbal visszavont bérletek és jegyek naplóbejegyzései. A visszatérítést 14 napon belül kell teljesíteni.
-        </p>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 22px;">
+          <div>
+            <h3 style="font-size: 20px; color: var(--primary); margin: 0 0 5px 0; font-family: 'Montserrat', sans-serif; font-weight: 700;">
+              ELÁLLÁSOK ÉS VISSZATÉRÍTÉSI IGÉNYEK
+            </h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+              Tagok által online benyújtott elállási nyilatkozatok, bérlet- és jegy-visszatérítések kezelése. A visszatérítést 14 napon belül kell teljesíteni.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" onclick="exportWithdrawalsToExcel()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📥 Excel Export (CSV)
+            </button>
+            <button type="button" onclick="exportWithdrawalsToPDF()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+              📄 PDF / Nyomtatás
+            </button>
+          </div>
+        </div>
 
-        <!-- Tab selector for withdrawals -->
-        <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 30px;">
-          <div class="withdrawals-filter-tabs" style="display: flex; gap: 4px; background: rgba(255, 255, 255, 0.02); padding: 4px; border-radius: 10px; border: 1px solid var(--border-color); max-width: 320px; width: 100%;">
-            <button id="withdrawal-tab-pending" onclick="switchWithdrawalFilter('pending')" class="btn btn-primary btn-sm" style="flex: 1; margin-bottom: 0; border-radius: 6px; font-weight: 600; padding: 8px 12px; font-size: 13px;">Folyamatban</button>
-            <button id="withdrawal-tab-completed" onclick="switchWithdrawalFilter('completed')" class="btn btn-secondary btn-sm" style="flex: 1; margin-bottom: 0; border-radius: 6px; font-weight: 600; padding: 8px 12px; font-size: 13px;">Kivizsgálva</button>
+        <!-- Filter bar for withdrawals -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Időszak / Hónap</label>
+            <select id="admin-withdrawals-filter-month" class="form-control" onchange="applyWithdrawalsFilters()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+              <option value="">Összes elállási időszak</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Keresés (Név / E-mail / Bizonylat)</label>
+            <input type="text" id="admin-withdrawals-filter-search" class="form-control" placeholder="Keresés tagra vagy azonosítóra..." oninput="debounceWithdrawalsSearch()" style="margin-bottom: 0; font-size: 13px; height: 38px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Státusz szerinti nézet</label>
+            <div class="withdrawals-filter-tabs" style="display: flex; gap: 4px; background: rgba(255, 255, 255, 0.02); padding: 2px; border-radius: 8px; border: 1px solid var(--border-color); height: 38px;">
+              <button id="withdrawal-tab-pending" type="button" onclick="switchWithdrawalFilter('pending')" class="btn btn-primary btn-sm" style="flex: 1; margin: 0; border-radius: 6px; font-weight: 600; padding: 4px 8px; font-size: 12px;">Folyamatban</button>
+              <button id="withdrawal-tab-completed" type="button" onclick="switchWithdrawalFilter('completed')" class="btn btn-secondary btn-sm" style="flex: 1; margin: 0; border-radius: 6px; font-weight: 600; padding: 4px 8px; font-size: 12px;">Kivizsgálva</button>
+              <button id="withdrawal-tab-all" type="button" onclick="switchWithdrawalFilter('all')" class="btn btn-secondary btn-sm" style="flex: 1; margin: 0; border-radius: 6px; font-weight: 600; padding: 4px 8px; font-size: 12px;">Mind</button>
+            </div>
           </div>
         </div>
 
@@ -715,6 +872,7 @@
         } else {
           if (headingEl) headingEl.textContent = 'ADMINISZTRÁCIÓS PANEL';
           if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
+          else if (tab === 'stats') activeTitleEl.textContent = 'NYITÁNY STATISZTIKA & VEZÉRLŐPULT';
           else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
           else if (tab === 'checkins') activeTitleEl.textContent = 'BELÉPTETÉSEK NAPLÓJA';
           else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
@@ -725,6 +883,7 @@
       }
 
       const tabDashboard = document.getElementById('tab-dashboard');
+      const tabStats = document.getElementById('tab-stats');
       const tabCheckins = document.getElementById('tab-checkins');
       const tabSlots = document.getElementById('tab-slots');
       const tabUsers = document.getElementById('tab-users');
@@ -733,6 +892,7 @@
       const tabWithdrawals = document.getElementById('tab-withdrawals');
       
       const contentDashboard = document.getElementById('admin-dashboard-content');
+      const contentStats = document.getElementById('admin-stats-content');
       const contentCheckins = document.getElementById('admin-checkins-content');
       const contentSlots = document.getElementById('admin-slots-content');
       const contentUsers = document.getElementById('admin-users-content');
@@ -750,12 +910,18 @@
       }
 
       // Deactivate all
-      [tabDashboard, tabCheckins, tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].filter(Boolean).forEach(t => t.classList.remove('active'));
-      [contentDashboard, contentCheckins, contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].filter(Boolean).forEach(c => c.style.display = 'none');
+      [tabDashboard, tabStats, tabCheckins, tabSlots, tabUsers, tabNews, tabBookings, tabWithdrawals].filter(Boolean).forEach(t => t.classList.remove('active'));
+      [contentDashboard, contentStats, contentCheckins, contentSlots, contentUsers, contentNews, contentBookings, contentWithdrawals].filter(Boolean).forEach(c => c.style.display = 'none');
 
       if (tab === 'dashboard') {
         tabDashboard.classList.add('active');
         contentDashboard.style.display = 'block';
+      } else if (tab === 'stats') {
+        if (tabStats) tabStats.classList.add('active');
+        if (contentStats) contentStats.style.display = 'block';
+        if (typeof window.loadAdminStats === 'function') {
+          window.loadAdminStats();
+        }
       } else if (tab === 'checkins') {
         if (tabCheckins) tabCheckins.classList.add('active');
         if (contentCheckins) contentCheckins.style.display = 'block';
@@ -787,6 +953,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20261107_c99"></script>
+  <script src="app.js?v=20261107_c100"></script>
 </body>
 </html>

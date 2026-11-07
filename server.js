@@ -371,6 +371,8 @@ async function initDB() {
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_withdrawals_time ON withdrawals(withdrawal_time)");
+  await dbRun("CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(refund_status)");
 
   await dbRun(`
     CREATE TABLE IF NOT EXISTS slot_cancellations (
@@ -3399,6 +3401,21 @@ app.get('/api/admin/checkins', authenticateToken, requireRole(['ADMIN']), async 
   }
 });
 
+// Get available distinct months for bookings
+app.get('/api/admin/bookings/months', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const rows = await dbAll(`
+      SELECT DISTINCT substr(booking_date, 1, 7) as month 
+      FROM bookings 
+      WHERE booking_date IS NOT NULL 
+      ORDER BY month DESC
+    `);
+    res.json(rows.map(r => r.month));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Get paginated past bookings with attendance & staff checkin details
 app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
@@ -3406,7 +3423,7 @@ app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'AD
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
     const offset = (page - 1) * limit;
 
-    const { locationId, search, attended, staffId, exportType } = req.query;
+    const { locationId, search, attended, staffId, exportType, month } = req.query;
 
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Budapest',
@@ -3418,6 +3435,11 @@ app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'AD
 
     let whereConditions = ['b.booking_date < ?'];
     let params = [todayStr];
+
+    if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+      whereConditions.push('b.booking_date LIKE ?');
+      params.push(`${month.trim()}%`);
+    }
 
     if (locationId) {
       whereConditions.push('s.location_id = ?');
@@ -3909,20 +3931,214 @@ HawkStone Mászóklub`;
   }
 });
 
-// 3. Admin Withdrawals List Endpoint (Admin/Staff only)
+// 3. Admin Withdrawals List Endpoint (Admin only) with optional filters
 app.get('/api/admin/withdrawals', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
+    const { month, status, search } = req.query;
+    let whereConditions = [];
+    let params = [];
+
+    if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+      whereConditions.push("strftime('%Y-%m', w.withdrawal_time) = ?");
+      params.push(month.trim());
+    }
+
+    if (status === 'pending') {
+      whereConditions.push("(w.refund_status = 'PENDING' OR w.refund_status = 'UNDER_REVIEW' OR w.refund_status IS NULL)");
+    } else if (status === 'completed') {
+      whereConditions.push("(w.refund_status = 'REFUNDED' OR w.refund_status = 'REJECTED')");
+    } else if (status && status !== 'all') {
+      whereConditions.push("w.refund_status = ?");
+      params.push(status);
+    }
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR w.contract_id LIKE ? OR w.customer_name LIKE ?)');
+      params.push(s, s, s, s);
+    }
+
+    const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
     const list = await dbAll(`
-      SELECT w.*, u.name as user_name, u.email as user_email,
+      SELECT w.*, u.name as user_name, u.email as user_email, u.phone as user_phone,
              t.expires_date as ticket_expires_date
       FROM withdrawals w
       JOIN users u ON w.user_id = u.id
       LEFT JOIN tickets t ON w.ticket_id = t.id
+      ${whereClause}
       ORDER BY w.withdrawal_time DESC
-    `);
+    `, params);
     res.json(list);
   } catch (error) {
     res.status(500).json({ error: 'Hiba a naplózott elállások lekérésekor: ' + error.message });
+  }
+});
+
+// Admin Statistics & Analytics for Launch / Management
+app.get('/api/admin/stats', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const range = req.query.range || 'all'; // 'all', 'month', '30d', '7d'
+
+    let bookingDateFilter = '';
+    let scanDateFilter = '';
+    let withdrawalDateFilter = '';
+
+    if (range === 'month') {
+      bookingDateFilter = "WHERE strftime('%Y-%m', b.booking_date) = strftime('%Y-%m', 'now')";
+      scanDateFilter = "AND strftime('%Y-%m', el.scan_time) = strftime('%Y-%m', 'now')";
+      withdrawalDateFilter = "WHERE strftime('%Y-%m', withdrawal_time) = strftime('%Y-%m', 'now')";
+    } else if (range === '30d') {
+      bookingDateFilter = "WHERE b.booking_date >= date('now', '-30 days')";
+      scanDateFilter = "AND el.scan_time >= date('now', '-30 days')";
+      withdrawalDateFilter = "WHERE withdrawal_time >= date('now', '-30 days')";
+    } else if (range === '7d') {
+      bookingDateFilter = "WHERE b.booking_date >= date('now', '-7 days')";
+      scanDateFilter = "AND el.scan_time >= date('now', '-7 days')";
+      withdrawalDateFilter = "WHERE withdrawal_time >= date('now', '-7 days')";
+    }
+
+    const [
+      usersStats,
+      bookingsStats,
+      scansStats,
+      locationStats,
+      hourlyStats,
+      cardStats,
+      ticketStats,
+      withdrawalStats,
+      staffStats
+    ] = await Promise.all([
+      dbGet(`
+        SELECT 
+          COUNT(*) as total_users,
+          COUNT(CASE WHEN created_at >= date('now', '-7 days') THEN 1 END) as new_users_7d,
+          COUNT(CASE WHEN created_at >= date('now', '-30 days') THEN 1 END) as new_users_30d
+        FROM users
+      `),
+      dbGet(`
+        SELECT 
+          COUNT(*) as total_bookings,
+          COUNT(CASE WHEN b.booking_date >= date('now') THEN 1 END) as future_bookings,
+          COUNT(CASE WHEN b.booking_date < date('now') THEN 1 END) as past_bookings
+        FROM bookings b
+        ${bookingDateFilter}
+      `),
+      dbGet(`
+        SELECT COUNT(*) as total_scans
+        FROM entry_logs el
+        WHERE el.status = 'SUCCESS' ${scanDateFilter}
+      `),
+      dbAll(`
+        SELECT 
+          l.id as location_id,
+          l.name as location_name,
+          COUNT(b.id) as booking_count,
+          (SELECT COUNT(*) FROM entry_logs el WHERE el.location_id = l.id AND el.status = 'SUCCESS' ${scanDateFilter}) as scan_count
+        FROM locations l
+        LEFT JOIN slots s ON s.location_id = l.id
+        LEFT JOIN bookings b ON b.slot_id = s.id ${bookingDateFilter ? bookingDateFilter.replace('WHERE', 'AND') : ''}
+        GROUP BY l.id, l.name
+        ORDER BY booking_count DESC
+      `),
+      dbAll(`
+        SELECT 
+          substr(s.start_time, 1, 2) || ':00' as hour_slot,
+          COUNT(b.id) as count
+        FROM bookings b
+        JOIN slots s ON b.slot_id = s.id
+        ${bookingDateFilter}
+        GROUP BY hour_slot
+        ORDER BY hour_slot ASC
+      `),
+      dbAll(`
+        SELECT card_type, COUNT(*) as count 
+        FROM users 
+        GROUP BY card_type
+      `),
+      dbAll(`
+        SELECT ticket_type, COUNT(*) as count, SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count 
+        FROM tickets 
+        GROUP BY ticket_type
+      `),
+      dbGet(`
+        SELECT 
+          COUNT(*) as total_withdrawals,
+          SUM(CASE WHEN refund_status = 'PENDING' OR refund_status = 'UNDER_REVIEW' OR refund_status IS NULL THEN 1 ELSE 0 END) as pending_count,
+          SUM(CASE WHEN refund_status = 'REFUNDED' THEN 1 ELSE 0 END) as refunded_count,
+          SUM(CASE WHEN refund_status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_count
+        FROM withdrawals
+        ${withdrawalDateFilter}
+      `),
+      dbAll(`
+        SELECT 
+          COALESCE(el.staff_name, u.name, 'Rendszer') as staff_name,
+          COUNT(*) as scan_count
+        FROM entry_logs el
+        LEFT JOIN users u ON el.staff_id = u.id
+        WHERE el.status = 'SUCCESS' ${scanDateFilter}
+        GROUP BY staff_name
+        ORDER BY scan_count DESC
+        LIMIT 6
+      `)
+    ]);
+
+    const totalBookingsCount = bookingsStats?.total_bookings || 0;
+    const totalScansCount = scansStats?.total_scans || 0;
+    const pastBookingsCount = bookingsStats?.past_bookings || 0;
+    let attendanceRate = 0;
+    if (pastBookingsCount > 0) {
+      attendanceRate = Math.min(100, Math.round((totalScansCount / pastBookingsCount) * 100));
+    } else if (totalBookingsCount > 0) {
+      attendanceRate = Math.min(100, Math.round((totalScansCount / totalBookingsCount) * 100));
+    }
+
+    const totalTicketsSold = (ticketStats || []).reduce((acc, t) => acc + (t.count || 0), 0);
+    const totalWithdrawalsCount = withdrawalStats?.total_withdrawals || 0;
+    const withdrawalRate = totalTicketsSold > 0 ? Math.round((totalWithdrawalsCount / totalTicketsSold) * 100) : 0;
+
+    const locationsWithPercent = (locationStats || []).map(loc => ({
+      ...loc,
+      percent: totalBookingsCount > 0 ? Math.round((loc.booking_count / totalBookingsCount) * 100) : 0
+    }));
+
+    let cardMap = { 'ZÖLD': 0, 'PIROS': 0, 'NONE': 0 };
+    (cardStats || []).forEach(c => {
+      const type = (c.card_type || '').toUpperCase();
+      if (type.includes('ZÖLD') || type.includes('ZOLD')) cardMap['ZÖLD'] += c.count;
+      else if (type.includes('PIROS')) cardMap['PIROS'] += c.count;
+      else cardMap['NONE'] += c.count;
+    });
+
+    res.json({
+      range,
+      summary: {
+        total_users: usersStats?.total_users || 0,
+        new_users_7d: usersStats?.new_users_7d || 0,
+        new_users_30d: usersStats?.new_users_30d || 0,
+        total_bookings: totalBookingsCount,
+        future_bookings: bookingsStats?.future_bookings || 0,
+        past_bookings: pastBookingsCount,
+        total_scans: totalScansCount,
+        attendance_rate: attendanceRate,
+        total_withdrawals: totalWithdrawalsCount,
+        withdrawal_rate: withdrawalRate,
+        total_tickets_sold: totalTicketsSold
+      },
+      locations: locationsWithPercent,
+      hourly_distribution: hourlyStats || [],
+      card_distribution: cardMap,
+      ticket_types: ticketStats || [],
+      withdrawals: {
+        total: totalWithdrawalsCount,
+        pending: withdrawalStats?.pending_count || 0,
+        refunded: withdrawalStats?.refunded_count || 0,
+        rejected: withdrawalStats?.rejected_count || 0
+      },
+      staff_leaderboard: staffStats || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a statisztikai adatok lekérésekor: ' + error.message });
   }
 });
 
