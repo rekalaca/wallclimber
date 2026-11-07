@@ -40,7 +40,7 @@
   <meta name="twitter:title" content="Bejelentkezés & Regisztráció | HawkStone">
   <meta name="twitter:description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261107_c95">
+  <link rel="stylesheet" href="style.css?v=20261107_c96">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -327,12 +327,13 @@
         
         showToast('Sikeres bejelentkezés! Átirányítás...');
         setTimeout(() => {
+          const userRoles = (data.user && data.user.role ? data.user.role : '').split(',').map(r => r.trim().toUpperCase());
           if (data.mustChangePassword) {
             window.location.href = 'dashboard.html?forceChangePassword=true';
-          } else if (data.user.role === 'ADMIN') {
+          } else if (userRoles.includes('ADMIN')) {
             window.location.href = 'admin.html';
-          } else if (data.user.role === 'STAFF') {
-            window.location.href = 'scanner.html';
+          } else if (userRoles.includes('STAFF')) {
+            window.location.href = 'admin.html#bookings';
           } else {
             window.location.href = 'dashboard.html';
           }
@@ -535,6 +536,6 @@
       }
     });
   </script>
-  <script src="app.js?v=20261107_c95"></script>
+  <script src="app.js?v=20261107_c96"></script>
 </body>
 </html>

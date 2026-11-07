@@ -1378,13 +1378,16 @@ app.delete('/api/bookings/:id', authenticateToken, async (req, res) => {
     const booking = await dbGet('SELECT * FROM bookings WHERE id = ?', [bookingId]);
     if (!booking) return res.status(404).json({ error: 'A foglalás nem található!' });
 
+    const userRoles = (req.user.role || '').split(',').map(r => r.trim().toUpperCase());
+    const isPrivileged = userRoles.includes('ADMIN') || userRoles.includes('STAFF');
+
     // Users can delete their own booking; Admin/Staff can delete any
-    if (booking.user_id !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+    if (booking.user_id !== req.user.id && !isPrivileged) {
       return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a foglalást!' });
     }
 
     // Regular users cannot delete expired or attended bookings
-    if (req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+    if (!isPrivileged) {
       const slot = await dbGet('SELECT * FROM slots WHERE id = ?', [booking.slot_id]);
       if (slot) {
         // Get current Budapest time
@@ -2423,7 +2426,9 @@ app.get('/api/tickets/:id/rules-pdf', authenticateToken, async (req, res) => {
     if (!ticket) return res.status(404).json({ error: 'A jegy nem található!' });
 
     // Validate ownership
-    if (ticket.user_id !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+    const userRoles = (req.user.role || '').split(',').map(r => r.trim().toUpperCase());
+    const isPrivileged = userRoles.includes('ADMIN') || userRoles.includes('STAFF');
+    if (ticket.user_id !== req.user.id && !isPrivileged) {
       return res.status(403).json({ error: 'Nincs jogosultságod letölteni ezt a PDF-et!' });
     }
 

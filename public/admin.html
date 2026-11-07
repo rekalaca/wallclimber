@@ -32,7 +32,7 @@
   <meta name="twitter:title" content="Adminisztrációs Panel | HawkStone">
   <meta name="twitter:description" content="Adminisztrációs kezelőfelület.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261107_c95">
+  <link rel="stylesheet" href="style.css?v=20261107_c96">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -59,7 +59,7 @@
   <main class="container" style="padding: 40px 20px 80px 20px;">
     
     <div style="margin-bottom: 40px; text-align: center;">
-      <h2 style="font-size: 28px; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; font-weight: 800;">Adminisztrációs Panel</h2>
+      <h2 id="admin-main-heading" style="font-size: 28px; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; font-weight: 800;">Adminisztrációs Panel</h2>
       <h3 id="admin-active-tab-title" style="font-size: 18px; color: #ffffff; text-transform: uppercase; margin-top: 12px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Montserrat', sans-serif;">ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ</h3>
     </div>
 
@@ -569,11 +569,14 @@
         tab = 'bookings';
       }
 
+      const headingEl = document.getElementById('admin-main-heading');
       const activeTitleEl = document.getElementById('admin-active-tab-title');
       if (activeTitleEl) {
         if (isStaffOnly) {
+          if (headingEl) headingEl.textContent = 'FALMESTER PANEL';
           activeTitleEl.textContent = 'FOGLALÁSOK (FALMESTER LIGHT)';
         } else {
+          if (headingEl) headingEl.textContent = 'ADMINISZTRÁCIÓS PANEL';
           if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
           else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
           else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
@@ -639,6 +642,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20261107_c95"></script>
+  <script src="app.js?v=20261107_c96"></script>
 </body>
 </html>

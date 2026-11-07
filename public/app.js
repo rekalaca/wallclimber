@@ -144,6 +144,25 @@ function getUserRole() {
   }
 }
 
+// Get User Roles Array (supports comma-separated multi-roles)
+function getUserRoles() {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr || userStr === 'undefined') return [];
+    const user = JSON.parse(userStr);
+    return (user.role || '').split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
+  } catch (e) {
+    console.error('Error parsing user roles', e);
+    return [];
+  }
+}
+
+// Check if user has specific role
+function hasRole(targetRole) {
+  const roles = getUserRoles();
+  return roles.includes((targetRole || '').trim().toUpperCase());
+}
+
 // Logout function
 function logout() {
   localStorage.removeItem('token');
@@ -574,7 +593,16 @@ function renderHeader() {
       <li><a href="index.html" target="_blank" rel="noopener" class="nav-link">Weboldal ↗</a></li>
     `;
   } else {
-    const profileItem = (isClubSection && isCustomerToken) ? `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>` : '';
+    let profileItem = '';
+    if (isClubSection && token) {
+      if (isStaffOnly) {
+        profileItem = `<li><a href="admin.html#bookings" class="nav-link">Falmester Panel</a></li>`;
+      } else if (isAdmin) {
+        profileItem = `<li><a href="admin.html#dashboard" class="nav-link">Admin Panel</a></li>`;
+      } else {
+        profileItem = `<li><a href="dashboard.html" class="nav-link ${isActive('dashboard.html')}">Profilom</a></li>`;
+      }
+    }
 
     if (isClubSection) {
       // Climbing Club (Nyíregyháza) & Club Subpages Menu
@@ -679,8 +707,9 @@ function renderHeader() {
       authSection = `<div class="nav-auth"></div>`;
     }
   } else if (isClubSection) {
-    // Klub oldalon és annak aloldalain: csak mászó (USER) fióknál mutassa a belépett profilt, ADMIN-nál látogatói nézetet mutasson
-    if (isCustomerToken) {
+    // Klub oldalon és annak aloldalain: bejelentkezett fiók kezelése (mászó, staff vagy admin)
+    if (token) {
+      const panelHref = isStaffOnly ? 'admin.html#bookings' : (isAdmin ? 'admin.html#dashboard' : 'dashboard.html');
       authSection = `
         <div class="nav-auth">
           <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
@@ -690,7 +719,7 @@ function renderHeader() {
             </svg>
           </button>
           <div class="profile-header-widget">
-            <a href="dashboard.html" class="profile-trigger-link">
+            <a href="${panelHref}" class="profile-trigger-link">
               <div class="profile-avatar-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -712,7 +741,7 @@ function renderHeader() {
       authSectionMobile = `
         <div class="nav-auth-mobile">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-            <a href="dashboard.html" style="font-weight:600; font-size:14px; color:#ffffff; text-decoration:none;">${userName}</a>
+            <a href="${panelHref}" style="font-weight:600; font-size:14px; color:#ffffff; text-decoration:none;">${userName}</a>
           </div>
           <button onclick="logout()" class="btn btn-secondary btn-sm" style="width:100%;">Kijelentkezés</button>
         </div>
@@ -2593,8 +2622,7 @@ function toggleCamera() {
 }
 
 async function initScanner() {
-  const role = getUserRole();
-  if (role !== 'STAFF' && role !== 'ADMIN') {
+  if (!hasRole('STAFF') && !hasRole('ADMIN')) {
     window.location.href = 'index.html';
     return;
   }
@@ -3087,17 +3115,23 @@ function resetScannerUI() {
   if (resultCard) resultCard.style.display = 'none';
 }
 
-// ---------------- ADMIN PANEL (ADMIN) ----------------
+// ---------------- ADMIN PANEL (ADMIN / STAFF) ----------------
 async function initAdminPanel() {
-  const role = getUserRole();
-  if (role !== 'ADMIN') {
+  const token = localStorage.getItem('token');
+  if (!token) {
     window.location.href = 'auth.html';
     return;
   }
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
-  const isStaffOnly = userRoles.includes('STAFF') && !userRoles.includes('ADMIN');
+  const isAdmin = hasRole('ADMIN');
+  const isStaff = hasRole('STAFF');
+
+  if (!isAdmin && !isStaff) {
+    window.location.href = 'auth.html';
+    return;
+  }
+
+  const isStaffOnly = isStaff && !isAdmin;
 
   // Switch tab instantly on load to prevent flickering showing the wrong default tab
   const hash = window.location.hash || '#dashboard';
@@ -7337,10 +7371,10 @@ function switchWebAdminTab(tab) {
 async function initWebAdminPanel() {
   const loginView = document.getElementById('webadmin-login-view');
   const panelView = document.getElementById('webadmin-panel-view');
-  const role = getUserRole();
   const token = localStorage.getItem('token');
+  const hasAccess = hasRole('ADMIN') || hasRole('STAFF');
 
-  if (!token || (role !== 'ADMIN' && role !== 'STAFF')) {
+  if (!token || !hasAccess) {
     if (loginView) loginView.style.display = 'block';
     if (panelView) panelView.style.display = 'none';
     renderHeader();
@@ -7402,7 +7436,8 @@ async function handleWebAdminLogin(event) {
       throw new Error(data.error || 'Sikertelen bejelentkezés.');
     }
 
-    if (!data.user || (data.user.role !== 'ADMIN' && data.user.role !== 'STAFF')) {
+    const loginRoles = (data.user?.role || '').split(',').map(r => r.trim().toUpperCase());
+    if (!data.user || (!loginRoles.includes('ADMIN') && !loginRoles.includes('STAFF'))) {
       throw new Error('Ehhez a felülethez adminisztrátori jogosultság szükséges!');
     }
 
