@@ -465,7 +465,11 @@ function renderHeader() {
     console.error('Error parsing user object', e);
   }
 
-  const isConfiguredAdmin = token && (user.role === 'ADMIN' || user.role === 'STAFF');
+  const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
+  const isAdmin = userRoles.includes('ADMIN');
+  const isStaff = userRoles.includes('STAFF');
+  const isConfiguredAdmin = token && (isAdmin || isStaff);
+  const isStaffOnly = token && isStaff && !isAdmin;
   const path = window.location.pathname;
   const hostname = (window.location.hostname || '').toLowerCase();
   const isClubHost = hostname.startsWith('klub.') || hostname.startsWith('maszoklub.') || hostname.startsWith('foglalas.');
@@ -539,17 +543,26 @@ function renderHeader() {
   const isCustomerToken = Boolean(token && !isConfiguredAdmin);
 
   if (isClubAdminPage && isConfiguredAdmin) {
-    // Klub Admin / Staff Specific Menu
-    navItems = `
-      <li><a href="admin.html#dashboard" class="nav-link ${activeClass('admin.html', '#dashboard')}">Kezdőlap</a></li>
-      <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
-      <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
-      <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
-      <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
-      <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
-      <li><a href="admin.html#withdrawals" class="nav-link ${activeClass('admin.html', '#withdrawals')}">Elállások</a></li>
-      <li><a href="klub.html" target="_blank" rel="noopener" class="nav-link">Weboldal ↗</a></li>
-    `;
+    if (isStaffOnly) {
+      // Staff (Falmester Light) Specific Menu: Beléptetés / Scanner és Foglalások
+      navItems = `
+        <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
+        <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
+        <li><a href="klub.html" target="_blank" rel="noopener" class="nav-link">Weboldal ↗</a></li>
+      `;
+    } else {
+      // Teljes Rendszergazda (Admin) Menu
+      navItems = `
+        <li><a href="admin.html#dashboard" class="nav-link ${activeClass('admin.html', '#dashboard')}">Kezdőlap</a></li>
+        <li><a href="scanner.html" class="nav-link ${activeClass('scanner.html')}">Beléptetés / Scanner</a></li>
+        <li><a href="admin.html#schedule" class="nav-link ${activeClass('admin.html', '#schedule')}">Órarend kezelése</a></li>
+        <li><a href="admin.html#users" class="nav-link ${activeClass('admin.html', '#users')}">Felhasználók kezelése</a></li>
+        <li><a href="admin.html#bookings" class="nav-link ${activeClass('admin.html', '#bookings')}">Foglalások</a></li>
+        <li><a href="admin.html#news" class="nav-link ${activeClass('admin.html', '#news')}">Üzenőfal</a></li>
+        <li><a href="admin.html#withdrawals" class="nav-link ${activeClass('admin.html', '#withdrawals')}">Elállások</a></li>
+        <li><a href="klub.html" target="_blank" rel="noopener" class="nav-link">Weboldal ↗</a></li>
+      `;
+    }
   } else if (isWebAdminPage && isConfiguredAdmin) {
     // Weboldal Admin Menu
     navItems = `
@@ -631,7 +644,7 @@ function renderHeader() {
     // Admin oldalakon (admin.html, scanner.html, webadmin.html)
     if (isConfiguredAdmin) {
       const logoutFn = isWebAdminPage ? 'logoutWebAdmin()' : 'logout()';
-      const profileHref = isWebAdminPage ? 'webadmin.html#references' : 'admin.html#dashboard';
+      const profileHref = isWebAdminPage ? 'webadmin.html#references' : (isStaffOnly ? 'admin.html#bookings' : 'admin.html#dashboard');
       authSection = `
         <div class="nav-auth" style="display: flex; align-items: center; gap: 15px;">
           <div class="profile-header-widget" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 15px;">
@@ -3082,29 +3095,43 @@ async function initAdminPanel() {
     return;
   }
 
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
+  const isStaffOnly = userRoles.includes('STAFF') && !userRoles.includes('ADMIN');
+
   // Switch tab instantly on load to prevent flickering showing the wrong default tab
   const hash = window.location.hash || '#dashboard';
   let initialTab = 'dashboard';
-  if (hash === '#users') initialTab = 'users';
-  else if (hash === '#news') initialTab = 'news';
-  else if (hash === '#schedule') initialTab = 'slots';
-  else if (hash === '#bookings') initialTab = 'bookings';
-  else if (hash === '#withdrawals') initialTab = 'withdrawals';
+  if (isStaffOnly) {
+    initialTab = 'bookings';
+  } else {
+    if (hash === '#users') initialTab = 'users';
+    else if (hash === '#news') initialTab = 'news';
+    else if (hash === '#schedule') initialTab = 'slots';
+    else if (hash === '#bookings') initialTab = 'bookings';
+    else if (hash === '#withdrawals') initialTab = 'withdrawals';
+  }
 
   if (typeof window.switchAdminTab === 'function') {
     window.switchAdminTab(initialTab);
   }
 
-  // Load administrative data in parallel to avoid sequential blocks/flickers
-  Promise.all([
-    loadAdminUsers(),
-    loadAdminSlots(),
-    loadNewsAnnouncements(),
-    loadAdminBookings(),
-    loadAdminWithdrawals()
-  ]).catch(err => {
-    console.error('Error loading admin panel resources in parallel:', err);
-  });
+  // Load administrative data: Staff Light only loads bookings, Admin loads all
+  if (isStaffOnly) {
+    if (typeof loadAdminBookings === 'function') {
+      loadAdminBookings().catch(err => console.error('Error loading bookings for staff:', err));
+    }
+  } else {
+    Promise.all([
+      loadAdminUsers(),
+      loadAdminSlots(),
+      loadNewsAnnouncements(),
+      loadAdminBookings(),
+      loadAdminWithdrawals()
+    ]).catch(err => {
+      console.error('Error loading admin panel resources in parallel:', err);
+    });
+  }
 
   // News Form submission
   const newsForm = document.getElementById('admin-news-form');
@@ -3122,32 +3149,58 @@ async function initAdminPanel() {
   window.addEventListener('hashchange', () => {
     const currentHash = window.location.hash || '#dashboard';
     let tab = 'dashboard';
-    if (currentHash === '#users') tab = 'users';
-    else if (currentHash === '#news') tab = 'news';
-    else if (currentHash === '#schedule') tab = 'slots';
-    else if (currentHash === '#bookings') tab = 'bookings';
-    else if (currentHash === '#withdrawals') tab = 'withdrawals';
+    if (isStaffOnly) {
+      tab = 'bookings';
+    } else {
+      if (currentHash === '#users') tab = 'users';
+      else if (currentHash === '#news') tab = 'news';
+      else if (currentHash === '#schedule') tab = 'slots';
+      else if (currentHash === '#bookings') tab = 'bookings';
+      else if (currentHash === '#withdrawals') tab = 'withdrawals';
+    }
 
     if (typeof window.switchAdminTab === 'function') window.switchAdminTab(tab);
     renderHeader();
   });
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function loadAdminUsers() {
   const container = document.getElementById('admin-users-list');
   if (!container) return;
 
-  container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Tagok betöltése...</p>';
+  container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; padding: 30px;">Tagok betöltése...</p>';
 
   try {
     const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error();
     const users = await res.json();
 
-    window.adminUsers = users; // Store globally for details modal lookup and sorting
+    window.adminUsers = users; // Store globally for details/editing modal lookup and sorting
     renderAdminUsers();
   } catch (err) {
-    container.innerHTML = '<p style="text-align:center; color:var(--danger); width: 100%; grid-column: 1/-1;">Nem sikerült a felhasználók betöltése.</p>';
+    container.innerHTML = '<p style="text-align:center; color:var(--danger); width: 100%; padding: 30px;">Nem sikerült a felhasználók betöltése.</p>';
+  }
+}
+
+function filterAdminUsersTable() {
+  renderAdminUsers();
+}
+
+function clearAdminUsersSearch() {
+  const searchInput = document.getElementById('admin-users-search');
+  if (searchInput) {
+    searchInput.value = '';
+    renderAdminUsers();
   }
 }
 
@@ -3157,54 +3210,410 @@ function renderAdminUsers() {
 
   const sortSelect = document.getElementById('admin-users-sort');
   const sortBy = sortSelect ? sortSelect.value : 'name-asc';
+  const searchInput = document.getElementById('admin-users-search');
+  const searchFilter = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
-  let sortedUsers = [...window.adminUsers];
+  let filteredUsers = [...window.adminUsers];
 
-  if (sortBy === 'name-asc') {
-    sortedUsers.sort((a, b) => a.name.localeCompare(b.name, 'hu'));
-  } else if (sortBy === 'name-desc') {
-    sortedUsers.sort((a, b) => b.name.localeCompare(a.name, 'hu'));
-  } else if (sortBy === 'reg-desc') {
-    sortedUsers.sort((a, b) => b.id - a.id); // Newest first
-  } else if (sortBy === 'reg-asc') {
-    sortedUsers.sort((a, b) => a.id - b.id); // Oldest first
+  if (searchFilter) {
+    filteredUsers = filteredUsers.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      const phone = (u.phone || '').toLowerCase();
+      const role = (u.role || '').toLowerCase();
+      const card = (u.card_type || '').toLowerCase();
+      const license = (u.license_number || '').toLowerCase();
+      return name.includes(searchFilter) ||
+             email.includes(searchFilter) ||
+             phone.includes(searchFilter) ||
+             role.includes(searchFilter) ||
+             card.includes(searchFilter) ||
+             license.includes(searchFilter);
+    });
   }
 
-  container.innerHTML = '';
-  
-  if (sortedUsers.length === 0) {
-    container.innerHTML = '<p style="text-align:center; color: var(--text-muted); width: 100%; grid-column: 1/-1;">Nem található regisztrált tag.</p>';
+  if (sortBy === 'name-asc') {
+    filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'hu'));
+  } else if (sortBy === 'name-desc') {
+    filteredUsers.sort((a, b) => (b.name || '').localeCompare(a.name || '', 'hu'));
+  } else if (sortBy === 'reg-desc') {
+    filteredUsers.sort((a, b) => b.id - a.id); // Newest first
+  } else if (sortBy === 'reg-asc') {
+    filteredUsers.sort((a, b) => a.id - b.id); // Oldest first
+  }
+
+  if (filteredUsers.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding: 40px 20px; color: var(--text-muted);">
+        <p style="font-size: 15px; margin-bottom: 8px;">${searchFilter ? 'Nincs a keresési feltételnek megfelelő tag.' : 'Nem található regisztrált tag az adatbázisban.'}</p>
+        ${searchFilter ? '<button class="btn btn-secondary btn-sm" onclick="clearAdminUsersSearch()">Szűrés törlése</button>' : ''}
+      </div>
+    `;
     return;
   }
 
-  sortedUsers.forEach(u => {
-    const card = document.createElement('div');
-    card.className = 'user-card';
-    card.setAttribute('onclick', `openUserDetailsModal(${u.id})`);
-    
-    const badgeClass = u.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red';
-    const roleBadge = u.role === 'ADMIN' ? 'badge-primary' : (u.role === 'STAFF' ? 'badge-secondary' : '');
-    const roleLabel = u.role === 'ADMIN' ? 'Admin' : (u.role === 'STAFF' ? 'Staff' : 'Mászó');
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-    card.innerHTML = `
-      <div class="user-card-header">
-        <div>
-          <div class="user-card-name">${u.name}</div>
-          <div class="user-card-email" style="font-size:12px; color:var(--text-secondary); margin-top:3px; word-break:break-all;">${u.email}</div>
-          <div class="user-card-phone" style="font-size:12px; color:var(--text-muted); margin-top:2px;">${u.phone || '-'}</div>
-        </div>
-      </div>
-      <div class="user-card-badges" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
-        <span class="badge ${badgeClass}">${u.card_type} KÁRTYA</span>
-        ${roleBadge ? `<span class="badge" style="background:#4f46e5;">${roleLabel}</span>` : ''}
-      </div>
+  let rowsHtml = '';
+  filteredUsers.forEach(u => {
+    const userRoles = (u.role || '').split(',').map(r => r.trim().toUpperCase());
+    const isAdmin = userRoles.includes('ADMIN');
+    const isStaff = userRoles.includes('STAFF');
+    const isZold = (u.card_type || '').toUpperCase() === 'ZÖLD';
+    const isSelf = (currentUser.id === u.id);
+    const isSuperAdmin = (u.email === 'admin@hawkstone.hu');
+    const cannotDelete = isSelf || isSuperAdmin || isAdmin;
+
+    // Badges list (Support multiple roles & cards)
+    let badges = [];
+    if (isAdmin) {
+      badges.push('<span class="badge user-badge-role-admin" title="Adminisztrátor">ADMIN</span>');
+    }
+    if (isStaff) {
+      badges.push('<span class="badge user-badge-role-staff" title="Falmester / Pultos">STAFF</span>');
+    }
+    if (!isAdmin && !isStaff) {
+      badges.push('<span class="badge user-badge-role-user" title="Regisztrált mászó">MÁSZÓ</span>');
+    }
+    if (isZold) {
+      badges.push('<span class="badge badge-green" title="Biztosításra jogosult">ZÖLD KÁRTYA</span>');
+    } else {
+      badges.push('<span class="badge badge-red" title="Nem biztosíthat">PIROS KÁRTYA</span>');
+    }
+
+    rowsHtml += `
+      <tr>
+        <td>
+          <div style="font-weight: 700; color: #ffffff; font-size: 14px; letter-spacing: 0.01em;">${escapeHtml(u.name)}</div>
+          ${u.phone ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">📞 ${escapeHtml(u.phone)}</div>` : ''}
+          ${u.license_number ? `<div style="font-size: 11px; color: var(--primary); margin-top: 2px; font-weight: 500;">🏅 Engedély: ${escapeHtml(u.license_number)}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-size: 13px; color: #ffffff; word-break: break-all;">
+            <a href="mailto:${escapeHtml(u.email)}" style="color: #ffffff; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#ffffff'">
+              ${escapeHtml(u.email)}
+            </a>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Azonosító: #${u.id}</div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+            ${badges.join(' ')}
+          </div>
+        </td>
+        <td style="text-align: right;">
+          <div class="admin-users-actions">
+            <button onclick="openEditUserModal(${u.id})" class="btn btn-primary btn-sm" title="Felhasználó adatainak és jogosultságainak szerkesztése" style="padding: 6px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+              <span>✏️</span> Szerkesztés
+            </button>
+            <button onclick="confirmDeleteUser(${u.id})" class="btn btn-danger btn-sm" title="${cannotDelete ? (isSelf ? 'Saját fiókodat nem törölheted!' : (isSuperAdmin ? 'Az Admin Főnök nem törölhető!' : 'Admin fiók nem törölhető!')) : 'Felhasználó törlése'}" style="padding: 6px 10px; font-size: 12px; background: #ef4444; border-color: #ef4444; display: inline-flex; align-items: center; gap: 4px; ${cannotDelete ? 'opacity: 0.35; cursor: not-allowed;' : ''}" ${cannotDelete ? 'disabled' : ''}>
+              <span>🗑️</span> Törlés
+            </button>
+            <button onclick="openUserDetailsModal(${u.id})" class="btn btn-secondary btn-sm" title="Részletes profil, jegyek, foglalások és belépési logok megtekintése" style="padding: 6px 9px; font-size: 12px;">
+              👁️
+            </button>
+          </div>
+        </td>
+      </tr>
     `;
-    container.appendChild(card);
   });
+
+  container.innerHTML = `
+    <table class="admin-table admin-users-table">
+      <thead>
+        <tr>
+          <th style="min-width: 170px;">Név</th>
+          <th style="min-width: 200px;">Felhasználónév / E-mail</th>
+          <th style="min-width: 180px;">Jogosultságok</th>
+          <th style="text-align: right; min-width: 190px;">Műveletek</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  `;
 }
 
 function sortAdminUsers() {
   renderAdminUsers();
+}
+
+// ---------------- USER EDIT MODAL (POPUP WITH MULTI-ROLE & CARDS) ----------------
+function openEditUserModal(userId) {
+  const user = (window.adminUsers || []).find(u => u.id === userId);
+  if (!user) {
+    showToast('A felhasználó nem található!', 'error');
+    return;
+  }
+
+  // Remove existing modal if any
+  closeEditUserModal();
+
+  const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
+  const isAdmin = userRoles.includes('ADMIN');
+  const isStaff = userRoles.includes('STAFF');
+  const isZold = (user.card_type || '').toUpperCase() === 'ZÖLD';
+  const isPiros = !isZold;
+
+  const isSuperAdminUser = (user.email === 'admin@hawkstone.hu');
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-edit-user-modal';
+  modal.className = 'hs-modal-overlay';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);padding:20px;';
+
+  modal.innerHTML = `
+    <div class="glass-card" style="width:100%; max-width:620px; max-height:90vh; overflow-y:auto; padding:28px; border:1px solid rgba(242,118,32,0.3); box-shadow:0 24px 80px rgba(0,0,0,0.7), 0 0 30px rgba(242,118,32,0.15); border-radius:18px; position:relative;">
+      
+      <!-- Close button -->
+      <button type="button" onclick="closeEditUserModal()" style="position:absolute;top:18px;right:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;line-height:1;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">✕</button>
+
+      <div style="margin-bottom:22px; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Felhasználó szerkesztése</span>
+        <h3 style="margin:4px 0 0; font-size:22px; color:#ffffff; font-family:'Montserrat',sans-serif; font-weight:700;">${escapeHtml(user.name)}</h3>
+        <p style="margin:2px 0 0; font-size:13px; color:var(--text-muted);">Azonosító: #${user.id} &nbsp;·&nbsp; ${escapeHtml(user.email)}</p>
+      </div>
+
+      <form id="admin-modal-edit-user-form" onsubmit="submitEditUserModal(event, ${user.id})">
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="edit-modal-name">Teljes név *</label>
+            <input type="text" id="edit-modal-name" class="form-control" value="${escapeHtml(user.name)}" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="edit-modal-email">E-mail cím *</label>
+            <input type="email" id="edit-modal-email" class="form-control" value="${escapeHtml(user.email)}" required ${isSuperAdminUser ? 'readonly style="opacity:0.7;cursor:not-allowed;" title="Az Admin Főnök email címe nem módosítható!"' : ''}>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="edit-modal-phone">Telefonszám *</label>
+            <input type="tel" id="edit-modal-phone" class="form-control" value="${escapeHtml(user.phone || '')}" placeholder="+36..." required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="edit-modal-license">Sportmászó engedélyszám</label>
+            <input type="text" id="edit-modal-license" class="form-control" value="${escapeHtml(user.license_number || '')}" placeholder="pl. SMV-00001">
+          </div>
+        </div>
+
+        <!-- JOGOSULTSÁGOK PANEL -->
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:18px; margin-bottom:20px;">
+          <h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
+            Jogosultságok &amp; Szerepkörök
+          </h4>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px 0;">
+            Egy felhasználó több jogosultsággal is rendelkezhet (pl. Admin, Staff, Zöld kártya).
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <!-- Rendszer jogosultságok (Checkboxok - több is választható!) -->
+            <div>
+              <span style="font-size:12px; color:#ffffff; font-weight:600; display:block; margin-bottom:8px;">Rendszerbeli hozzáférés:</span>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
+                  <input type="checkbox" id="edit-modal-role-admin" style="margin-top:3px; accent-color:#f59e0b;" ${isAdmin ? 'checked' : ''} ${isSuperAdminUser ? 'disabled title="Az Admin Főnök szerepköre kötelezően ADMIN!"' : ''}>
+                  <div>
+                    <strong style="display:block; font-size:13px; color:#f59e0b;">Admin</strong>
+                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Teljes hozzáférés a klub és a weboldal adminisztrációjához</span>
+                  </div>
+                </label>
+
+                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(79,70,229,0.06); border:1px solid rgba(79,70,229,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
+                  <input type="checkbox" id="edit-modal-role-staff" style="margin-top:3px; accent-color:#4f46e5;" ${isStaff ? 'checked' : ''}>
+                  <div>
+                    <strong style="display:block; font-size:13px; color:#818cf8;">Staff (Falmester)</strong>
+                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Light hozzáférés: Beléptetés/Scanner és Foglalások</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Mászókártya minősítés -->
+            <div style="border-top:1px dashed rgba(255,255,255,0.08); padding-top:12px;">
+              <span style="font-size:12px; color:#ffffff; font-weight:600; display:block; margin-bottom:8px;">Mászókártya minősítés:</span>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
+                  <input type="radio" name="edit-modal-card" id="edit-modal-card-zold" value="ZÖLD" style="margin-top:3px; accent-color:#10b981;" ${isZold ? 'checked' : ''}>
+                  <div>
+                    <strong style="display:block; font-size:13px; color:#10b981;">ZÖLD KÁRTYA</strong>
+                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Mások biztosítására jogosult (engedélyköteles)</span>
+                  </div>
+                </label>
+
+                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
+                  <input type="radio" name="edit-modal-card" id="edit-modal-card-piros" value="PIROS" style="margin-top:3px; accent-color:#ef4444;" ${isPiros ? 'checked' : ''}>
+                  <div>
+                    <strong style="display:block; font-size:13px; color:#ef4444;">PIROS KÁRTYA</strong>
+                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Önálló mászás és auto-belay (nem biztosíthat)</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Opcionális új jelszó -->
+        <div class="form-group" style="margin-bottom:22px;">
+          <label class="form-label" for="edit-modal-password">Új jelszó beállítása (opcionális)</label>
+          <div style="position:relative;">
+            <input type="password" id="edit-modal-password" class="form-control" placeholder="Hagyd üresen, ha nem módosítod">
+            <span class="password-toggle-eye" onclick="togglePasswordVisibility('edit-modal-password')">👁️</span>
+          </div>
+          <small class="password-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">
+            Ha kitöltöd, legalább 8 karakter, kis- és nagybetű, szám és speciális karakter szükséges.
+          </small>
+        </div>
+
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+          <button type="button" onclick="closeEditUserModal()" class="btn btn-secondary" style="padding:10px 20px;">Mégse</button>
+          <button type="submit" class="btn btn-primary" style="padding:10px 26px; font-weight:600;">Módosítások mentése</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeEditUserModal();
+  });
+}
+
+function closeEditUserModal() {
+  const modal = document.getElementById('admin-edit-user-modal');
+  if (modal) modal.remove();
+}
+
+async function submitEditUserModal(e, userId) {
+  if (e) e.preventDefault();
+
+  const name = (document.getElementById('edit-modal-name').value || '').trim();
+  const email = (document.getElementById('edit-modal-email').value || '').trim();
+  const phone = (document.getElementById('edit-modal-phone').value || '').trim();
+  const license_number = (document.getElementById('edit-modal-license').value || '').trim();
+  const password = document.getElementById('edit-modal-password').value;
+
+  const adminCheckbox = document.getElementById('edit-modal-role-admin');
+  const staffCheckbox = document.getElementById('edit-modal-role-staff');
+
+  const adminChecked = adminCheckbox ? adminCheckbox.checked : false;
+  const staffChecked = staffCheckbox ? staffCheckbox.checked : false;
+
+  let roles = [];
+  if (adminChecked) roles.push('ADMIN');
+  if (staffChecked) roles.push('STAFF');
+  if (roles.length === 0) roles.push('USER');
+  const roleStr = roles.join(',');
+
+  const card_type = document.getElementById('edit-modal-card-zold').checked ? 'ZÖLD' : 'PIROS';
+
+  if (card_type === 'ZÖLD') {
+    if (!license_number) {
+      showAlertModal('Zöld kártya minősítéshez kötelező sportmászó engedélyszám megadása!', 'Hiányzó engedélyszám', 'warning');
+      return;
+    }
+    const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
+    if (!licenseRegex.test(license_number)) {
+      showAlertModal('A megadott sportmászó engedélyszám formátuma érvénytelen! (Elvárt pl. SMV-00001 vagy GSE9999/2025)', 'Érvénytelen engedélyszám', 'warning');
+      return;
+    }
+  }
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        license_number,
+        card_type,
+        role: roleStr,
+        password: password || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Mentési hiba');
+
+    showToast('Felhasználó adatai és jogosultságai sikeresen frissítve!');
+    closeEditUserModal();
+    loadAdminUsers();
+
+    // If current logged in user, update localStorage and re-render header
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (currentUser.id === userId) {
+      currentUser.name = name;
+      currentUser.email = email;
+      currentUser.role = roleStr;
+      currentUser.card_type = card_type;
+      localStorage.setItem('user', JSON.stringify(currentUser));
+      renderHeader();
+    }
+  } catch (err) {
+    showAlertModal(err.message || 'Hiba történt a felhasználó mentésekor.', 'Mentési hiba');
+  }
+}
+
+// ---------------- USER DELETE WITH CONFIRMATION MODAL ----------------
+async function confirmDeleteUser(userId) {
+  const user = (window.adminUsers || []).find(u => u.id === userId);
+  if (!user) {
+    showToast('A felhasználó nem található!', 'error');
+    return;
+  }
+
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  if (currentUser.id === userId) {
+    showAlertModal('Nem törölheted a saját adminisztrátori fiókodat!', 'Törlés nem engedélyezett', 'warning');
+    return;
+  }
+
+  if (user.email === 'admin@hawkstone.hu') {
+    showAlertModal('Az Admin Főnök (admin@hawkstone.hu) fiók nem törölhető a rendszerből!', 'Törlés nem engedélyezett', 'warning');
+    return;
+  }
+
+  const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
+  if (userRoles.includes('ADMIN')) {
+    showAlertModal('Biztonsági okokból adminisztrátori fiókot nem lehet törölni! Előbb vond vissza az Admin jogosultságot a szerkesztésben.', 'Törlés nem engedélyezett', 'warning');
+    return;
+  }
+
+  const confirmed = await showConfirmModal({
+    title: 'Felhasználó törlése',
+    message: `Biztosan törölni szeretnéd a következő tagot?
+
+👤 ${user.name}
+✉️ ${user.email}
+
+Figyelem: Ez a művelet végleges és nem visszavonható! A felhasználó fiókja, valamint minden megvásárolt jegye, bérlete és foglalása azonnal törlődik az adatbázisból.`,
+    confirmText: 'Végleges törlés',
+    cancelText: 'Mégse',
+    badge: 'Törlés megerősítése',
+    variant: 'danger'
+  });
+
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Törlési hiba');
+
+    showToast(`"${user.name}" sikeresen törölve a rendszerből!`);
+    loadAdminUsers();
+  } catch (err) {
+    showAlertModal(err.message || 'Nem sikerült törölni a felhasználót.', 'Törlési hiba');
+  }
 }
 
 let currentViewedUser = null;
@@ -3475,10 +3884,10 @@ function switchSubpageToView() {
 }
 
 function switchSubpageToEdit() {
-  const viewEl = document.getElementById('user-details-subpage-view-mode');
-  const editEl = document.getElementById('user-details-subpage-edit-mode');
-  if (viewEl) viewEl.style.display = 'none';
-  if (editEl) editEl.style.display = 'block';
+  const userIdVal = document.getElementById('subpage-edit-user-id').value;
+  if (userIdVal) {
+    openEditUserModal(parseInt(userIdVal));
+  }
 }
 
 function triggerUserDeleteFromSubpage() {
@@ -5290,6 +5699,12 @@ window.switchSubpageToEdit = switchSubpageToEdit;
 window.triggerUserDeleteFromSubpage = triggerUserDeleteFromSubpage;
 window.handleSubpageEditUserSubmit = handleSubpageEditUserSubmit;
 window.exportUserLogsCSV = exportUserLogsCSV;
+window.openEditUserModal = openEditUserModal;
+window.closeEditUserModal = closeEditUserModal;
+window.submitEditUserModal = submitEditUserModal;
+window.confirmDeleteUser = confirmDeleteUser;
+window.filterAdminUsersTable = filterAdminUsersTable;
+window.clearAdminUsersSearch = clearAdminUsersSearch;
 window.exportAllUsersToCSV = exportAllUsersToCSV;
 window.importUsersFromCSVFile = importUsersFromCSVFile;
 window.switchAdminScheduleWeek = switchAdminScheduleWeek;

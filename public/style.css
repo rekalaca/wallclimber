@@ -8847,3 +8847,55 @@ header .logo:hover img.header-logo-img {
   color: #ffffff;
 }
 
+
+/* Admin Users Table & Multi-Role Badges */
+.admin-users-table {
+  min-width: 680px;
+}
+.admin-users-table th {
+  padding: 14px 18px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.admin-users-table td {
+  padding: 14px 18px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.admin-users-table tbody tr {
+  transition: background 0.2s ease;
+}
+.admin-users-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.user-badge-role-admin {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+.user-badge-role-staff {
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+.user-badge-role-user {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+.admin-users-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.admin-users-search-box {
+  position: relative;
+  min-width: 220px;
+  flex: 1;
+  max-width: 320px;
+}

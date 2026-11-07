@@ -32,7 +32,7 @@
   <meta name="twitter:title" content="Adminisztrációs Panel | HawkStone">
   <meta name="twitter:description" content="Adminisztrációs kezelőfelület.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261106_c94">
+  <link rel="stylesheet" href="style.css?v=20261107_c95">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -232,7 +232,12 @@
             Az alábbi listában találhatók a regisztrált tagok. A <strong>Zöld Kártya</strong> feljogosít mások biztosítására, míg a <strong>Piros Kártya</strong> korlátozza ezt (nem biztosíthat).
           </p>
           
-          <div class="admin-users-controls">
+          <div class="admin-users-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <!-- Live Search Filter -->
+            <div class="admin-users-search-box">
+              <input type="text" id="admin-users-search" class="form-control" placeholder="🔍 Keresés tagra, emailre..." oninput="filterAdminUsersTable()" style="margin-bottom:0; font-size:13px; padding: 7px 12px;">
+            </div>
+
             <!-- Bulk Export/Import Buttons -->
             <div class="admin-users-controls-buttons">
               <button onclick="exportAllUsersToCSV()" class="btn btn-secondary btn-sm btn-export-import">
@@ -256,7 +261,7 @@
           </div>
         </div>
         
-        <div id="admin-users-list" class="user-cards-grid">
+        <div id="admin-users-list" class="admin-table-wrapper" style="margin-top: 15px;">
           <p style="text-align:center; color: var(--text-muted); width: 100%;">Tagok betöltése...</p>
         </div>
       </div>
@@ -552,14 +557,30 @@
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
 
     function switchAdminTab(tab) {
+      let user = {};
+      try {
+        user = JSON.parse(localStorage.getItem('user') || '{}');
+      } catch (e) {}
+      const userRoles = (user.role || '').split(',').map(r => r.trim().toUpperCase());
+      const isStaffOnly = userRoles.includes('STAFF') && !userRoles.includes('ADMIN');
+
+      // Staff Light restriction: only bookings allowed
+      if (isStaffOnly) {
+        tab = 'bookings';
+      }
+
       const activeTitleEl = document.getElementById('admin-active-tab-title');
       if (activeTitleEl) {
-        if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
-        else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
-        else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
-        else if (tab === 'news') activeTitleEl.textContent = 'ÜZENŐFAL KEZELÉSE';
-        else if (tab === 'bookings') activeTitleEl.textContent = 'FOGLALÁSOK';
-        else if (tab === 'withdrawals') activeTitleEl.textContent = 'ELÁLLÁSOK';
+        if (isStaffOnly) {
+          activeTitleEl.textContent = 'FOGLALÁSOK (FALMESTER LIGHT)';
+        } else {
+          if (tab === 'dashboard') activeTitleEl.textContent = 'ADMINISZTRÁCIÓS FŐOLDAL / CRM KERESŐ';
+          else if (tab === 'slots') activeTitleEl.textContent = 'HETI ÓRAREND KEZELÉS';
+          else if (tab === 'users') activeTitleEl.textContent = 'FELHASZNÁLÓK KEZELÉSE';
+          else if (tab === 'news') activeTitleEl.textContent = 'ÜZENŐFAL KEZELÉSE';
+          else if (tab === 'bookings') activeTitleEl.textContent = 'FOGLALÁSOK';
+          else if (tab === 'withdrawals') activeTitleEl.textContent = 'ELÁLLÁSOK';
+        }
       }
 
       const tabDashboard = document.getElementById('tab-dashboard');
@@ -618,6 +639,6 @@
     }
     window.switchAdminTab = switchAdminTab;
   </script>
-  <script src="app.js?v=20261106_c94"></script>
+  <script src="app.js?v=20261107_c95"></script>
 </body>
 </html>

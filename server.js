@@ -636,7 +636,17 @@ function authenticateToken(req, res, next) {
 
 function requireRole(roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({ error: 'Nincs jogosultságod ehhez a művelethez!' });
+    }
+    const userRoleStr = (req.user.role || 'USER').toUpperCase();
+    const userRoles = userRoleStr.split(',').map(r => r.trim());
+    // Ha a felhasználó ADMIN jogosultsággal rendelkezik, mindenhez hozzáfér
+    if (userRoles.includes('ADMIN')) {
+      return next();
+    }
+    const hasAccess = roles.some(r => userRoles.includes(r.toUpperCase()));
+    if (!hasAccess) {
       return res.status(403).json({ error: 'Nincs jogosultságod ehhez a művelethez!' });
     }
     next();
@@ -2635,7 +2645,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
 
 // ---------------- ADMIN PANEL ROUTES ----------------
 // View all users
-app.get('/api/admin/users', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/admin/users', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const users = await dbAll('SELECT id, name, email, phone, license_number, card_type, role FROM users ORDER BY name ASC');
     res.json(users);
@@ -2645,7 +2655,7 @@ app.get('/api/admin/users', authenticateToken, requireRole(['STAFF', 'ADMIN']), 
 });
 
 // View single user details with tickets, bookings, and entry logs
-app.get('/api/admin/users/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role FROM users WHERE id = ?', [userId]);
@@ -2677,7 +2687,7 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['STAFF', 'ADMIN'
 });
 
 // CRM advanced search across users and payments
-app.get('/api/admin/search', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/admin/search', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const { name, email, phone, paymentId } = req.query;
 
@@ -2800,7 +2810,7 @@ app.post('/api/admin/users/import', authenticateToken, requireRole(['ADMIN']), a
 });
 
 // View all cancellations
-app.get('/api/admin/cancellations', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/admin/cancellations', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const cancellations = await dbAll('SELECT * FROM slot_cancellations');
     res.json(cancellations);
@@ -2851,7 +2861,7 @@ app.post('/api/admin/slots/uncancel', authenticateToken, requireRole(['ADMIN']),
 });
 
 // Toggle card level (ZÖLD / PIROS)
-app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const { cardType } = req.body;
     if (!['ZÖLD', 'PIROS'].includes(cardType)) {
@@ -2880,18 +2890,31 @@ app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['STAFF
 // Update user details (name, email, phone, license_number, card_type, role)
 app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
-    const { name, email, phone, license_number, card_type, role, password } = req.body;
+    let { name, email, phone, license_number, card_type, role, password } = req.body;
     if (!name || !email || !phone || !card_type || !role) {
       return res.status(400).json({ error: 'Minden kötelező mező kitöltése kötelező!' });
     }
 
-    if (!['ZÖLD', 'PIROS'].includes(card_type)) {
+    const cardUpper = String(card_type).trim().toUpperCase();
+    if (!['ZÖLD', 'PIROS'].includes(cardUpper)) {
       return res.status(400).json({ error: 'Érvénytelen kártyatípus!' });
     }
 
-    if (!['USER', 'STAFF', 'ADMIN'].includes(role)) {
-      return res.status(400).json({ error: 'Érvénytelen szerepkör!' });
+    // Role handling: support multiple roles (e.g. ['ADMIN', 'STAFF'] or 'ADMIN,STAFF')
+    let roleArray = [];
+    if (Array.isArray(role)) {
+      roleArray = role.map(r => String(r).trim().toUpperCase());
+    } else if (typeof role === 'string') {
+      roleArray = role.split(',').map(r => r.trim().toUpperCase());
     }
+    roleArray = roleArray.filter(r => ['USER', 'STAFF', 'ADMIN'].includes(r));
+    if (roleArray.length === 0) {
+      roleArray = ['USER'];
+    }
+    if (roleArray.length > 1) {
+      roleArray = roleArray.filter(r => r !== 'USER');
+    }
+    const normalizedRole = roleArray.join(',');
 
     // Check target user before updating
     const targetUser = await dbGet('SELECT email, role FROM users WHERE id = ?', [req.params.id]);
@@ -2901,8 +2924,8 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
 
     // Protection for Admin Főnök (admin@hawkstone.hu) email and role
     if (targetUser.email === 'admin@hawkstone.hu') {
-      if (role !== 'ADMIN') {
-        return res.status(400).json({ error: 'Az Admin Főnök szerepköre nem módosítható!' });
+      if (!roleArray.includes('ADMIN')) {
+        return res.status(400).json({ error: 'Az Admin Főnök adminisztrátori jogosultsága nem vonható vissza!' });
       }
       if (email !== 'admin@hawkstone.hu') {
         return res.status(400).json({ error: 'Az Admin Főnök email címe nem módosítható!' });
@@ -2910,11 +2933,11 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
     }
 
     // Validation for ZÖLD card type: check if they have a valid sport climber license number
-    if (card_type === 'ZÖLD') {
+    if (cardUpper === 'ZÖLD') {
       if (!license_number || !license_number.trim()) {
         return res.status(400).json({ error: 'Zöld kártya minősítéshez kötelező sportmászó engedélyszám megadása!' });
       }
-      const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜÓŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
+      const licenseRegex = /^(SMV-\d+|[A-Za-zÖüóőúéáíÖÜŐÚÉÁÍ]{2,8}-?\d+(?:\s*\/\s*\d{4})?)$/;
       if (!licenseRegex.test(license_number.trim())) {
         return res.status(400).json({ error: 'A megadott sportmászó engedélyszám formátuma érvénytelen! (Elvárt pl. SMV-00001 vagy GSE9999/2025)' });
       }
@@ -2927,7 +2950,7 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
 
     await dbRun(
       'UPDATE users SET name = ?, email = ?, phone = ?, license_number = ?, card_type = ?, role = ? WHERE id = ?',
-      [name, email, phone, license_number || '', card_type, role, req.params.id]
+      [name, email, phone, license_number || '', cardUpper, normalizedRole, req.params.id]
     );
 
     if (password && password.trim().length > 0) {
@@ -2939,13 +2962,13 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
       await dbRun('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [passwordHash, req.params.id]);
     }
 
-    res.json({ message: 'Felhasználó adatai sikeresen frissítve!' });
+    res.json({ message: 'Felhasználó adatai és jogosultságai sikeresen frissítve!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete user (prevents deleting oneself)
+// Delete user (prevents deleting oneself, Admin Főnök, and users with ADMIN role)
 app.delete('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     if (parseInt(req.params.id) === req.user.id) {
@@ -2962,10 +2985,14 @@ app.delete('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), as
       return res.status(400).json({ error: 'Az Admin Főnök felhasználó nem törölhető az admin felületről!' });
     }
 
-    if (targetUser.role === 'ADMIN') {
-      return res.status(400).json({ error: 'Biztonsági okokból adminisztrátori fiókot nem lehet törölni!' });
+    const targetRoles = (targetUser.role || '').split(',').map(r => r.trim().toUpperCase());
+    if (targetRoles.includes('ADMIN')) {
+      return res.status(400).json({ error: 'Biztonsági okokból adminisztrátori fiókot nem lehet törölni! Előbb vond vissza az Admin jogosultságot a szerkesztésben.' });
     }
 
+    // Delete related records to maintain integrity
+    await dbRun('DELETE FROM bookings WHERE user_id = ?', [req.params.id]);
+    await dbRun('DELETE FROM tickets WHERE user_id = ?', [req.params.id]);
     await dbRun('DELETE FROM users WHERE id = ?', [req.params.id]);
     res.json({ message: 'Felhasználó sikeresen törölve!' });
   } catch (error) {
@@ -3109,7 +3136,7 @@ app.get('/api/announcements/active', async (req, res) => {
 });
 
 // Get all announcements (Admin/Staff only)
-app.get('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/announcements', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const target = req.query.target === 'web' ? 'web' : 'club';
     let list;
@@ -3125,7 +3152,7 @@ app.get('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN'])
 });
 
 // Create new announcement (Admin/Staff only)
-app.post('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.post('/api/announcements', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const { title, content, imageUrl, isActive, target } = req.body;
     if (!title || !content) {
@@ -3155,7 +3182,7 @@ app.post('/api/announcements', authenticateToken, requireRole(['STAFF', 'ADMIN']
 });
 
 // Update announcement (Admin/Staff only)
-app.put('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.put('/api/announcements/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const { title, content, imageUrl, isActive, target } = req.body;
     const { id } = req.params;
@@ -3188,7 +3215,7 @@ app.put('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMI
 });
 
 // Delete announcement (Admin/Staff only)
-app.delete('/api/announcements/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.delete('/api/announcements/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     await dbRun('DELETE FROM announcements WHERE id = ?', [req.params.id]);
     res.json({ message: 'Hír sikeresen törölve!' });
@@ -3487,7 +3514,7 @@ HawkStone Mászóklub`;
 });
 
 // 3. Admin Withdrawals List Endpoint (Admin/Staff only)
-app.get('/api/admin/withdrawals', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.get('/api/admin/withdrawals', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const list = await dbAll(`
       SELECT w.*, u.name as user_name, u.email as user_email,
@@ -3504,7 +3531,7 @@ app.get('/api/admin/withdrawals', authenticateToken, requireRole(['STAFF', 'ADMI
 });
 
 // 4. Admin Update Withdrawal Status (refund_status + admin_note)
-app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const { refund_status, admin_note } = req.body;
     const withdrawalId = req.params.id;
@@ -3684,7 +3711,7 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['STAFF',
 });
 
 // 5. Admin Send Message to Customer about Withdrawal
-app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
+app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const withdrawalId = req.params.id;
     const { subject, message } = req.body;
