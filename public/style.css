@@ -8899,3 +8899,67 @@ header .logo:hover img.header-logo-img {
   flex: 1;
   max-width: 320px;
 }
+
+/* Admin Edit User Modal Wide Desktop & Responsive Layout */
+.admin-edit-modal-card {
+  width: 100%;
+  max-width: 1040px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px 34px;
+  border: 1px solid rgba(242, 118, 32, 0.3);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75), 0 0 35px rgba(242, 118, 32, 0.15);
+  border-radius: 18px;
+  position: relative;
+}
+
+.edit-user-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.edit-user-split-2 {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 20px;
+  margin-bottom: 20px;
+  align-items: start;
+}
+
+.modal-bookings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 991px) {
+  .admin-edit-modal-card {
+    max-width: 680px;
+    padding: 24px 20px;
+  }
+  .edit-user-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .edit-user-split-2 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .modal-bookings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-edit-modal-card {
+    max-width: 100%;
+    padding: 20px 14px;
+    border-radius: 14px;
+  }
+  .edit-user-grid-4 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

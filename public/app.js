@@ -3401,20 +3401,23 @@ function openEditUserModal(userId) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);padding:20px;';
 
   modal.innerHTML = `
-    <div class="glass-card" style="width:100%; max-width:620px; max-height:90vh; overflow-y:auto; padding:28px; border:1px solid rgba(242,118,32,0.3); box-shadow:0 24px 80px rgba(0,0,0,0.7), 0 0 30px rgba(242,118,32,0.15); border-radius:18px; position:relative;">
+    <div class="glass-card admin-edit-modal-card">
       
       <!-- Close button -->
       <button type="button" onclick="closeEditUserModal()" style="position:absolute;top:18px;right:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;line-height:1;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">✕</button>
 
-      <div style="margin-bottom:22px; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08);">
-        <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Felhasználó szerkesztése</span>
-        <h3 style="margin:4px 0 0; font-size:22px; color:#ffffff; font-family:'Montserrat',sans-serif; font-weight:700;">${escapeHtml(user.name)}</h3>
-        <p style="margin:2px 0 0; font-size:13px; color:var(--text-muted);">Azonosító: #${user.id} &nbsp;·&nbsp; ${escapeHtml(user.email)}</p>
+      <div style="margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
+        <div>
+          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Felhasználó szerkesztése</span>
+          <h3 style="margin:4px 0 0; font-size:22px; color:#ffffff; font-family:'Montserrat',sans-serif; font-weight:700;">${escapeHtml(user.name)}</h3>
+        </div>
+        <p style="margin:0; font-size:13px; color:var(--text-muted); font-family:'Outfit',monospace;">Azonosító: #${user.id} &nbsp;·&nbsp; ${escapeHtml(user.email)}</p>
       </div>
 
       <form id="admin-modal-edit-user-form" onsubmit="submitEditUserModal(event, ${user.id})">
         
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px;">
+        <!-- 4 OSZLOPOS ALAPADATOK ASZTALI NÉZETBEN -->
+        <div class="edit-user-grid-4">
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label" for="edit-modal-name">Teljes név *</label>
             <input type="text" id="edit-modal-name" class="form-control" value="${escapeHtml(user.name)}" required>
@@ -3423,92 +3426,99 @@ function openEditUserModal(userId) {
             <label class="form-label" for="edit-modal-email">E-mail cím *</label>
             <input type="email" id="edit-modal-email" class="form-control" value="${escapeHtml(user.email)}" required ${isSuperAdminUser ? 'readonly style="opacity:0.7;cursor:not-allowed;" title="Az Admin Főnök email címe nem módosítható!"' : ''}>
           </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label" for="edit-modal-phone">Telefonszám *</label>
             <input type="tel" id="edit-modal-phone" class="form-control" value="${escapeHtml(user.phone || '')}" placeholder="+36..." required>
           </div>
           <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" for="edit-modal-license">Sportmászó engedélyszám</label>
+            <label class="form-label" for="edit-modal-license">Sportmászó engedély</label>
             <input type="text" id="edit-modal-license" class="form-control" value="${escapeHtml(user.license_number || '')}" placeholder="pl. SMV-00001">
           </div>
         </div>
 
-        <!-- JOGOSULTSÁGOK PANEL -->
-        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:18px; margin-bottom:20px;">
-          <h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
-            Jogosultságok &amp; Szerepkörök
-          </h4>
-          <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px 0;">
-            Egy felhasználó több jogosultsággal is rendelkezhet (pl. Admin, Staff, Zöld kártya).
-          </p>
+        <!-- 2 OSZLOPOS SPLIT: JOGOSULTSÁGOK ÉS JELSZÓ -->
+        <div class="edit-user-split-2">
+          
+          <!-- JOGOSULTSÁGOK PANEL -->
+          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:15px;">
+            <h4 style="margin:0 0 6px 0; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
+              Jogosultságok &amp; Szerepkörök
+            </h4>
+            <p style="font-size:11px; color:var(--text-secondary); margin:0 0 10px 0;">
+              Egy felhasználó több jogosultsággal is rendelkezhet (pl. Admin, Staff, Zöld kártya).
+            </p>
 
-          <div style="display:flex; flex-direction:column; gap:14px;">
-            <!-- Rendszer jogosultságok (Checkboxok - több is választható!) -->
-            <div>
-              <span style="font-size:12px; color:#ffffff; font-weight:600; display:block; margin-bottom:8px;">Rendszerbeli hozzáférés:</span>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
-                  <input type="checkbox" id="edit-modal-role-admin" style="margin-top:3px; accent-color:#f59e0b;" ${isAdmin ? 'checked' : ''} ${isSuperAdminUser ? 'disabled title="Az Admin Főnök szerepköre kötelezően ADMIN!"' : ''}>
-                  <div>
-                    <strong style="display:block; font-size:13px; color:#f59e0b;">Admin</strong>
-                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Teljes hozzáférés a klub és a weboldal adminisztrációjához</span>
-                  </div>
-                </label>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <!-- Rendszer jogosultságok -->
+              <div>
+                <span style="font-size:11px; color:#ffffff; font-weight:600; display:block; margin-bottom:5px;">Rendszerbeli hozzáférés:</span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
+                    <input type="checkbox" id="edit-modal-role-admin" style="margin-top:2px; accent-color:#f59e0b;" ${isAdmin ? 'checked' : ''} ${isSuperAdminUser ? 'disabled title="Az Admin Főnök szerepköre kötelezően ADMIN!"' : ''}>
+                    <div>
+                      <strong style="display:block; font-size:12px; color:#f59e0b;">Admin</strong>
+                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Teljes hozzáférés</span>
+                    </div>
+                  </label>
 
-                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(79,70,229,0.06); border:1px solid rgba(79,70,229,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
-                  <input type="checkbox" id="edit-modal-role-staff" style="margin-top:3px; accent-color:#4f46e5;" ${isStaff ? 'checked' : ''}>
-                  <div>
-                    <strong style="display:block; font-size:13px; color:#818cf8;">Staff (Falmester)</strong>
-                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Light hozzáférés: Beléptetés/Scanner és Foglalások</span>
-                  </div>
-                </label>
+                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(79,70,229,0.06); border:1px solid rgba(79,70,229,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
+                    <input type="checkbox" id="edit-modal-role-staff" style="margin-top:2px; accent-color:#4f46e5;" ${isStaff ? 'checked' : ''}>
+                    <div>
+                      <strong style="display:block; font-size:12px; color:#818cf8;">Staff (Falmester)</strong>
+                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Scanner &amp; Foglalások</span>
+                    </div>
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <!-- Mászókártya minősítés -->
-            <div style="border-top:1px dashed rgba(255,255,255,0.08); padding-top:12px;">
-              <span style="font-size:12px; color:#ffffff; font-weight:600; display:block; margin-bottom:8px;">Mászókártya minősítés:</span>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
-                  <input type="radio" name="edit-modal-card" id="edit-modal-card-zold" value="ZÖLD" style="margin-top:3px; accent-color:#10b981;" ${isZold ? 'checked' : ''}>
-                  <div>
-                    <strong style="display:block; font-size:13px; color:#10b981;">ZÖLD KÁRTYA</strong>
-                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Mások biztosítására jogosult (engedélyköteles)</span>
-                  </div>
-                </label>
+              <!-- Mászókártya minősítés -->
+              <div style="border-top:1px dashed rgba(255,255,255,0.08); padding-top:8px;">
+                <span style="font-size:11px; color:#ffffff; font-weight:600; display:block; margin-bottom:5px;">Mászókártya minősítés:</span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
+                    <input type="radio" name="edit-modal-card" id="edit-modal-card-zold" value="ZÖLD" style="margin-top:2px; accent-color:#10b981;" ${isZold ? 'checked' : ''}>
+                    <div>
+                      <strong style="display:block; font-size:12px; color:#10b981;">ZÖLD KÁRTYA</strong>
+                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Mások biztosítására jogosult</span>
+                    </div>
+                  </label>
 
-                <label style="display:flex; align-items:flex-start; gap:10px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); padding:10px 12px; border-radius:8px; cursor:pointer;">
-                  <input type="radio" name="edit-modal-card" id="edit-modal-card-piros" value="PIROS" style="margin-top:3px; accent-color:#ef4444;" ${isPiros ? 'checked' : ''}>
-                  <div>
-                    <strong style="display:block; font-size:13px; color:#ef4444;">PIROS KÁRTYA</strong>
-                    <span style="font-size:11px; color:var(--text-muted); display:block; line-height:1.3; margin-top:2px;">Önálló mászás és auto-belay (nem biztosíthat)</span>
-                  </div>
-                </label>
+                  <label style="display:flex; align-items:flex-start; gap:8px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); padding:8px 10px; border-radius:8px; cursor:pointer;">
+                    <input type="radio" name="edit-modal-card" id="edit-modal-card-piros" value="PIROS" style="margin-top:2px; accent-color:#ef4444;" ${isPiros ? 'checked' : ''}>
+                    <div>
+                      <strong style="display:block; font-size:12px; color:#ef4444;">PIROS KÁRTYA</strong>
+                      <span style="font-size:10px; color:var(--text-muted); display:block; line-height:1.2; margin-top:2px;">Önálló mászás &amp; auto-belay</span>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Opcionális új jelszó -->
-        <div class="form-group" style="margin-bottom:22px;">
-          <label class="form-label" for="edit-modal-password">Új jelszó beállítása (opcionális)</label>
-          <div style="position:relative;">
-            <input type="password" id="edit-modal-password" class="form-control" placeholder="Hagyd üresen, ha nem módosítod">
-            <span class="password-toggle-eye" onclick="togglePasswordVisibility('edit-modal-password')">👁️</span>
+          <!-- JELSZÓ MÓDOSÍTÁS PANEL -->
+          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:15px;">
+            <h4 style="margin:0 0 6px 0; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
+              Biztonság
+            </h4>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="edit-modal-password" style="font-size:12px;">Új jelszó megadása (opcionális)</label>
+              <div style="position:relative;">
+                <input type="password" id="edit-modal-password" class="form-control" placeholder="Hagyd üresen, ha változatlan">
+                <span class="password-toggle-eye" onclick="togglePasswordVisibility('edit-modal-password')">👁️</span>
+              </div>
+              <small class="password-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:6px; line-height:1.3;">
+                Csak akkor töltsd ki, ha jelszót szeretnél váltani a tagnak (min. 8 karakter, kis- és nagybetű, szám).
+              </small>
+            </div>
           </div>
-          <small class="password-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">
-            Ha kitöltöd, legalább 8 karakter, kis- és nagybetű, szám és speciális karakter szükséges.
-          </small>
+
         </div>
 
         <!-- FOGLALÁSOK ÉS BELÉPTETÉSEK LEKÉRDEZÉSE -->
-        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:16px; margin-bottom:22px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:15px; margin-bottom:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:16px;">📅</span>
+              <span style="font-size:15px;">📅</span>
               <h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); font-weight:700;">
                 Felhasználó foglalásai &amp; beléptetései
               </h4>
@@ -5787,31 +5797,31 @@ async function loadUserBookingsInModal(userId) {
       return;
     }
 
-    let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+    let html = '<div class="modal-bookings-grid">';
     bookings.forEach(b => {
       const isPast = isBookingExpired(b.booking_date, b.end_time);
       const isAttended = b.attended > 0;
 
       let statusBadge = '';
       if (isAttended) {
-        const staffWho = b.scanned_by_staff_name ? ` · Beléptette: <strong>${escapeHtml(b.scanned_by_staff_name)}</strong>` : '';
-        const scanTimeText = b.scanned_at ? ` (${b.scanned_at.substring(0, 16).replace('T', ' ')})` : '';
-        statusBadge = `<span class="badge badge-green" style="font-size:10px; padding:3px 8px; font-weight:600;">✅ Megjelent &amp; Felhasználva${staffWho}${scanTimeText}</span>`;
+        const staffWho = b.scanned_by_staff_name ? ` · Staff: <strong>${escapeHtml(b.scanned_by_staff_name)}</strong>` : '';
+        const scanTimeText = b.scanned_at ? ` (${b.scanned_at.substring(11, 16)})` : '';
+        statusBadge = `<span class="badge badge-green" style="font-size:10px; padding:2px 7px; font-weight:600;">✅ Megjelent${staffWho}${scanTimeText}</span>`;
       } else if (isPast) {
-        statusBadge = '<span class="badge badge-secondary" style="font-size:10px; padding:3px 8px; opacity:0.75;">❌ Nem jelent meg (Lejárt)</span>';
+        statusBadge = '<span class="badge badge-secondary" style="font-size:10px; padding:2px 7px; opacity:0.75;">❌ Nem jelent meg</span>';
       } else {
-        statusBadge = '<span class="badge badge-primary" style="font-size:10px; padding:3px 8px; font-weight:600;">⏳ Aktuális foglalás</span>';
+        statusBadge = '<span class="badge badge-primary" style="font-size:10px; padding:2px 7px; font-weight:600;">⏳ Aktuális</span>';
       }
 
       html += `
-        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <div>
-            <span style="font-weight:700; color:#fff; font-size:13px;">${b.booking_date}</span>
-            <span style="color:var(--text-secondary); font-size:12px; margin-left:6px;">${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span>
-            <span style="color:var(--primary); font-size:12px; margin-left:6px; font-weight:600;">(${escapeHtml(b.location_name)})</span>
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:5px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span style="font-weight:700; color:#fff; font-size:12px; font-family:'Outfit',monospace;">${b.booking_date}</span>
+            <span style="color:var(--primary); font-size:11px; font-weight:600;">${escapeHtml(b.location_name)}</span>
           </div>
-          <div>
-            ${statusBadge}
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span style="color:var(--text-secondary); font-size:11px;">🕒 ${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)}</span>
+            <div>${statusBadge}</div>
           </div>
         </div>
       `;
