@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
@@ -198,10 +198,16 @@
         listContainer.innerHTML = '';
 
         data.tickets.forEach(ticket => {
-          let typeLabel = '';
-          if (ticket.ticket_type === 'NAPI') typeLabel = 'Napijegy (Egyszeri)';
-          else if (ticket.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 Alkalmas Bérlet';
-          else if (ticket.ticket_type === 'HAVI') typeLabel = 'Korlátlan Havi Bérlet';
+          let typeLabel = ticket.ticket_type || 'Jegy';
+          if (typeof getTicketTypeMeta === 'function') {
+            typeLabel = getTicketTypeMeta(ticket.ticket_type).label;
+          } else if (ticket.ticket_type && ticket.ticket_type.startsWith('NAPI')) {
+            typeLabel = 'Napijegy';
+          } else if (ticket.ticket_type && ticket.ticket_type.startsWith('TIZ')) {
+            typeLabel = '10 Alkalmas Bérlet';
+          } else if (ticket.ticket_type && ticket.ticket_type.startsWith('HAVI')) {
+            typeLabel = 'Korlátlan Havi Bérlet';
+          }
 
           const card = document.createElement('div');
           // Add custom classes or inline styled glass card style
@@ -308,7 +314,7 @@
         ticketsUl.innerHTML = '';
         data.tickets.forEach(ticket => {
           const li = document.createElement('li');
-          let typeText = ticket.type === 'NAPI' ? 'Napijegy' : (ticket.type === 'TIZ_ALKALMAS' ? '10 Alkalmas Bérlet' : 'Korlátlan Havi Bérlet');
+          let typeText = (ticket.type && ticket.type.startsWith('NAPI')) ? 'Napijegy' : ((ticket.type && ticket.type.startsWith('TIZ')) ? '10 Alkalmas Bérlet' : 'Korlátlan Havi Bérlet');
           li.innerHTML = `<strong>${typeText}</strong> (ID: #${ticket.id}) - Érvénytelenítve`;
           ticketsUl.appendChild(li);
         });

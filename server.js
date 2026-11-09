@@ -285,6 +285,36 @@ async function initDB() {
     }
   }
 
+  // Migration: Add partner school columns to users table
+  const schoolColumns = [
+    { name: 'school_role', type: "TEXT DEFAULT 'NONE'" },
+    { name: 'school_name', type: 'TEXT' },
+    { name: 'school_id_number', type: 'TEXT' },
+    { name: 'school_discount_verified', type: 'INTEGER DEFAULT 0' },
+    { name: 'school_discount_verified_until', type: 'TEXT' },
+    { name: 'school_discount_verified_by', type: 'TEXT' },
+    { name: 'school_discount_verified_at', type: 'TEXT' }
+  ];
+  for (const col of schoolColumns) {
+    try {
+      await dbRun(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
+      console.log(`[DATABASE MIGRATION] Added column '${col.name}' to 'users' table.`);
+    } catch (err) {
+      // Ignore error if column already exists
+    }
+  }
+
+  // Reset expired school verifications (past October 31 of their validity year)
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    await dbRun(
+      "UPDATE users SET school_discount_verified = 0 WHERE school_discount_verified = 1 AND school_discount_verified_until IS NOT NULL AND school_discount_verified_until < ?",
+      [todayStr]
+    );
+  } catch (err) {
+    // Ignore error
+  }
+
   await dbRun(`
     CREATE TABLE IF NOT EXISTS locations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,11 +393,29 @@ async function initDB() {
   try {
     await dbRun("ALTER TABLE entry_logs ADD COLUMN staff_name TEXT");
   } catch (err) {}
+  try {
+    await dbRun("ALTER TABLE entry_logs ADD COLUMN staff_email TEXT");
+  } catch (err) {}
 
   await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_ticket ON entry_logs(ticket_id)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_scan_time ON entry_logs(scan_time)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_staff ON entry_logs(staff_id)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_entry_logs_location ON entry_logs(location_id)");
+
+  // Migration: Add heads_count, booking_type, adult_count, child_count to bookings table
+  try {
+    await dbRun("ALTER TABLE bookings ADD COLUMN heads_count INTEGER DEFAULT 1");
+  } catch (err) {}
+  try {
+    await dbRun("ALTER TABLE bookings ADD COLUMN booking_type TEXT DEFAULT 'SELF'");
+  } catch (err) {}
+  try {
+    await dbRun("ALTER TABLE bookings ADD COLUMN adult_count INTEGER DEFAULT 1");
+  } catch (err) {}
+  try {
+    await dbRun("ALTER TABLE bookings ADD COLUMN child_count INTEGER DEFAULT 0");
+  } catch (err) {}
+
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id)");
   await dbRun("CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id)");
@@ -435,6 +483,9 @@ async function initDB() {
   } catch (_) {}
   try {
     await dbRun("ALTER TABLE barion_payments ADD COLUMN billing_tax_number TEXT");
+  } catch (_) {}
+  try {
+    await dbRun("ALTER TABLE barion_payments ADD COLUMN quantity INTEGER DEFAULT 1");
   } catch (_) {}
 
   await dbRun(`
@@ -676,7 +727,7 @@ function requireRole(roles) {
 // ---------------- AUTH ROUTES ----------------
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, phone, password, licenseNumber } = req.body;
+    const { name, email, phone, password, licenseNumber, schoolRole, schoolName, schoolIdNumber } = req.body;
     if (!name || !email || !phone || !password) {
       return res.status(400).json({ error: 'Minden mező kitöltése kötelező!' });
     }
@@ -702,9 +753,18 @@ app.post('/api/auth/register', async (req, res) => {
       normalizedPhone = '+36' + normalizedPhone.slice(2);
     }
 
+    // Normalize partner school details
+    const validRoles = ['NONE', 'STUDENT', 'TEACHER'];
+    const cleanSchoolRole = validRoles.includes(schoolRole) ? schoolRole : 'NONE';
+    let cleanSchoolName = (schoolName || '').trim();
+    if (cleanSchoolRole === 'NONE') {
+      cleanSchoolName = '';
+    }
+    const cleanSchoolId = (schoolIdNumber || '').trim();
+
     await dbRun(
-      'INSERT INTO users (name, email, phone, password_hash, license_number, card_type, is_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
-      [name, email, normalizedPhone, passwordHash, licenseNumber || '', cardType, verificationToken]
+      'INSERT INTO users (name, email, phone, password_hash, license_number, card_type, is_verified, verification_token, school_role, school_name, school_id_number, school_discount_verified) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 0)',
+      [name, email, normalizedPhone, passwordHash, licenseNumber || '', cardType, verificationToken, cleanSchoolRole, cleanSchoolName, cleanSchoolId]
     );
 
     const protocol = req.headers['x-forwarded-proto'] || 'http';
@@ -1159,15 +1219,22 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, must_change_password, billing_name, billing_zip, billing_city, billing_address, billing_tax_number FROM users WHERE id = ?', [req.user.id]);
+    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, must_change_password, billing_name, billing_zip, billing_city, billing_address, billing_tax_number, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until, school_discount_verified_by FROM users WHERE id = ?', [req.user.id]);
     if (!user) return res.status(444).json({ error: 'Felhasználó nem található!' });
+
+    // Check if annual school discount verification has expired (past October 31 of verification year)
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (user.school_discount_verified === 1 && user.school_discount_verified_until && user.school_discount_verified_until < todayStr) {
+      user.school_discount_verified = 0;
+      await dbRun('UPDATE users SET school_discount_verified = 0 WHERE id = ?', [user.id]);
+    }
 
     // Fetch user's active/unused tickets
     const tickets = await dbAll("SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC", [user.id]);
 
     // Fetch user's bookings (upcoming or past) with attendance log check
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name,
+      SELECT b.id as booking_id, b.booking_date, b.heads_count, b.booking_type, b.adult_count, b.child_count, s.start_time, s.end_time, l.name as location_name,
              (SELECT COUNT(*) FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -1195,6 +1262,51 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
     res.json({ user, tickets, bookings, logs });
   } catch (error) {
     res.status(500).json({ error: 'Hiba a profil betöltésekor: ' + error.message });
+  }
+});
+
+// Update user's partner school status from user dashboard
+app.post('/api/auth/school-status', authenticateToken, async (req, res) => {
+  try {
+    const { schoolRole, schoolName, schoolIdNumber } = req.body;
+    const validRoles = ['NONE', 'STUDENT', 'TEACHER'];
+    const cleanRole = validRoles.includes(schoolRole) ? schoolRole : 'NONE';
+    
+    let cleanSchool = (schoolName || '').trim();
+    if (cleanRole === 'NONE') {
+      cleanSchool = '';
+    } else {
+      if (cleanSchool.includes('Eötvös')) cleanSchool = 'Eötvös József Gyakorlóiskola és Gimnázium';
+      else if (cleanSchool.includes('Kossuth')) cleanSchool = 'Evangélikus Kossuth Lajos Gimnázium';
+      else if (cleanSchool.includes('Zrínyi')) cleanSchool = 'Zrínyi Ilona Gimnázium';
+    }
+    const cleanIdNumber = cleanRole === 'NONE' ? '' : (schoolIdNumber || '').trim();
+
+    // Updating/changing school declaration resets verification so staff must verify the ID at entry
+    await dbRun(
+      `UPDATE users SET 
+        school_role = ?, 
+        school_name = ?, 
+        school_id_number = ?, 
+        school_discount_verified = 0, 
+        school_discount_verified_until = NULL, 
+        school_discount_verified_by = NULL 
+      WHERE id = ?`,
+      [cleanRole, cleanSchool, cleanIdNumber, req.user.id]
+    );
+
+    const updatedUser = await dbGet(
+      'SELECT id, name, email, phone, license_number, card_type, role, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Partneriskolai státusz sikeresen rögzítve! Az első belépésnél a falmester ellenőrzi az igazolványodat.',
+      user: updatedUser
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Hiba a partneriskolai státusz mentésekor: ' + error.message });
   }
 });
 
@@ -1281,7 +1393,7 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
 
     const slots = await dbAll(`
       SELECT s.*, l.name as location_name,
-        (SELECT COUNT(*) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ?) as booked_count,
+        (SELECT COALESCE(SUM(COALESCE(b.heads_count, 1)), 0) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ?) as booked_count,
         (SELECT COUNT(*) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ? AND b.user_id = ?) as user_booked
       FROM slots s
       JOIN locations l ON s.location_id = l.id
@@ -1329,7 +1441,7 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
 // Create booking
 app.post('/api/bookings', authenticateToken, async (req, res) => {
   try {
-    const { slotId, date } = req.body;
+    const { slotId, date, bookingType = 'SELF', headsCount } = req.body;
     if (!slotId || !date) {
       return res.status(400).json({ error: 'Hiányzó paraméterek (slotId, date)!' });
     }
@@ -1375,15 +1487,98 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Csak legfeljebb 3 hétre előre lehet időpontot foglalni!' });
     }
 
-    const bookedCountRow = await dbGet('SELECT COUNT(*) as count FROM bookings WHERE slot_id = ? AND booking_date = ?', [slotId, date]);
-    if (bookedCountRow.count >= slot.max_capacity) {
-      return res.status(400).json({ error: 'Ez az időpont már betelt (telt ház)!' });
+    // Determine actual heads count, adult count, child count and booking type
+    let adultCount = 1;
+    let childCount = 0;
+
+    if (req.body.adultCount !== undefined) {
+      adultCount = parseInt(req.body.adultCount) === 0 ? 0 : 1;
+    } else if (bookingType === 'CHILD_ONLY') {
+      adultCount = 0;
+    }
+
+    if (req.body.childCount !== undefined) {
+      childCount = Math.max(0, Math.min(3, parseInt(req.body.childCount) || 0));
+    } else if (bookingType === 'SELF_AND_CHILD') {
+      childCount = 1;
+    } else if (bookingType === 'CHILD_ONLY') {
+      childCount = 1;
+    }
+
+    const actualHeads = adultCount + childCount;
+    if (actualHeads < 1 || actualHeads > 4) {
+      return res.status(400).json({ error: 'A mászók száma legalább 1 és legfeljebb 4 fő lehet (1 felnőtt/diák + legfeljebb 3 gyermek)!' });
+    }
+
+    let cleanBookingType = 'SELF';
+    if (adultCount === 0 && childCount > 0) {
+      cleanBookingType = 'CHILD_ONLY';
+    } else if (adultCount > 0 && childCount > 0) {
+      cleanBookingType = 'SELF_AND_CHILD';
+    }
+
+    // Check active tickets in account
+    const todayStr = dateStr;
+    const userTickets = await dbAll(
+      "SELECT * FROM tickets WHERE user_id = ? AND status = 'ACTIVE' AND expires_date >= ?",
+      [req.user.id, todayStr]
+    );
+
+    const childTickets = userTickets.filter(t => (t.ticket_type || '').includes('GYEREK'));
+    const adultTickets = userTickets.filter(t => !(t.ticket_type || '').includes('GYEREK'));
+
+    // Count available child ticket usages
+    let childAvailableSessions = 0;
+    for (const ct of childTickets) {
+      if ((ct.ticket_type || '').includes('HAVI')) {
+        childAvailableSessions += 999;
+      } else {
+        childAvailableSessions += Math.max(0, parseInt(ct.sessions_remaining) || 1);
+      }
+    }
+
+    if (childCount > 0 && childAvailableSessions < childCount) {
+      return res.status(400).json({
+        error: `A(z) ${childCount} gyermek számára történő foglaláshoz legalább ${childCount} db érvényes Gyermek jegy vagy bérletalkalom szükséges a fiókodban (jelenleg elérhető: ${childAvailableSessions})!`
+      });
+    }
+
+    if (adultCount > 0 && adultTickets.length === 0) {
+      return res.status(400).json({
+        error: 'A saját mászásodhoz legalább egy érvényes felnőtt vagy diák jegyre vagy bérletre van szükséged!'
+      });
+    }
+
+    // Check capacity using SUM(COALESCE(heads_count, 1))
+    const bookedCountRow = await dbGet(
+      'SELECT COALESCE(SUM(COALESCE(heads_count, 1)), 0) as total FROM bookings WHERE slot_id = ? AND booking_date = ?',
+      [slotId, date]
+    );
+    const currentOccupancy = bookedCountRow.total || 0;
+    if (currentOccupancy + actualHeads > slot.max_capacity) {
+      const remaining = slot.max_capacity - currentOccupancy;
+      return res.status(400).json({
+        error: remaining > 0 
+          ? `Ebben az idősávban már csak ${remaining} szabad hely van, de a foglaláshoz ${actualHeads} hely szükséges!` 
+          : 'Ez az időpont már betelt (telt ház)!'
+      });
     }
 
     // Insert booking (handles unique constraint per user-slot-date automatically)
     try {
-      await dbRun('INSERT INTO bookings (user_id, slot_id, booking_date) VALUES (?, ?, ?)', [req.user.id, slotId, date]);
-      res.status(201).json({ message: 'Sikeres foglalás!' });
+      await dbRun(
+        'INSERT INTO bookings (user_id, slot_id, booking_date, heads_count, booking_type, adult_count, child_count) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.user.id, slotId, date, actualHeads, cleanBookingType, adultCount, childCount]
+      );
+      let successMsg = 'Sikeres foglalás!';
+      if (adultCount === 0 && childCount > 0) {
+        successMsg = `Sikeres foglalás ${childCount} gyermek számára! (Ne feledd: kísérőként kötelező személyesen megjelenned a gyermekekkel).`;
+      } else if (adultCount > 0 && childCount > 0) {
+        successMsg = `Sikeres közös foglalás (${actualHeads} fő: Te + ${childCount} gyermek)!`;
+      }
+      res.status(201).json({
+        message: successMsg
+      });
     } catch (dbErr) {
       if (dbErr.message && dbErr.message.includes('UNIQUE')) {
         return res.status(400).json({ error: 'Erre az időpontra már van foglalásod!' });
@@ -1465,6 +1660,259 @@ app.delete('/api/bookings/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// ---------------- TICKET TYPES & PRICING CONFIGURATION ----------------
+const TICKET_CONFIG = {
+  // 1. Felnőtt kategória
+  'NAPI': {
+    code: 'NAPI',
+    category: 'Felnőtt',
+    name: 'Egyszeri Napijegy',
+    fullName: 'Egyszeri Napijegy (Felnőtt)',
+    price: 2800,
+    sessions: 1,
+    baseType: 'NAPI',
+    desc: 'Egyszeri belépésre jogosító felnőtt jegy a HawkStone Városi Mászóklubban.'
+  },
+  'NAPI_FELNOTT': {
+    code: 'NAPI_FELNOTT',
+    category: 'Felnőtt',
+    name: 'Egyszeri Napijegy',
+    fullName: 'Egyszeri Napijegy (Felnőtt)',
+    price: 2800,
+    sessions: 1,
+    baseType: 'NAPI',
+    desc: 'Egyszeri belépésre jogosító felnőtt jegy a HawkStone Városi Mászóklubban.'
+  },
+  'TIZ_ALKALMAS': {
+    code: 'TIZ_ALKALMAS',
+    category: 'Felnőtt',
+    name: '10 Alkalmas Bérlet',
+    fullName: '10 Alkalmas Bérlet (Felnőtt)',
+    price: 22000,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    desc: '10 alkalmas felnőtt bérlet a HawkStone Városi Mászóklubban.'
+  },
+  'TIZ_ALKALMAS_FELNOTT': {
+    code: 'TIZ_ALKALMAS_FELNOTT',
+    category: 'Felnőtt',
+    name: '10 Alkalmas Bérlet',
+    fullName: '10 Alkalmas Bérlet (Felnőtt)',
+    price: 22000,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    desc: '10 alkalmas felnőtt bérlet a HawkStone Városi Mászóklubban.'
+  },
+  'HAVI': {
+    code: 'HAVI',
+    category: 'Felnőtt',
+    name: '30 Napos Korlátlan Bérlet',
+    fullName: '30 Napos Korlátlan Bérlet (Felnőtt)',
+    price: 28000,
+    sessions: 9999,
+    baseType: 'HAVI',
+    desc: '30 napig korlátlan belépésre jogosító felnőtt bérlet a HawkStone Városi Mászóklubban.'
+  },
+  'HAVI_FELNOTT': {
+    code: 'HAVI_FELNOTT',
+    category: 'Felnőtt',
+    name: '30 Napos Korlátlan Bérlet',
+    fullName: '30 Napos Korlátlan Bérlet (Felnőtt)',
+    price: 28000,
+    sessions: 9999,
+    baseType: 'HAVI',
+    desc: '30 napig korlátlan belépésre jogosító felnőtt bérlet a HawkStone Városi Mászóklubban.'
+  },
+
+  // 2. Diák / Nyugdíjas kategória (2400, 18500, 23600)
+  'NAPI_DIAK': {
+    code: 'NAPI_DIAK',
+    category: 'Diák / Nyugdíjas',
+    name: 'Egyszeri Napijegy (Diák/Nyugdíjas)',
+    fullName: 'Egyszeri Napijegy (Diák / Nyugdíjas)',
+    price: 2400,
+    sessions: 1,
+    baseType: 'NAPI',
+    desc: 'Kedvezményes diák/nyugdíjas egyszeri belépésre jogosító jegy a HawkStone Mászóklubban.'
+  },
+  'TIZ_ALKALMAS_DIAK': {
+    code: 'TIZ_ALKALMAS_DIAK',
+    category: 'Diák / Nyugdíjas',
+    name: '10 Alkalmas Bérlet (Diák/Nyugdíjas)',
+    fullName: '10 Alkalmas Bérlet (Diák / Nyugdíjas)',
+    price: 18500,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    desc: 'Kedvezményes diák/nyugdíjas 10 alkalmas bérlet a HawkStone Mászóklubban.'
+  },
+  'HAVI_DIAK': {
+    code: 'HAVI_DIAK',
+    category: 'Diák / Nyugdíjas',
+    name: '30 Napos Korlátlan Bérlet (Diák/Nyugdíjas)',
+    fullName: '30 Napos Korlátlan Bérlet (Diák / Nyugdíjas)',
+    price: 23600,
+    sessions: 9999,
+    baseType: 'HAVI',
+    desc: 'Kedvezményes diák/nyugdíjas 30 napig korlátlan belépésre jogosító bérlet.'
+  },
+
+  // 3. Gyerek kategória 10 éves kor alatt (2100, 16600, 21200)
+  'NAPI_GYEREK': {
+    code: 'NAPI_GYEREK',
+    category: 'Gyerek (10 éves kor alatt)',
+    name: 'Egyszeri Napijegy (10 éves kor alatt)',
+    fullName: 'Egyszeri Napijegy (Gyerek 10 éves kor alatt)',
+    price: 2100,
+    sessions: 1,
+    baseType: 'NAPI',
+    desc: 'Gyermek (10 éves korig) egyszeri belépésre jogosító jegy a HawkStone Mászóklubban.'
+  },
+  'TIZ_ALKALMAS_GYEREK': {
+    code: 'TIZ_ALKALMAS_GYEREK',
+    category: 'Gyerek (10 éves kor alatt)',
+    name: '10 Alkalmas Bérlet (10 éves kor alatt)',
+    fullName: '10 Alkalmas Bérlet (Gyerek 10 éves kor alatt)',
+    price: 16600,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    desc: 'Gyermek (10 éves korig) 10 alkalmas bérlet a HawkStone Mászóklubban.'
+  },
+  'HAVI_GYEREK': {
+    code: 'HAVI_GYEREK',
+    category: 'Gyerek (10 éves kor alatt)',
+    name: '30 Napos Korlátlan Bérlet (10 éves kor alatt)',
+    fullName: '30 Napos Korlátlan Bérlet (Gyerek 10 éves kor alatt)',
+    price: 21200,
+    sessions: 9999,
+    baseType: 'HAVI',
+    desc: 'Gyermek (10 éves korig) 30 napig korlátlan belépésre jogosító bérlet.'
+  },
+
+  // 4. Partneriskolai Diák kategória (-20% a diák árból: 1920, 14800, 18880)
+  'NAPI_PARTNER_DIAK': {
+    code: 'NAPI_PARTNER_DIAK',
+    category: 'Partneriskola - Diák (-20%)',
+    name: 'Egyszeri Napijegy (Partneriskolai Diák)',
+    fullName: 'Egyszeri Napijegy (Partner Diák -20%)',
+    price: 1920,
+    sessions: 1,
+    baseType: 'NAPI',
+    isPartner: true,
+    partnerRole: 'STUDENT',
+    desc: '20% partneriskolai kedvezményes napijegy Eötvös, Kossuth és Zrínyi diákoknak.'
+  },
+  'TIZ_ALKALMAS_PARTNER_DIAK': {
+    code: 'TIZ_ALKALMAS_PARTNER_DIAK',
+    category: 'Partneriskola - Diák (-20%)',
+    name: '10 Alkalmas Bérlet (Partneriskolai Diák)',
+    fullName: '10 Alkalmas Bérlet (Partner Diák -20%)',
+    price: 14800,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    isPartner: true,
+    partnerRole: 'STUDENT',
+    desc: '20% partneriskolai kedvezményes 10 alkalmas bérlet Eötvös, Kossuth és Zrínyi diákoknak.'
+  },
+  'HAVI_PARTNER_DIAK': {
+    code: 'HAVI_PARTNER_DIAK',
+    category: 'Partneriskola - Diák (-20%)',
+    name: '30 Napos Korlátlan Bérlet (Partneriskolai Diák)',
+    fullName: '30 Napos Korlátlan Bérlet (Partner Diák -20%)',
+    price: 18880,
+    sessions: 9999,
+    baseType: 'HAVI',
+    isPartner: true,
+    partnerRole: 'STUDENT',
+    desc: '20% partneriskolai kedvezményes 30 napos korlátlan bérlet Eötvös, Kossuth és Zrínyi diákoknak.'
+  },
+
+  // 5. Partneriskolai Tanár kategória (-20% a felnőtt teljes árból: 2240, 17600, 22400)
+  'NAPI_PARTNER_TANAR': {
+    code: 'NAPI_PARTNER_TANAR',
+    category: 'Partneriskola - Tanár (-20%)',
+    name: 'Egyszeri Napijegy (Partneriskolai Tanár)',
+    fullName: 'Egyszeri Napijegy (Partner Tanár -20%)',
+    price: 2240,
+    sessions: 1,
+    baseType: 'NAPI',
+    isPartner: true,
+    partnerRole: 'TEACHER',
+    desc: '20% partneriskolai kedvezményes napijegy Eötvös, Kossuth és Zrínyi tanároknak és oktatóknak.'
+  },
+  'TIZ_ALKALMAS_PARTNER_TANAR': {
+    code: 'TIZ_ALKALMAS_PARTNER_TANAR',
+    category: 'Partneriskola - Tanár (-20%)',
+    name: '10 Alkalmas Bérlet (Partneriskolai Tanár)',
+    fullName: '10 Alkalmas Bérlet (Partner Tanár -20%)',
+    price: 17600,
+    sessions: 10,
+    baseType: 'TIZ_ALKALMAS',
+    isPartner: true,
+    partnerRole: 'TEACHER',
+    desc: '20% partneriskolai kedvezményes 10 alkalmas bérlet Eötvös, Kossuth és Zrínyi tanároknak és oktatóknak.'
+  },
+  'HAVI_PARTNER_TANAR': {
+    code: 'HAVI_PARTNER_TANAR',
+    category: 'Partneriskola - Tanár (-20%)',
+    name: '30 Napos Korlátlan Bérlet (Partneriskolai Tanár)',
+    fullName: '30 Napos Korlátlan Bérlet (Partner Tanár -20%)',
+    price: 22400,
+    sessions: 9999,
+    baseType: 'HAVI',
+    isPartner: true,
+    partnerRole: 'TEACHER',
+    desc: '20% partneriskolai kedvezményes 30 napos korlátlan bérlet Eötvös, Kossuth és Zrínyi tanároknak és oktatóknak.'
+  }
+};
+
+// Calculate Hungarian school student/teacher ID verification expiry date
+// Rules: Valid until October 31 of current school year cycle.
+// If checked/registered in Nov/Dec, valid until next year's Oct 31.
+// If checked/registered Jan-Oct, valid until current year's Oct 31.
+function calculateSchoolDiscountExpiry() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+  if (month >= 11) {
+    return `${year + 1}-10-31`;
+  } else {
+    return `${year}-10-31`;
+  }
+}
+
+function isSchoolDiscountActive(user) {
+  if (!user) return false;
+  if (!user.school_role || user.school_role === 'NONE') return false;
+  if (!user.school_name) return false;
+  if (user.school_discount_verified !== 1) return false;
+  if (!user.school_discount_verified_until) return false;
+  const todayStr = new Date().toISOString().split('T')[0];
+  return user.school_discount_verified_until >= todayStr;
+}
+
+function getTicketConfig(ticketType) {
+  if (!ticketType) return null;
+  return TICKET_CONFIG[ticketType] || null;
+}
+
+function getTicketBaseType(ticketType) {
+  if (!ticketType) return 'NAPI';
+  const conf = getTicketConfig(ticketType);
+  if (conf) return conf.baseType;
+  if (ticketType.startsWith('NAPI')) return 'NAPI';
+  if (ticketType.startsWith('TIZ')) return 'TIZ_ALKALMAS';
+  if (ticketType.startsWith('HAVI')) return 'HAVI';
+  return ticketType;
+}
+
+// Public API endpoint for current pricing & ticket catalog
+app.get('/api/tickets/pricing', (req, res) => {
+  res.json({
+    categories: ['Felnőtt', 'Diák / Nyugdíjas', 'Gyerek (10 éves kor alatt)', 'Partneriskolák (-20%)'],
+    tickets: TICKET_CONFIG
+  });
+});
+
 // ---------------- BARION ONLINE PAYMENT ----------------
 // Helper to query and process Barion payment state
 async function processBarionPayment(paymentId, domain) {
@@ -1516,27 +1964,29 @@ async function processBarionPayment(paymentId, domain) {
     expires.setDate(today.getDate() + 30);
     const expiresDate = expires.toISOString().split('T')[0];
 
-    let sessions = 0;
-    if (ticketType === 'NAPI') sessions = 1;
-    else if (ticketType === 'TIZ_ALKALMAS') sessions = 10;
-    else if (ticketType === 'HAVI') sessions = 9999;
+    const conf = getTicketConfig(ticketType);
+    let sessions = conf ? conf.sessions : (ticketType.startsWith('NAPI') ? 1 : ticketType.startsWith('TIZ_ALKALMAS') ? 10 : 9999);
 
-    const qrUuid = generateUUID();
+    const qty = Math.max(1, parseInt(localPayment.quantity) || 1);
+    const createdTickets = [];
 
-    const result = await dbRun(
-      'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [userId, ticketType, purchaseDate, expiresDate, sessions, qrUuid, paymentId]
-    );
+    for (let i = 0; i < qty; i++) {
+      const qrUuid = generateUUID();
+      const result = await dbRun(
+        'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [userId, ticketType, purchaseDate, expiresDate, sessions, qrUuid, paymentId]
+      );
+      createdTickets.push({
+        id: result.lastID,
+        ticket_type: ticketType,
+        purchase_date: purchaseDate,
+        expires_date: expiresDate,
+        sessions_remaining: sessions,
+        qr_code_uuid: qrUuid
+      });
+    }
 
-    const ticketId = result.lastID;
-    const ticketObj = {
-      id: ticketId,
-      ticket_type: ticketType,
-      purchase_date: purchaseDate,
-      expires_date: expiresDate,
-      sessions_remaining: sessions,
-      qr_code_uuid: qrUuid
-    };
+    const ticketObj = createdTickets[0];
 
     // Generate invoice and send confirmation email synchronously to prevent serverless function termination
     try {
@@ -1583,31 +2033,58 @@ async function processBarionPayment(paymentId, domain) {
 // Start Barion Payment (returns GatewayUrl)
 app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
   try {
-    const { ticketType, billingName, billingZip, billingCity, billingAddress, billingTaxNumber } = req.body;
-    if (!['NAPI', 'TIZ_ALKALMAS', 'HAVI'].includes(ticketType)) {
+    const { ticketType, quantity = 1, billingName, billingZip, billingCity, billingAddress, billingTaxNumber } = req.body;
+    const conf = getTicketConfig(ticketType);
+    if (!conf) {
       return res.status(400).json({ error: 'Érvénytelen jegytípus!' });
+    }
+
+    // Determine allowed quantity: 1 to 4 for daily tickets, strictly 1 for partner or passes
+    let qty = 1;
+    if (conf.isPartner || conf.baseType === 'HAVI' || conf.baseType === 'TIZ_ALKALMAS') {
+      qty = 1;
+    } else {
+      qty = Math.max(1, Math.min(4, parseInt(quantity) || 1));
+    }
+
+    // Partner discount eligibility and companion abuse check
+    if (conf.isPartner) {
+      const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
+      if (!user || !user.school_role || user.school_role === 'NONE' || !user.school_name) {
+        return res.status(400).json({
+          error: 'A partneriskolai 20%-os kedvezmény igénybevételéhez kérjük, jelöld be a profilodban a partneriskoládat (Eötvös, Kossuth vagy Zrínyi)!'
+        });
+      }
+      if (conf.partnerRole && conf.partnerRole !== user.school_role) {
+        const expectedRoleName = conf.partnerRole === 'TEACHER' ? 'tanári' : 'diák';
+        return res.status(400).json({
+          error: `Ez a partnerjegy kizárólag a partneriskolák ${expectedRoleName} státuszú tagjai számára érhető el!`
+        });
+      }
+
+      // Duplikált párhuzamos korlátlan havi bérlet kiszűrése (különböző napijegyeket és alkalmakat előre megvehet)
+      if (conf.baseType === 'HAVI') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const existingMonthly = await dbGet(
+          "SELECT id, expires_date FROM tickets WHERE user_id = ? AND status = 'ACTIVE' AND expires_date >= ? AND ticket_type LIKE '%HAVI%PARTNER%'",
+          [req.user.id, todayStr]
+        );
+        if (existingMonthly) {
+          return res.status(400).json({
+            error: `Már rendelkezel aktív korlátlan havi partnerbérlettel (érvényes: ${existingMonthly.expires_date}-ig)! Párhuzamosan futó második havi bérlet nem szükséges. Kísérőd vagy barátod számára kérjük, válaszd a megfelelő normál kategóriájú jegyet.`
+          });
+        }
+      }
     }
 
     if (!BARION_POS_KEY || !BARION_PAYEE_EMAIL) {
       return res.status(500).json({ error: 'A Barion fizetés nincs konfigurálva a szerveren.' });
     }
 
-    let price = 0;
-    let ticketName = '';
-    let ticketDesc = '';
-    if (ticketType === 'NAPI') {
-      price = 2800;
-      ticketName = 'Egyszeri Napijegy';
-      ticketDesc = 'Egyszeri belépésre jogosító jegy a HawkStone Városi Mászóklubban.';
-    } else if (ticketType === 'TIZ_ALKALMAS') {
-      price = 22000;
-      ticketName = '10 Alkalmas Bérlet';
-      ticketDesc = '10 alkalmas bérlet a HawkStone Városi Mászóklubban.';
-    } else if (ticketType === 'HAVI') {
-      price = 28000;
-      ticketName = '30 Napos Korlátlan Bérlet';
-      ticketDesc = '30 napig korlátlan belépésre jogosító bérlet a HawkStone Városi Mászóklubban.';
-    }
+    const price = conf.price;
+    const totalPrice = price * qty;
+    const ticketName = conf.fullName;
+    const ticketDesc = conf.desc;
 
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const host = req.headers.host;
@@ -1633,22 +2110,22 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
         {
           POSTransactionId: `tx_${Date.now()}_${req.user.id}`,
           Payee: BARION_PAYEE_EMAIL,
-          Total: price,
+          Total: totalPrice,
           Items: [
             {
               Name: ticketName,
               Description: ticketDesc,
-              Quantity: 1,
+              Quantity: qty,
               Unit: 'db',
               UnitPrice: price,
-              ItemTotal: price
+              ItemTotal: totalPrice
             }
           ]
         }
       ]
     };
 
-    console.log('[BARION] Initiating payment for user:', req.user.id, ticketType);
+    console.log('[BARION] Initiating payment for user:', req.user.id, ticketType, 'Qty:', qty, 'Total:', totalPrice);
 
     const response = await fetch(`${BARION_BASE_URL}/v2/Payment/Start`, {
       method: 'POST',
@@ -1667,13 +2144,14 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
 
     // Save payment details in database with Prepared status and billing details
     await dbRun(
-      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, processed, billing_name, billing_zip, billing_city, billing_address, billing_tax_number) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, quantity, processed, billing_name, billing_zip, billing_city, billing_address, billing_tax_number) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
       [
         responseData.PaymentId,
         req.user.id,
         ticketType,
         'Prepared',
-        price,
+        totalPrice,
+        qty,
         billingName || '',
         billingZip || '',
         billingCity || '',
@@ -1757,8 +2235,39 @@ app.post('/api/barion/callback', async (req, res) => {
 app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
   try {
     const { ticketType } = req.body;
-    if (!['NAPI', 'TIZ_ALKALMAS', 'HAVI'].includes(ticketType)) {
+    const conf = getTicketConfig(ticketType);
+    if (!conf) {
       return res.status(400).json({ error: 'Érvénytelen jegytípus!' });
+    }
+
+    // Partner discount eligibility and companion abuse check
+    if (conf.isPartner) {
+      const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
+      if (!user || !user.school_role || user.school_role === 'NONE' || !user.school_name) {
+        return res.status(400).json({
+          error: 'A partneriskolai 20%-os kedvezmény igénybevételéhez kérjük, jelöld be a profilodban a partneriskoládat (Eötvös, Kossuth vagy Zrínyi)!'
+        });
+      }
+      if (conf.partnerRole && conf.partnerRole !== user.school_role) {
+        const expectedRoleName = conf.partnerRole === 'TEACHER' ? 'tanári' : 'diák';
+        return res.status(400).json({
+          error: `Ez a partnerjegy kizárólag a partneriskolák ${expectedRoleName} státuszú tagjai számára érhető el!`
+        });
+      }
+
+      // Duplikált párhuzamos korlátlan havi bérlet kiszűrése (különböző napijegyeket és alkalmakat előre megvehet)
+      if (conf.baseType === 'HAVI') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const existingMonthly = await dbGet(
+          "SELECT id, expires_date FROM tickets WHERE user_id = ? AND status = 'ACTIVE' AND expires_date >= ? AND ticket_type LIKE '%HAVI%PARTNER%'",
+          [req.user.id, todayStr]
+        );
+        if (existingMonthly) {
+          return res.status(400).json({
+            error: `Már rendelkezel aktív korlátlan havi partnerbérlettel (érvényes: ${existingMonthly.expires_date}-ig)! Párhuzamosan futó második havi bérlet nem szükséges. Kísérőd vagy barátod számára kérjük, válaszd a megfelelő normál kategóriájú jegyet.`
+          });
+        }
+      }
     }
 
     const today = new Date();
@@ -1769,10 +2278,7 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
     expires.setDate(today.getDate() + 30);
     const expiresDate = expires.toISOString().split('T')[0];
 
-    let sessions = 0;
-    if (ticketType === 'NAPI') sessions = 1;
-    else if (ticketType === 'TIZ_ALKALMAS') sessions = 10;
-    else if (ticketType === 'HAVI') sessions = 9999; // Represents unlimited
+    const sessions = conf.sessions;
 
     const qrUuid = generateUUID();
 
@@ -1899,10 +2405,8 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          .text(badgeText, 70, 206, { width: 210, align: 'center' });
 
       // Ticket details
-      let HungarianType = '';
-      if (ticket.ticket_type === 'NAPI') HungarianType = 'Napijegy';
-      else if (ticket.ticket_type === 'TIZ_ALKALMAS') HungarianType = '10 Alkalmas Bérlet';
-      else if (ticket.ticket_type === 'HAVI') HungarianType = '30 Napos Korlátlan Bérlet';
+      const conf = getTicketConfig(ticket.ticket_type);
+      const HungarianType = conf ? conf.fullName : ticket.ticket_type;
 
       doc.fillColor('#000000')
          .font(fontName)
@@ -1960,21 +2464,17 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
    try {
      const { pdfData, qrBuffer } = await generatePDFBuffer(ticket, climber, domain);
  
-     let HungarianType = '';
+     const conf = getTicketConfig(ticket.ticket_type);
+     const HungarianType = conf ? conf.fullName : ticket.ticket_type;
+     const baseType = getTicketBaseType(ticket.ticket_type);
+     const priceText = conf ? `${conf.price.toLocaleString('hu-HU')} Ft` : '';
      let sessionsText = '';
-     let priceText = '';
-     if (ticket.ticket_type === 'NAPI') {
-       HungarianType = 'Egyszeri Napijegy';
+     if (baseType === 'NAPI') {
        sessionsText = '1 alkalom (felhasználható)';
-       priceText = '2 800 Ft';
-     } else if (ticket.ticket_type === 'TIZ_ALKALMAS') {
-       HungarianType = '10 Alkalmas Bérlet';
+     } else if (baseType === 'TIZ_ALKALMAS') {
        sessionsText = '10 alkalom';
-       priceText = '22 000 Ft';
-     } else if (ticket.ticket_type === 'HAVI') {
-       HungarianType = '30 Napos Korlátlan Bérlet';
+     } else if (baseType === 'HAVI') {
        sessionsText = 'Korlátlan (30 napig)';
-       priceText = '28 000 Ft';
      }
  
      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -2092,21 +2592,16 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
 
   const today = new Date().toISOString().split('T')[0];
   
-  let itemName = '';
-  let price = payment.amount;
-  if (payment.ticket_type === 'NAPI') {
-    itemName = 'Egyszeri Napijegy';
-  } else if (payment.ticket_type === 'TIZ_ALKALMAS') {
-    itemName = '10 Alkalmas Bérlet';
-  } else if (payment.ticket_type === 'HAVI') {
-    itemName = '30 Napos Korlátlan Bérlet';
-  } else {
-    itemName = 'HawkStone Szolgáltatás';
-  }
+  const conf = getTicketConfig(payment.ticket_type);
+  let itemName = conf ? conf.fullName : (payment.ticket_type || 'HawkStone Szolgáltatás');
+  const qty = Math.max(1, parseInt(payment.quantity) || 1);
+  const totalBrutto = payment.amount;
+  const unitBrutto = totalBrutto / qty;
 
   // Math calculation for Hungarian 27% VAT
-  const netto = (price / 1.27).toFixed(2);
-  const afa = (price - parseFloat(netto)).toFixed(2);
+  const unitNetto = (unitBrutto / 1.27).toFixed(2);
+  const totalNetto = (parseFloat(unitNetto) * qty).toFixed(2);
+  const totalAfa = (totalBrutto - parseFloat(totalNetto)).toFixed(2);
 
   // Build the XML payload strictly matching Számla Agent schema
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -2141,13 +2636,13 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
   <tetelek>
     <tetel>
       <megnevezes><![CDATA[${itemName}]]></megnevezes>
-      <mennyiseg>1.0</mennyiseg>
+      <mennyiseg>${qty}.0</mennyiseg>
       <mennyisegiEgyseg>db</mennyisegiEgyseg>
-      <nettoEgysegar>${netto}</nettoEgysegar>
+      <nettoEgysegar>${unitNetto}</nettoEgysegar>
       <afakulcs>27</afakulcs>
-      <nettoErtek>${netto}</nettoErtek>
-      <afaErtek>${afa}</afaErtek>
-      <bruttoErtek>${price}</bruttoErtek>
+      <nettoErtek>${totalNetto}</nettoErtek>
+      <afaErtek>${totalAfa}</afaErtek>
+      <bruttoErtek>${totalBrutto}</bruttoErtek>
     </tetel>
   </tetelek>
 </xmlszamla>`;
@@ -2248,16 +2743,8 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
      actionName = 'action-xmlagentxmlfile';
      fileName = 'request.xml';
 
-     let itemName = '';
-     if (payment.ticket_type === 'NAPI') {
-       itemName = 'Egyszeri Napijegy';
-     } else if (payment.ticket_type === 'TIZ_ALKALMAS') {
-       itemName = '10 Alkalmas Bérlet';
-     } else if (payment.ticket_type === 'HAVI') {
-       itemName = '30 Napos Korlátlan Bérlet';
-     } else {
-       itemName = 'HawkStone Szolgáltatás';
-     }
+     const conf = getTicketConfig(payment.ticket_type);
+     const itemName = conf ? conf.fullName : (payment.ticket_type || 'HawkStone Szolgáltatás');
 
      // Calculations for pro-rated refund with negative values
      const price = -refundAmount;
@@ -2375,10 +2862,8 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
  // Send refund confirmation email to customer with refund invoice attached
  async function sendRefundEmail(climber, ticket, refundAmount, invoiceBuffer = null, invoiceNumber = null, isFullStorno = false) {
    try {
-     let HungarianType = '';
-     if (ticket.ticket_type === 'NAPI') HungarianType = 'Egyszeri Napijegy';
-     else if (ticket.ticket_type === 'TIZ_ALKALMAS') HungarianType = '10 Alkalmas Bérlet';
-     else if (ticket.ticket_type === 'HAVI') HungarianType = '30 Napos Korlátlan Bérlet';
+     const conf = getTicketConfig(ticket.ticket_type);
+     const HungarianType = conf ? conf.fullName : ticket.ticket_type;
 
      const docType = isFullStorno ? 'Sztornó számla' : 'Helyesbítő számla';
      const docTypeLower = isFullStorno ? 'sztornó számla (érvénytelenítés)' : 'helyesbítő számla';
@@ -2486,7 +2971,7 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
       return res.status(404).json({ error: 'Érvénytelen QR kód (nem található az adatbázisban)!' });
     }
 
-    const climber = await dbGet('SELECT id, name, email, phone, license_number, card_type FROM users WHERE id = ?', [ticket.user_id]);
+    const climber = await dbGet('SELECT id, name, email, phone, license_number, card_type, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until FROM users WHERE id = ?', [ticket.user_id]);
     if (!climber) {
       return res.status(404).json({ error: 'A jegyhez tartozó mászó nem található!' });
     }
@@ -2508,6 +2993,24 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
       reason = 'A 10 alkalmas bérlet minden alkalma elhasználásra került!';
     }
 
+    // Check partner ticket status and school verification requirement
+    const ticketConf = getTicketConfig(ticket.ticket_type);
+    const isPartnerTicket = !!(ticketConf && ticketConf.isPartner) || ticket.ticket_type.includes('PARTNER');
+    let requiresSchoolCheck = false;
+    let schoolCheckReason = '';
+    const nextSchoolExpiry = calculateSchoolDiscountExpiry();
+
+    if (isPartnerTicket || (climber.school_role && climber.school_role !== 'NONE')) {
+      const isVerified = climber.school_discount_verified === 1 && 
+                         climber.school_discount_verified_until && 
+                         climber.school_discount_verified_until >= today;
+      if (!isVerified) {
+        requiresSchoolCheck = true;
+        const roleText = climber.school_role === 'TEACHER' ? 'Tanár / Oktató' : 'Diák / Tanuló';
+        schoolCheckReason = `Partneriskolai (${climber.school_name || 'Iskola'} – ${roleText}) igazolvány ellenőrzése szükséges!`;
+      }
+    }
+
     // Get current Budapest date to lookup bookings
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Budapest',
@@ -2519,7 +3022,7 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
 
     // Get active/future bookings for the user (today and onwards)
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, s.location_id, l.name as location_name,
+      SELECT b.id as booking_id, b.booking_date, b.heads_count, b.booking_type, b.adult_count, b.child_count, s.start_time, s.end_time, s.location_id, l.name as location_name,
              (SELECT COUNT(*) FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -2539,6 +3042,10 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
       reason,
       user: climber,
       bookings: bookings,
+      isPartnerTicket,
+      requiresSchoolCheck,
+      schoolCheckReason,
+      nextSchoolExpiry,
       ticket: {
         id: ticket.id,
         ticket_type: ticket.ticket_type,
@@ -2557,7 +3064,7 @@ app.get('/api/tickets/scan-info', authenticateToken, requireRole(['STAFF', 'ADMI
 // Process check-in (deduct session or log entry)
 app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMIN']), async (req, res) => {
   try {
-    const { qrCodeUuid, locationId } = req.body;
+    const { qrCodeUuid, locationId, verifySchoolDiscount } = req.body;
     if (!qrCodeUuid) {
       return res.status(400).json({ error: 'Hiányzó QR kód azonosító!' });
     }
@@ -2567,11 +3074,35 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
       return res.status(404).json({ error: 'Érvénytelen QR kód (nem található az adatbázisban)!' });
     }
 
-    const climber = await dbGet('SELECT id, name, phone, license_number, card_type FROM users WHERE id = ?', [ticket.user_id]);
+    const climber = await dbGet('SELECT id, name, phone, license_number, card_type, school_role, school_name, school_discount_verified, school_discount_verified_until FROM users WHERE id = ?', [ticket.user_id]);
     const today = new Date().toISOString().split('T')[0];
 
     const staffId = req.user?.id || null;
-    const staffName = req.user?.name || req.user?.email || 'Staff';
+    let staffUser = null;
+    if (staffId) {
+      staffUser = await dbGet('SELECT id, name, email FROM users WHERE id = ?', [staffId]);
+    }
+    const staffName = staffUser?.name || req.user?.name || (staffUser?.email ? staffUser.email.split('@')[0] : 'Falmester');
+    const staffEmail = staffUser?.email || req.user?.email || '';
+
+    // If staff checked the school discount checkbox, update verification in database
+    let schoolVerificationNote = '';
+    if (verifySchoolDiscount === true && climber) {
+      const expiryDate = calculateSchoolDiscountExpiry();
+      await dbRun(
+        `UPDATE users SET 
+          school_discount_verified = 1, 
+          school_discount_verified_until = ?, 
+          school_discount_verified_by = ?, 
+          school_discount_verified_at = CURRENT_TIMESTAMP 
+        WHERE id = ?`,
+        [expiryDate, staffName, ticket.user_id]
+      );
+      climber.school_discount_verified = 1;
+      climber.school_discount_verified_until = expiryDate;
+      schoolVerificationNote = ` [Partneriskola igazolvány jóváhagyva: ${expiryDate}-ig]`;
+      console.log(`[STAFF VERIFY] Staff ${staffName} verified school discount for user ${climber.name} (${climber.school_name || 'Partneriskola'}) until ${expiryDate}`);
+    }
 
     // Double check-in protection: Check for successful entry in last 10 seconds
     const recentScan = await dbGet(`
@@ -2599,7 +3130,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     // Check expiration date
     if (ticket.expires_date < today) {
       await dbRun("UPDATE tickets SET status = 'EXPIRED' WHERE id = ?", [ticket.id]);
-      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Jegy/bérlet lejárt', locationId || null, staffId, staffName]);
+      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name, staff_email) VALUES (?, 'FAILED', ?, ?, ?, ?, ?)", [ticket.id, 'Jegy/bérlet lejárt', locationId || null, staffId, staffName, staffEmail]);
       return res.status(400).json({
         valid: false,
         reason: 'A bérlet/jegy érvényessége lejárt!',
@@ -2610,7 +3141,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
 
     // Check if status is ACTIVE
     if (ticket.status !== 'ACTIVE') {
-      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Már felhasznált vagy érvénytelen jegy', locationId || null, staffId, staffName]);
+      await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name, staff_email) VALUES (?, 'FAILED', ?, ?, ?, ?, ?)", [ticket.id, 'Már felhasznált vagy érvénytelen jegy', locationId || null, staffId, staffName, staffEmail]);
       return res.status(400).json({
         valid: false,
         reason: 'Ez a jegy már elhasznált vagy érvénytelenített!',
@@ -2624,15 +3155,19 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     let updatedSessions = ticket.sessions_remaining;
     let updatedStatus = 'ACTIVE';
 
-    if (ticket.ticket_type === 'NAPI') {
+    const baseType = getTicketBaseType(ticket.ticket_type);
+    const ticketConf = getTicketConfig(ticket.ticket_type);
+    const typeLabel = ticketConf ? ticketConf.fullName : ticket.ticket_type;
+
+    if (baseType === 'NAPI') {
       updatedSessions = 0;
       updatedStatus = 'USED';
-      message = 'Sikeres belépés! Egyszeri napijegy lekezelve és lezárva.';
-    } else if (ticket.ticket_type === 'TIZ_ALKALMAS') {
+      message = `Sikeres belépés! Egyszeri napijegy (${typeLabel}) lekezelve és lezárva.${schoolVerificationNote}`;
+    } else if (baseType === 'TIZ_ALKALMAS') {
       if (ticket.sessions_remaining <= 0) {
         updatedStatus = 'USED';
         await dbRun("UPDATE tickets SET status = 'USED' WHERE id = ?", [ticket.id]);
-        await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'FAILED', ?, ?, ?, ?)", [ticket.id, 'Bérlet alkalmak elfogytak', locationId || null, staffId, staffName]);
+        await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name, staff_email) VALUES (?, 'FAILED', ?, ?, ?, ?, ?)", [ticket.id, 'Bérlet alkalmak elfogytak', locationId || null, staffId, staffName, staffEmail]);
         return res.status(400).json({
           valid: false,
           reason: 'A 10 alkalmas bérlet minden alkalma elhasználásra került!',
@@ -2643,12 +3178,12 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
       updatedSessions = ticket.sessions_remaining - 1;
       if (updatedSessions === 0) {
         updatedStatus = 'USED';
-        message = 'Sikeres belépés! Ez volt az utolsó (10.) alkalom. A bérlet lejárt.';
+        message = `Sikeres belépés! Ez volt az utolsó (10.) alkalom (${typeLabel}). A bérlet lejárt.${schoolVerificationNote}`;
       } else {
-        message = `Sikeres belépés! Fennmaradó alkalmak: ${updatedSessions}/10.`;
+        message = `Sikeres belépés (${typeLabel})! Fennmaradó alkalmak: ${updatedSessions}/10.${schoolVerificationNote}`;
       }
-    } else if (ticket.ticket_type === 'HAVI') {
-      message = `Sikeres belépés! Korlátlan havi bérlet érvényes eddig: ${ticket.expires_date}`;
+    } else if (baseType === 'HAVI') {
+      message = `Sikeres belépés! Korlátlan havi bérlet (${typeLabel}) érvényes eddig: ${ticket.expires_date}.${schoolVerificationNote}`;
     }
 
     // Update database
@@ -2658,7 +3193,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
     );
 
     // Log successful scan with staff attribution
-    await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name) VALUES (?, 'SUCCESS', ?, ?, ?, ?)", [ticket.id, message, locationId || null, staffId, staffName]);
+    await dbRun("INSERT INTO entry_logs (ticket_id, status, message, location_id, staff_id, staff_name, staff_email) VALUES (?, 'SUCCESS', ?, ?, ?, ?, ?)", [ticket.id, message, locationId || null, staffId, staffName, staffEmail]);
 
     res.json({
       valid: true,
@@ -2680,7 +3215,7 @@ app.post('/api/tickets/validate', authenticateToken, requireRole(['STAFF', 'ADMI
 // View all users
 app.get('/api/admin/users', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
-    const users = await dbAll('SELECT id, name, email, phone, license_number, card_type, role FROM users ORDER BY name ASC');
+    const users = await dbAll('SELECT id, name, email, phone, license_number, card_type, role, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until FROM users ORDER BY name ASC');
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2691,12 +3226,12 @@ app.get('/api/admin/users', authenticateToken, requireRole(['ADMIN']), async (re
 app.get('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role FROM users WHERE id = ?', [userId]);
+    const user = await dbGet('SELECT id, name, email, phone, license_number, card_type, role, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until, school_discount_verified_by, school_discount_verified_at FROM users WHERE id = ?', [userId]);
     if (!user) return res.status(404).json({ error: 'A keresett felhasználó nem található!' });
 
     const tickets = await dbAll("SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC", [userId]);
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
+      SELECT b.id as booking_id, b.booking_date, b.heads_count, b.booking_type, b.adult_count, b.child_count, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
              (SELECT COUNT(*) FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -2704,7 +3239,7 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
                 AND el.location_id = s.location_id
                 AND date(el.scan_time) = b.booking_date
              ) as attended,
-             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+             (SELECT COALESCE(su.name, el.staff_name, su.email, 'Falmester') FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               LEFT JOIN users su ON el.staff_id = su.id
               WHERE t.user_id = b.user_id 
@@ -2713,6 +3248,15 @@ app.get('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
                 AND date(el.scan_time) = b.booking_date
               ORDER BY el.scan_time DESC LIMIT 1
              ) as scanned_by_staff_name,
+             (SELECT COALESCE(su.email, el.staff_email, '') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_email,
              (SELECT el.staff_id FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -2955,7 +3499,7 @@ app.put('/api/admin/users/:id/card-type', authenticateToken, requireRole(['ADMIN
 // Update user details (name, email, phone, license_number, card_type, role)
 app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
   try {
-    let { name, email, phone, license_number, card_type, role, password } = req.body;
+    let { name, email, phone, license_number, card_type, role, password, school_role, school_name, school_id_number, school_discount_verified, school_discount_verified_until } = req.body;
     if (!name || !email || !phone || !card_type || !role) {
       return res.status(400).json({ error: 'Minden kötelező mező kitöltése kötelező!' });
     }
@@ -3013,9 +3557,20 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole(['ADMIN']), async
       return res.status(400).json({ error: 'Ez az email cím már használatban van!' });
     }
 
+    // Partner school details
+    const validSchoolRoles = ['NONE', 'STUDENT', 'TEACHER'];
+    const cleanSchoolRole = validSchoolRoles.includes(school_role) ? school_role : 'NONE';
+    const cleanSchoolName = cleanSchoolRole === 'NONE' ? '' : (school_name || '').trim();
+    const cleanSchoolId = cleanSchoolRole === 'NONE' ? '' : (school_id_number || '').trim();
+    const isVerified = (school_discount_verified === 1 || school_discount_verified === true || school_discount_verified === '1') ? 1 : 0;
+    let verifiedUntil = (school_discount_verified_until || '').trim();
+    if (isVerified && !verifiedUntil) {
+      verifiedUntil = calculateSchoolDiscountExpiry();
+    }
+
     await dbRun(
-      'UPDATE users SET name = ?, email = ?, phone = ?, license_number = ?, card_type = ?, role = ? WHERE id = ?',
-      [name, email, phone, license_number || '', cardUpper, normalizedRole, req.params.id]
+      'UPDATE users SET name = ?, email = ?, phone = ?, license_number = ?, card_type = ?, role = ?, school_role = ?, school_name = ?, school_id_number = ?, school_discount_verified = ?, school_discount_verified_until = ? WHERE id = ?',
+      [name, email, phone, license_number || '', cardUpper, normalizedRole, cleanSchoolRole, cleanSchoolName, cleanSchoolId, isVerified, isVerified ? verifiedUntil : null, req.params.id]
     );
 
     if (password && password.trim().length > 0) {
@@ -3151,7 +3706,7 @@ app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']
                 AND el.location_id = s.location_id
                 AND date(el.scan_time) = b.booking_date
              ) as attended,
-             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+             (SELECT COALESCE(su.name, el.staff_name, su.email, 'Falmester') FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               LEFT JOIN users su ON el.staff_id = su.id
               WHERE t.user_id = b.user_id 
@@ -3160,6 +3715,15 @@ app.get('/api/admin/bookings', authenticateToken, requireRole(['STAFF', 'ADMIN']
                 AND date(el.scan_time) = b.booking_date
               ORDER BY el.scan_time DESC LIMIT 1
              ) as scanned_by_staff_name,
+             (SELECT COALESCE(su.email, el.staff_email, '') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_email,
              (SELECT el.staff_id FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -3214,7 +3778,7 @@ app.get('/api/admin/users/:id/bookings', authenticateToken, requireRole(['ADMIN'
   try {
     const userId = req.params.id;
     const bookings = await dbAll(`
-      SELECT b.id as booking_id, b.booking_date, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
+      SELECT b.id as booking_id, b.booking_date, b.heads_count, b.booking_type, b.adult_count, b.child_count, s.start_time, s.end_time, l.name as location_name, l.id as location_id,
              (SELECT COUNT(*) FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -3222,7 +3786,7 @@ app.get('/api/admin/users/:id/bookings', authenticateToken, requireRole(['ADMIN'
                 AND el.location_id = s.location_id
                 AND date(el.scan_time) = b.booking_date
              ) as attended,
-             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+             (SELECT COALESCE(su.name, el.staff_name, su.email, 'Falmester') FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               LEFT JOIN users su ON el.staff_id = su.id
               WHERE t.user_id = b.user_id 
@@ -3231,6 +3795,15 @@ app.get('/api/admin/users/:id/bookings', authenticateToken, requireRole(['ADMIN'
                 AND date(el.scan_time) = b.booking_date
               ORDER BY el.scan_time DESC LIMIT 1
              ) as scanned_by_staff_name,
+             (SELECT COALESCE(su.email, el.staff_email, '') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_email,
              (SELECT el.staff_id FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 
@@ -3321,8 +3894,8 @@ app.get('/api/admin/checkins', authenticateToken, requireRole(['ADMIN']), async 
           el.location_id,
           l.name as location_name,
           el.staff_id,
-          COALESCE(el.staff_name, su.name, su.email, 'Rendszer') as staff_name,
-          su.email as staff_email,
+          COALESCE(su.name, el.staff_name, su.email, 'Rendszer') as staff_name,
+          COALESCE(su.email, el.staff_email, '') as staff_email,
           t.id as ticket_id,
           t.ticket_type,
           t.qr_code_uuid,
@@ -3367,8 +3940,8 @@ app.get('/api/admin/checkins', authenticateToken, requireRole(['ADMIN']), async 
         el.location_id,
         l.name as location_name,
         el.staff_id,
-        COALESCE(el.staff_name, su.name, su.email, 'Rendszer') as staff_name,
-        su.email as staff_email,
+        COALESCE(su.name, el.staff_name, su.email, 'Rendszer') as staff_name,
+        COALESCE(su.email, el.staff_email, '') as staff_email,
         t.id as ticket_id,
         t.ticket_type,
         t.qr_code_uuid,
@@ -3465,7 +4038,7 @@ app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'AD
                 AND el.location_id = s.location_id
                 AND date(el.scan_time) = b.booking_date
              ) as attended,
-             (SELECT COALESCE(el.staff_name, su.name, su.email, 'Rendszer') FROM entry_logs el 
+             (SELECT COALESCE(su.name, el.staff_name, su.email, 'Falmester') FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               LEFT JOIN users su ON el.staff_id = su.id
               WHERE t.user_id = b.user_id 
@@ -3474,6 +4047,15 @@ app.get('/api/admin/bookings/past', authenticateToken, requireRole(['STAFF', 'AD
                 AND date(el.scan_time) = b.booking_date
               ORDER BY el.scan_time DESC LIMIT 1
              ) as scanned_by_staff_name,
+             (SELECT COALESCE(su.email, el.staff_email, '') FROM entry_logs el 
+              JOIN tickets t ON el.ticket_id = t.id 
+              LEFT JOIN users su ON el.staff_id = su.id
+              WHERE t.user_id = b.user_id 
+                AND el.status = 'SUCCESS' 
+                AND el.location_id = s.location_id
+                AND date(el.scan_time) = b.booking_date
+              ORDER BY el.scan_time DESC LIMIT 1
+             ) as scanned_by_staff_email,
              (SELECT el.staff_id FROM entry_logs el 
               JOIN tickets t ON el.ticket_id = t.id 
               WHERE t.user_id = b.user_id 

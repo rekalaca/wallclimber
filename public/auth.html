@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
@@ -177,6 +177,41 @@
           <input type="text" id="reg-license" class="form-control" placeholder="SMV-12345 (zöld kártyához)">
           <small class="password-hint">Ha rendelkezel vizsgával és beírod a számát, jogosult leszel mások biztosítására (Zöld Kártya). A sportmászó vizsga igazolvány bemutatását a mászófalnál a személyzet kérheti!</small>
         </div>
+        <!-- Partneriskolai kedvezmény blokk (-20%) -->
+        <div style="background: rgba(242, 118, 32, 0.05); border: 1px solid rgba(242, 118, 32, 0.25); border-radius: var(--radius); padding: 14px; margin-bottom: 18px;">
+          <label class="form-label" style="font-weight: 700; color: #fbbf24; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <span>🎓</span> Partneriskolai Kedvezmény (-20%)
+          </label>
+          <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4;">
+            Ha az Eötvös, Kossuth vagy Zrínyi gimnáziumok/iskolák diákja vagy tanára vagy, 20% kedvezményre vagy jogosult!
+          </p>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" for="reg-school-role" style="font-size: 12px;">Jogosultság típusa</label>
+            <select id="reg-school-role" class="form-control" onchange="toggleRegSchoolFields()" style="font-size: 13px;">
+              <option value="NONE">Nem vagyok partneriskola diákja / tanára</option>
+              <option value="STUDENT">Diák / Tanuló (-20% a diák árból)</option>
+              <option value="TEACHER">Tanár / Oktató (-20% a teljes felnőtt árból)</option>
+            </select>
+          </div>
+          <div id="reg-school-subfields" style="display: none;">
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" for="reg-school-name" style="font-size: 12px;">Partneriskola kiválasztása *</label>
+              <select id="reg-school-name" class="form-control" style="font-size: 13px;">
+                <option value="">Válassz iskolát...</option>
+                <option value="Eötvös József Gyakorlóiskola és Gimnázium">Nyíregyházi Egyetem Eötvös József Gyakorló Általános Iskola és Gimnázium</option>
+                <option value="Evangélikus Kossuth Lajos Gimnázium">Nyíregyházi Evangélikus Kossuth Lajos Gimnázium</option>
+                <option value="Zrínyi Ilona Gimnázium">Nyíregyházi Zrínyi Ilona Gimnázium</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 4px;">
+              <label class="form-label" for="reg-school-id" style="font-size: 12px;">Diákigazolvány vagy Oktatói azonosító szám (Opcionális)</label>
+              <input type="text" id="reg-school-id" class="form-control" placeholder="pl. OM / diákigazolvány szám" style="font-size: 13px;">
+              <small style="color: #fbbf24; font-size: 11px; display: block; margin-top: 5px;">
+                ⚠️ <strong>Fontos:</strong> A 20%-os partnerkedvezmény érvényesítéséhez a legelső belépés alkalmával a falmester ellenőrzi az érvényes diák- vagy tanári igazolványodat a helyszínen!
+              </small>
+            </div>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label" for="reg-password">Jelszó</label>
           <div style="position: relative;">
@@ -343,6 +378,14 @@
       }
     }
 
+    function toggleRegSchoolFields() {
+      const role = document.getElementById('reg-school-role')?.value;
+      const subfields = document.getElementById('reg-school-subfields');
+      if (subfields) {
+        subfields.style.display = (role === 'STUDENT' || role === 'TEACHER') ? 'block' : 'none';
+      }
+    }
+
     async function handleRegister(e) {
       e.preventDefault();
       if (document.getElementById('register-coming-soon') && document.getElementById('register-coming-soon').style.display !== 'none') {
@@ -362,6 +405,15 @@
       const phone = `+36${phoneArea}${phoneNum}`;
 
       const licenseNumber = document.getElementById('reg-license').value;
+      const schoolRole = document.getElementById('reg-school-role')?.value || 'NONE';
+      const schoolName = document.getElementById('reg-school-name')?.value || '';
+      const schoolIdNumber = document.getElementById('reg-school-id')?.value || '';
+
+      if ((schoolRole === 'STUDENT' || schoolRole === 'TEACHER') && !schoolName) {
+        showToast('Kérjük, válaszd ki a partneriskoládat!', 'error');
+        return;
+      }
+
       const password = document.getElementById('reg-password').value;
       const passwordConfirm = document.getElementById('reg-password-confirm').value;
 
@@ -390,7 +442,7 @@
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, licenseNumber, password })
+          body: JSON.stringify({ name, email, phone, licenseNumber, password, schoolRole, schoolName, schoolIdNumber })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Regisztrációs hiba');
@@ -398,6 +450,7 @@
         // Note: For verification flow, we DO NOT log them in automatically
         showToast('Regisztráció sikeres! Aktiváló e-mailt küldtünk.', 'success');
         document.getElementById('register-form').reset();
+        toggleRegSchoolFields();
         
         // Wait and switch to Login Tab
         setTimeout(() => {

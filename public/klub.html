@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
@@ -610,12 +610,20 @@
 
   <!-- Prices -->
   <section id="prices" class="container" style="margin-bottom: 80px;">
-    <h2 class="section-title-premium" style="text-align: center; margin-bottom: 40px;">ÁRAINK</h2>
-    <p style="text-align: center; color: var(--text-secondary); max-width: 600px; margin: 0 auto 50px auto; font-size: 15px;">Válassz a mászási szokásaidnak megfelelő belépőt. Vásárolj online másodpercek alatt és lépj be a QR kódoddal!</p>
+    <h2 class="section-title-premium" style="text-align: center; margin-bottom: 25px;">ÁRAINK</h2>
+    <p style="text-align: center; color: var(--text-secondary); max-width: 650px; margin: 0 auto 30px auto; font-size: 15px;">Válassz a korosztályodnak és mászási szokásaidnak megfelelő belépőt. Vásárolj online másodpercek alatt és lépj be a kapott QR kóddal mindhárom falon!</p>
     
-    <div class="grid-3">
+    <div class="pricing-category-tabs" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 35px; flex-wrap: wrap;">
+      <button type="button" class="btn btn-primary btn-sm pricing-tab-btn active" onclick="switchPricingCategory('felnott')" id="pricing-tab-felnott" style="padding: 10px 22px; font-weight: 700; border-radius: 30px;">Felnőtt</button>
+      <button type="button" class="btn btn-secondary btn-sm pricing-tab-btn" onclick="switchPricingCategory('diak')" id="pricing-tab-diak" style="padding: 10px 22px; font-weight: 700; border-radius: 30px;">Diák / Nyugdíjas</button>
+      <button type="button" class="btn btn-secondary btn-sm pricing-tab-btn" onclick="switchPricingCategory('gyerek')" id="pricing-tab-gyerek" style="padding: 10px 22px; font-weight: 700; border-radius: 30px;">Gyerek (10 éves kor alatt)</button>
+      <button type="button" class="btn btn-secondary btn-sm pricing-tab-btn" onclick="switchPricingCategory('partner')" id="pricing-tab-partner" style="padding: 10px 22px; font-weight: 700; border-radius: 30px; border-color: rgba(242,118,32,0.4); color: #fbbf24;">🎓 Partneriskolák (-20%)</button>
+    </div>
+
+    <!-- Category 1: Felnőtt -->
+    <div id="pricing-grid-felnott" class="grid-3">
       <div class="glass-card price-card">
-        <div class="price-title">Napijegy</div>
+        <div class="price-title">Napijegy (Felnőtt)</div>
         <div class="price-amount">2 800 <span>Ft</span></div>
         <ul class="price-features">
           <li>Egyszeri belépésre jogosít</li>
@@ -628,7 +636,7 @@
       
       <div class="glass-card price-card popular">
         <div class="popular-badge">Legnépszerűbb</div>
-        <div class="price-title">10 Alkalmas Bérlet</div>
+        <div class="price-title">10 Alkalmas Bérlet (Felnőtt)</div>
         <div class="price-amount">22 000 <span>Ft</span></div>
         <ul class="price-features">
           <li>10 különálló belépési alkalom</li>
@@ -640,7 +648,7 @@
       </div>
       
       <div class="glass-card price-card">
-        <div class="price-title">Korlátlan Havi Bérlet</div>
+        <div class="price-title">Korlátlan Havi Bérlet (Felnőtt)</div>
         <div class="price-amount">28 000 <span>Ft</span></div>
         <ul class="price-features">
           <li>Korlátlan belépés 30 napon át</li>
@@ -649,6 +657,191 @@
           <li>Nincs alkalmi levonás</li>
         </ul>
         <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+      </div>
+    </div>
+
+    <!-- Category 2: Diák / Nyugdíjas -->
+    <div id="pricing-grid-diak" class="grid-3" style="display: none;">
+      <div class="glass-card price-card">
+        <div class="price-title">Napijegy (Diák/Nyugd.)</div>
+        <div class="price-amount">2 400 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>Egyszeri kedvezményes belépés</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>30 napig használható fel</li>
+          <li>Érvényes igazolvány szükséges</li>
+        </ul>
+        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+      </div>
+      
+      <div class="glass-card price-card popular">
+        <div class="popular-badge">Legnépszerűbb</div>
+        <div class="price-title">10 Alkalmas (Diák/Nyugd.)</div>
+        <div class="price-amount">18 500 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>10 különálló belépési alkalom</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>Vásárlástól számított 30 napig él</li>
+          <li>Kedvezményes diák/nyugdíjas tarifa</li>
+        </ul>
+        <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+      </div>
+      
+      <div class="glass-card price-card">
+        <div class="price-title">Havi Bérlet (Diák/Nyugd.)</div>
+        <div class="price-amount">23 600 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>Korlátlan belépés 30 napon át</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>Napi többszöri belépés</li>
+          <li>Kedvezményes diák/nyugdíjas tarifa</li>
+        </ul>
+        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+      </div>
+    </div>
+
+    <!-- Category 3: Gyerek (10 éves kor alatt) -->
+    <div id="pricing-grid-gyerek" class="grid-3" style="display: none;">
+      <div class="glass-card price-card">
+        <div class="price-title">Napijegy (10 éves kor alatt)</div>
+        <div class="price-amount">2 100 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>Egyszeri belépés 10 év alattiaknak</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>30 napig használható fel</li>
+          <li>Szülői/edzői felügyelet szükséges</li>
+        </ul>
+        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+      </div>
+      
+      <div class="glass-card price-card popular">
+        <div class="popular-badge">Legnépszerűbb</div>
+        <div class="price-title">10 Alkalmas (10 éves kor alatt)</div>
+        <div class="price-amount">16 600 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>10 különálló belépési alkalom</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>Vásárlástól számított 30 napig él</li>
+          <li>Gyermekbarát edzéslehetőség</li>
+        </ul>
+        <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+      </div>
+      
+      <div class="glass-card price-card">
+        <div class="price-title">Havi Bérlet (10 éves kor alatt)</div>
+        <div class="price-amount">21 200 <span>Ft</span></div>
+        <ul class="price-features">
+          <li>Korlátlan belépés 30 napon át</li>
+          <li>Mindhárom helyszínen érvényes</li>
+          <li>Napi többszöri belépés</li>
+          <li>Gyermekbarát edzéslehetőség</li>
+        </ul>
+        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+      </div>
+    </div>
+
+    <!-- Category 4: Partneriskolák (-20%) -->
+    <div id="pricing-grid-partner" style="display: none;">
+      <div style="background: rgba(242,118,32,0.06); border: 1px solid rgba(242,118,32,0.3); border-radius: 14px; padding: 18px 22px; margin-bottom: 25px; text-align: center;">
+        <div style="font-size: 15px; font-weight: 700; color: #fbbf24; margin-bottom: 6px;">
+          🎓 20% Kedvezmény a partneriskoláink diákjainak és tanárainak
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary); max-width: 750px; margin: 0 auto; line-height: 1.5;">
+          A nyíregyházi <strong>Eötvös József Gyakorlóiskola</strong>, <strong>Evangélikus Kossuth Lajos Gimnázium</strong> és <strong>Zrínyi Ilona Gimnázium</strong> tanulói és oktatói kedvezményes áron vehetik igénybe falainkat. 
+          A kedvezmény az online regisztráció vagy a profil beállításai során érvényesíthető, melyet a falmester az első belépéskor az érvényes diák- vagy pedagógusigazolvány felmutatásával hagy jóvá (évente október 31-ig érvényes).
+        </p>
+      </div>
+
+      <!-- Partner Diák Kártyák -->
+      <h3 style="font-size: 16px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 18px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span>🎒</span> Partner Diák Tarifa (-20% a diák árból)
+      </h3>
+      <div class="grid-3" style="margin-bottom: 35px;">
+        <div class="glass-card price-card">
+          <div class="price-title">Napijegy (Partner Diák)</div>
+          <div class="price-amount">1 920 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 2 400 Ft</div>
+          <ul class="price-features">
+            <li>Egyszeri kedvezményes diák belépés</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>30 napig használható fel</li>
+            <li>Érvényes partner diákigazolvány szükséges</li>
+          </ul>
+          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        </div>
+        
+        <div class="glass-card price-card popular">
+          <div class="popular-badge">Legnépszerűbb</div>
+          <div class="price-title">10 Alkalmas (Partner Diák)</div>
+          <div class="price-amount">14 800 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 18 500 Ft</div>
+          <ul class="price-features">
+            <li>10 különálló belépési alkalom</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>Vásárlástól számított 30 napig él</li>
+            <li>Kiemelt partneriskolai diákkedvezmény</li>
+          </ul>
+          <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+        </div>
+        
+        <div class="glass-card price-card">
+          <div class="price-title">Havi Bérlet (Partner Diák)</div>
+          <div class="price-amount">18 880 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 23 600 Ft</div>
+          <ul class="price-features">
+            <li>Korlátlan belépés 30 napon át</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>Napi többszöri belépés</li>
+            <li>Kiemelt partneriskolai diákkedvezmény</li>
+          </ul>
+          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        </div>
+      </div>
+
+      <!-- Partner Tanár Kártyák -->
+      <h3 style="font-size: 16px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 18px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span>👨‍🏫</span> Partner Tanár / Oktató Tarifa (-20% a felnőtt árból)
+      </h3>
+      <div class="grid-3">
+        <div class="glass-card price-card">
+          <div class="price-title">Napijegy (Partner Tanár)</div>
+          <div class="price-amount">2 240 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 2 800 Ft</div>
+          <ul class="price-features">
+            <li>Egyszeri kedvezményes oktatói belépés</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>30 napig használható fel</li>
+            <li>Érvényes pedagógusigazolvány szükséges</li>
+          </ul>
+          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        </div>
+        
+        <div class="glass-card price-card popular">
+          <div class="popular-badge">Legnépszerűbb</div>
+          <div class="price-title">10 Alkalmas (Partner Tanár)</div>
+          <div class="price-amount">17 600 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 22 000 Ft</div>
+          <ul class="price-features">
+            <li>10 különálló belépési alkalom</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>Vásárlástól számított 30 napig él</li>
+            <li>Kiemelt partnerintézményi oktatói kedvezmény</li>
+          </ul>
+          <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+        </div>
+        
+        <div class="glass-card price-card">
+          <div class="price-title">Havi Bérlet (Partner Tanár)</div>
+          <div class="price-amount">22 400 <span>Ft</span></div>
+          <div style="font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-top: -10px; margin-bottom: 15px;">Eredeti ár: 28 000 Ft</div>
+          <ul class="price-features">
+            <li>Korlátlan belépés 30 napon át</li>
+            <li>Mindhárom helyszínen érvényes</li>
+            <li>Napi többszöri belépés</li>
+            <li>Kiemelt partnerintézményi oktatói kedvezmény</li>
+          </ul>
+          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        </div>
       </div>
     </div>
   </section>
@@ -731,23 +924,114 @@
           </tr>
         </thead>
         <tbody>
+          <!-- Felnőtt kategória -->
+          <tr style="background: rgba(242, 118, 32, 0.08); font-weight: bold;">
+            <td colspan="4" style="color: var(--primary);">Felnőtt jegy- és bérlettípusok</td>
+          </tr>
           <tr>
-            <td>Napijegy</td>
+            <td>Napijegy (Felnőtt)</td>
             <td>2 800 Ft</td>
             <td>Vásárlástól számított 30 nap</td>
             <td>1 alkalom, mind a 3 nyíregyházi helyszínen érvényes, QR-kódos beléptetés</td>
           </tr>
           <tr>
-            <td>10 Alkalmas Bérlet (Legnépszerűbb)</td>
+            <td>10 Alkalmas Bérlet (Felnőtt)</td>
             <td>22 000 Ft</td>
             <td>Vásárlástól számított 30 nap</td>
             <td>10 különálló belépési alkalom (2 200 Ft/alkalom), mind a 3 helyszínen érvényes</td>
           </tr>
           <tr>
-            <td>Korlátlan Havi Bérlet</td>
+            <td>Korlátlan Havi Bérlet (Felnőtt)</td>
             <td>28 000 Ft</td>
             <td>Vásárlástól számított 30 nap</td>
             <td>Korlátlan belépés 30 napon át, napi többszöri belépéssel mind a 3 helyszínen</td>
+          </tr>
+
+          <!-- Diák / Nyugdíjas kategória -->
+          <tr style="background: rgba(245, 158, 11, 0.08); font-weight: bold;">
+            <td colspan="4" style="color: #fbbf24;">Diák / Nyugdíjas kedvezményes típusok (érvényes igazolvánnyal)</td>
+          </tr>
+          <tr>
+            <td>Napijegy (Diák / Nyugdíjas)</td>
+            <td>2 400 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>1 alkalom, kedvezményes diák/nyugdíjas belépés mind a 3 helyszínen</td>
+          </tr>
+          <tr>
+            <td>10 Alkalmas Bérlet (Diák / Nyugdíjas)</td>
+            <td>18 500 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>10 különálló belépési alkalom (1 850 Ft/alkalom), diák/nyugdíjas kedvezménnyel</td>
+          </tr>
+          <tr>
+            <td>Korlátlan Havi Bérlet (Diák / Nyugdíjas)</td>
+            <td>23 600 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>30 napos korlátlan belépés kedvezményes diák/nyugdíjas tarifával</td>
+          </tr>
+
+          <!-- Gyerek kategória (10 éves kor alatt) -->
+          <tr style="background: rgba(16, 185, 129, 0.08); font-weight: bold;">
+            <td colspan="4" style="color: #34d399;">Gyerek típusok (10 éves kor alatt, szülői / edzői kísérettel)</td>
+          </tr>
+          <tr>
+            <td>Napijegy (Gyerek 10 éves kor alatt)</td>
+            <td>2 100 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>1 alkalom, 10 év alatti mászópalántáknak kísérővel mind a 3 helyszínen</td>
+          </tr>
+          <tr>
+            <td>10 Alkalmas Bérlet (Gyerek 10 éves kor alatt)</td>
+            <td>16 600 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>10 különálló belépési alkalom (1 660 Ft/alkalom), gyermek kedvezménnyel</td>
+          </tr>
+          <tr>
+            <td>Korlátlan Havi Bérlet (Gyerek 10 éves kor alatt)</td>
+            <td>21 200 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>30 napos korlátlan belépés 10 év alatti gyermekek részére</td>
+          </tr>
+
+          <!-- Partneriskolák kategória (-20%) -->
+          <tr style="background: rgba(242, 118, 32, 0.12); font-weight: bold;">
+            <td colspan="4" style="color: #fbbf24;">🎓 Partneriskolai kedvezményes típusok (-20% Eötvös, Kossuth, Zrínyi diákoknak és tanároknak)</td>
+          </tr>
+          <tr>
+            <td>Napijegy (Partner Diák -20%)</td>
+            <td>1 920 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>1 alkalom, kiemelt diák partnerkedvezmény mind a 3 helyszínen</td>
+          </tr>
+          <tr>
+            <td>10 Alkalmas Bérlet (Partner Diák -20%)</td>
+            <td>14 800 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>10 különálló belépési alkalom (1 480 Ft/alkalom), kiemelt diák partnerkedvezmény</td>
+          </tr>
+          <tr>
+            <td>Korlátlan Havi Bérlet (Partner Diák -20%)</td>
+            <td>18 880 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>30 napos korlátlan belépés kiemelt diák partnerkedvezménnyel</td>
+          </tr>
+          <tr>
+            <td>Napijegy (Partner Tanár -20%)</td>
+            <td>2 240 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>1 alkalom, kiemelt pedagógus partnerkedvezmény (-20% a felnőtt árból)</td>
+          </tr>
+          <tr>
+            <td>10 Alkalmas Bérlet (Partner Tanár -20%)</td>
+            <td>17 600 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>10 különálló belépési alkalom (1 760 Ft/alkalom), kiemelt pedagógus partnerkedvezmény</td>
+          </tr>
+          <tr>
+            <td>Korlátlan Havi Bérlet (Partner Tanár -20%)</td>
+            <td>22 400 Ft</td>
+            <td>Vásárlástól számított 30 nap</td>
+            <td>30 napos korlátlan belépés kiemelt pedagógus partnerkedvezménnyel</td>
           </tr>
         </tbody>
       </table>

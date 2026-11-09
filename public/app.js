@@ -170,7 +170,7 @@ function logout() {
   localStorage.removeItem('hawkstone_last_activity');
   showToast('Sikeres kijelentkezés!');
   setTimeout(() => {
-    window.location.href = 'index.html';
+    window.location.href = 'klub.html';
   }, 800);
 }
 
@@ -1756,7 +1756,8 @@ async function loadProfileAndDashboard() {
     
     // Save count of active tickets
     const todayStr = new Date().toISOString().split('T')[0];
-    window.activeTicketsCount = tickets.filter(t => t.status === 'ACTIVE' && t.expires_date >= todayStr).length;
+    window.userActiveTickets = tickets.filter(t => t.status === 'ACTIVE' && t.expires_date >= todayStr);
+    window.activeTicketsCount = window.userActiveTickets.length;
     
     // Save/update local storage user details
     localStorage.setItem('user', JSON.stringify(user));
@@ -1769,17 +1770,49 @@ async function loadProfileAndDashboard() {
         'Nem rendelkezik mászóvizsgával. Biztosítóként nem tevékenykedhet, kizárólag önbiztosítóval vagy zöld kártyás kísérővel mászhat.';
       const roleBadgeHtml = user.role !== 'USER' ? `<span class="badge badge-secondary" style="margin-left:8px;">Szerep: ${user.role}</span>` : '';
 
+      // Partner School Badge logic
+      let schoolBadgeHtml = '';
+      if (user.school_role && user.school_role !== 'NONE') {
+        const isVerified = user.school_discount_verified === 1;
+        const roleLabel = user.school_role === 'TEACHER' ? 'Tanár' : 'Diák';
+        let shortSchool = user.school_name || 'Partneriskola';
+        if (shortSchool.includes('Eötvös')) shortSchool = 'Eötvös';
+        else if (shortSchool.includes('Kossuth')) shortSchool = 'Kossuth';
+        else if (shortSchool.includes('Zrínyi')) shortSchool = 'Zrínyi';
+
+        if (isVerified) {
+          schoolBadgeHtml = `
+            <span class="badge badge-green" style="margin-left:8px; cursor:pointer;" onclick="openSchoolStatusModal()" data-tooltip="Partneriskolai igazolvány jóváhagyva (${user.school_discount_verified_until || '-'} -ig). Jogosult a 20% kedvezményre!">
+              🎓 ${shortSchool} – ${roleLabel} (-20%)
+            </span>
+          `;
+        } else {
+          schoolBadgeHtml = `
+            <span class="badge badge-secondary" style="margin-left:8px; border-color:#f59e0b; color:#fbbf24; cursor:pointer;" onclick="openSchoolStatusModal()" data-tooltip="A 20% partnerkedvezményt az első belépéskor a helyszínen hagyja jóvá a falmester az igazolványod ellenőrzésével.">
+              🎓 ${shortSchool} – ${roleLabel} (Ellenőrzésre vár)
+            </span>
+          `;
+        }
+      } else {
+        schoolBadgeHtml = `
+          <button type="button" onclick="openSchoolStatusModal()" class="btn btn-secondary btn-sm" style="margin-left:8px; padding:4px 10px; font-size:11px; border-color:rgba(242,118,32,0.5); color:#fbbf24; border-radius:6px; vertical-align:middle;" title="Beállítás: Eötvös, Kossuth vagy Zrínyi diák/tanár kedvezmény (-20%)">
+            🎓 Partneriskolai kedvezmény (-20%)
+          </button>
+        `;
+      }
+
       profileEl.innerHTML = `
         <div class="avatar">🧗</div>
         <div class="profile-details">
           <h3>${user.name}</h3>
           <p style="margin-bottom: 8px;">E-mail: ${user.email} | Telefon: ${user.phone}</p>
-          <div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
             <span class="badge ${user.card_type === 'ZÖLD' ? 'badge-green' : 'badge-red'}" data-tooltip="${tooltipText}">
               ${user.card_type} KÁRTYA (${user.card_type === 'ZÖLD' ? 'Biztosíthat' : 'NEM biztosíthat'})
             </span>
-            ${user.license_number ? `<span class="badge badge-secondary" style="margin-left:8px;">Engedély: ${user.license_number}</span>` : ''}
+            ${user.license_number ? `<span class="badge badge-secondary">Engedély: ${user.license_number}</span>` : ''}
             ${roleBadgeHtml}
+            ${schoolBadgeHtml}
           </div>
         </div>
       `;
@@ -1862,6 +1895,115 @@ async function loadProfileAndDashboard() {
     showToast(err.message, 'error');
   }
 }
+
+// Partner School Status Modal functions
+function openSchoolStatusModal() {
+  const userJson = localStorage.getItem('user');
+  if (userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      const roleSelect = document.getElementById('modal-school-role');
+      const nameSelect = document.getElementById('modal-school-name');
+      const idInput = document.getElementById('modal-school-id');
+
+      if (roleSelect) roleSelect.value = user.school_role || 'NONE';
+      if (nameSelect) nameSelect.value = user.school_name || '';
+      if (idInput) idInput.value = user.school_id_number || '';
+      toggleModalSchoolFields();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const modal = document.getElementById('school-status-modal-backdrop');
+  if (modal) modal.classList.add('open');
+}
+window.openSchoolStatusModal = openSchoolStatusModal;
+
+function closeSchoolStatusModal() {
+  const modal = document.getElementById('school-status-modal-backdrop');
+  if (modal) modal.classList.remove('open');
+}
+window.closeSchoolStatusModal = closeSchoolStatusModal;
+
+function toggleModalSchoolFields() {
+  const role = document.getElementById('modal-school-role')?.value;
+  const subfields = document.getElementById('modal-school-subfields');
+  if (subfields) {
+    subfields.style.display = (role === 'STUDENT' || role === 'TEACHER') ? 'block' : 'none';
+  }
+}
+window.toggleModalSchoolFields = toggleModalSchoolFields;
+
+async function handleSchoolStatusSubmit(event) {
+  event.preventDefault();
+  const schoolRole = document.getElementById('modal-school-role')?.value || 'NONE';
+  const schoolName = document.getElementById('modal-school-name')?.value || '';
+  const schoolIdNumber = document.getElementById('modal-school-id')?.value || '';
+
+  if ((schoolRole === 'STUDENT' || schoolRole === 'TEACHER') && !schoolName) {
+    showToast('Kérjük, válaszd ki a partneriskoládat a listából!', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/school-status', {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ schoolRole, schoolName, schoolIdNumber })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Mentési hiba');
+
+    closeSchoolStatusModal();
+    showToast(data.message || 'Partneriskolai státusz sikeresen mentve!', 'success');
+
+    // Reload profile and dashboard
+    await loadProfileAndDashboard();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+window.handleSchoolStatusSubmit = handleSchoolStatusSubmit;
+
+// Ticket Types & Metadata helper
+function getTicketTypeMeta(type) {
+  const map = {
+    // 1. Felnőtt kategória
+    'NAPI': { label: 'Egyszeri Napijegy (Felnőtt)', shortLabel: 'Napijegy', category: 'Felnőtt', base: 'NAPI', price: 2800, priceText: '2 800 Ft' },
+    'NAPI_FELNOTT': { label: 'Egyszeri Napijegy (Felnőtt)', shortLabel: 'Napijegy', category: 'Felnőtt', base: 'NAPI', price: 2800, priceText: '2 800 Ft' },
+    'TIZ_ALKALMAS': { label: '10 Alkalmas Bérlet (Felnőtt)', shortLabel: '10 Alkalmas Bérlet', category: 'Felnőtt', base: 'TIZ_ALKALMAS', price: 22000, priceText: '22 000 Ft' },
+    'TIZ_ALKALMAS_FELNOTT': { label: '10 Alkalmas Bérlet (Felnőtt)', shortLabel: '10 Alkalmas Bérlet', category: 'Felnőtt', base: 'TIZ_ALKALMAS', price: 22000, priceText: '22 000 Ft' },
+    'HAVI': { label: '30 Napos Korlátlan Bérlet (Felnőtt)', shortLabel: 'Havi Bérlet', category: 'Felnőtt', base: 'HAVI', price: 28000, priceText: '28 000 Ft' },
+    'HAVI_FELNOTT': { label: '30 Napos Korlátlan Bérlet (Felnőtt)', shortLabel: 'Havi Bérlet', category: 'Felnőtt', base: 'HAVI', price: 28000, priceText: '28 000 Ft' },
+
+    // 2. Diák / Nyugdíjas kategória (2400, 18500, 23600)
+    'NAPI_DIAK': { label: 'Egyszeri Napijegy (Diák/Nyugdíjas)', shortLabel: 'Napijegy (Diák/Nyugd.)', category: 'Diák / Nyugdíjas', base: 'NAPI', price: 2400, priceText: '2 400 Ft' },
+    'TIZ_ALKALMAS_DIAK': { label: '10 Alkalmas Bérlet (Diák/Nyugdíjas)', shortLabel: '10 Alkalmas (Diák/Nyugd.)', category: 'Diák / Nyugdíjas', base: 'TIZ_ALKALMAS', price: 18500, priceText: '18 500 Ft' },
+    'HAVI_DIAK': { label: '30 Napos Korlátlan Bérlet (Diák/Nyugdíjas)', shortLabel: 'Havi Bérlet (Diák/Nyugd.)', category: 'Diák / Nyugdíjas', base: 'HAVI', price: 23600, priceText: '23 600 Ft' },
+
+    // 3. Gyerek kategória 10 éves kor alatt (2100, 16600, 21200)
+    'NAPI_GYEREK': { label: 'Egyszeri Napijegy (Gyerek 10 éves kor alatt)', shortLabel: 'Napijegy (10 év alatt)', category: 'Gyerek (10 éves kor alatt)', base: 'NAPI', price: 2100, priceText: '2 100 Ft' },
+    'TIZ_ALKALMAS_GYEREK': { label: '10 Alkalmas Bérlet (Gyerek 10 éves kor alatt)', shortLabel: '10 Alkalmas (10 év alatt)', category: 'Gyerek (10 éves kor alatt)', base: 'TIZ_ALKALMAS', price: 16600, priceText: '16 600 Ft' },
+    'HAVI_GYEREK': { label: '30 Napos Korlátlan Bérlet (Gyerek 10 éves kor alatt)', shortLabel: 'Havi Bérlet (10 év alatt)', category: 'Gyerek (10 éves kor alatt)', base: 'HAVI', price: 21200, priceText: '21 200 Ft' },
+
+    // 4. Partneriskola - Diák kategória (-20%: 1920, 14800, 18880)
+    'NAPI_PARTNER_DIAK': { label: 'Egyszeri Napijegy (Partner Diák -20%)', shortLabel: 'Napijegy (Partner Diák)', category: 'Partneriskola - Diák', base: 'NAPI', price: 1920, priceText: '1 920 Ft', isPartner: true },
+    'TIZ_ALKALMAS_PARTNER_DIAK': { label: '10 Alkalmas Bérlet (Partner Diák -20%)', shortLabel: '10 Alk. (Partner Diák)', category: 'Partneriskola - Diák', base: 'TIZ_ALKALMAS', price: 14800, priceText: '14 800 Ft', isPartner: true },
+    'HAVI_PARTNER_DIAK': { label: '30 Napos Korlátlan Bérlet (Partner Diák -20%)', shortLabel: 'Havi Bérlet (Partner Diák)', category: 'Partneriskola - Diák', base: 'HAVI', price: 18880, priceText: '18 880 Ft', isPartner: true },
+
+    // 5. Partneriskola - Tanár kategória (-20%: 2240, 17600, 22400)
+    'NAPI_PARTNER_TANAR': { label: 'Egyszeri Napijegy (Partner Tanár -20%)', shortLabel: 'Napijegy (Partner Tanár)', category: 'Partneriskola - Tanár', base: 'NAPI', price: 2240, priceText: '2 240 Ft', isPartner: true },
+    'TIZ_ALKALMAS_PARTNER_TANAR': { label: '10 Alkalmas Bérlet (Partner Tanár -20%)', shortLabel: '10 Alk. (Partner Tanár)', category: 'Partneriskola - Tanár', base: 'TIZ_ALKALMAS', price: 17600, priceText: '17 600 Ft', isPartner: true },
+    'HAVI_PARTNER_TANAR': { label: '30 Napos Korlátlan Bérlet (Partner Tanár -20%)', shortLabel: 'Havi Bérlet (Partner Tanár)', category: 'Partneriskola - Tanár', base: 'HAVI', price: 22400, priceText: '22 400 Ft', isPartner: true }
+  };
+  if (map[type]) return map[type];
+  const base = (type || '').startsWith('NAPI') ? 'NAPI' : ((type || '').startsWith('TIZ') ? 'TIZ_ALKALMAS' : ((type || '').startsWith('HAVI') ? 'HAVI' : type));
+  return { label: type || 'Jegy', shortLabel: type || 'Jegy', category: 'Általános', base, price: 0, priceText: '' };
+}
+window.getTicketTypeMeta = getTicketTypeMeta;
 
 // Render tickets by tab
 function renderDashboardTickets(filter) {
@@ -2074,10 +2216,26 @@ function renderDashboardBookings(filter) {
       actionButtonHtml = `<button onclick="cancelBooking(${b.booking_id})" class="btn btn-danger btn-sm">Lemondás</button>`;
     }
     
+    let attendeeBadge = '';
+    const adultCount = b.adult_count !== undefined ? b.adult_count : (b.booking_type === 'CHILD_ONLY' ? 0 : 1);
+    const childCount = b.child_count !== undefined ? b.child_count : (b.booking_type === 'SELF_AND_CHILD' ? 1 : (b.booking_type === 'CHILD_ONLY' ? 1 : 0));
+    const heads = b.heads_count || (adultCount + childCount);
+
+    if (adultCount === 0 && childCount > 0) {
+      attendeeBadge = `<span class="badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); font-size:11px; margin-left:6px;">🧒 ${childCount} gyermek (kísérővel)</span>`;
+    } else if (adultCount > 0 && childCount > 0) {
+      attendeeBadge = `<span class="badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); font-size:11px; margin-left:6px;">🧗+🧒 ${heads} fő (Te + ${childCount} gyermek)</span>`;
+    } else {
+      attendeeBadge = `<span class="badge badge-secondary" style="font-size:11px; margin-left:6px;">🧗 1 fő (Saját)</span>`;
+    }
+    
     item.innerHTML = `
       <div>
-        <h4 style="font-size: 16px; margin-bottom: 4px;">${b.location_name}</h4>
-        <p style="font-size: 13px; color: var(--text-secondary);">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom: 4px;">
+          <h4 style="font-size: 16px; margin: 0;">${b.location_name}</h4>
+          ${attendeeBadge}
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
           Időpont: <strong>${b.booking_date}</strong> | <strong>${b.start_time} - ${b.end_time}</strong>
         </p>
       </div>
@@ -2269,8 +2427,12 @@ async function handleBillingSubmit(event) {
     return;
   }
 
+  const qtyEl = document.getElementById('billing-ticket-qty');
+  const quantity = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
+
   // Store pending payment data in window
   window.pendingPaymentData = {
+    quantity,
     billingName,
     billingZip,
     billingCity,
@@ -2373,6 +2535,7 @@ async function handleSaveBillingResponse(save) {
       },
       body: JSON.stringify({
         ticketType: window.selectedTicketType,
+        quantity: paymentData.quantity || 1,
         billingName: paymentData.billingName,
         billingZip: paymentData.billingZip,
         billingCity: paymentData.billingCity,
@@ -2390,9 +2553,131 @@ async function handleSaveBillingResponse(save) {
   }
 }
 
+// Switch ticket category on dashboard
+function switchBuyCategory(cat) {
+  window.selectedBuyCategory = cat;
+  const felnottBlock = document.getElementById('buy-tickets-felnott');
+  const diakBlock = document.getElementById('buy-tickets-diak');
+  const gyerekBlock = document.getElementById('buy-tickets-gyerek');
+  const partnerBlock = document.getElementById('buy-tickets-partner');
+  const btns = document.querySelectorAll('.buy-category-btn');
+  btns.forEach(b => {
+    if (b.dataset.category === cat) {
+      b.className = 'btn btn-primary btn-sm buy-category-btn active';
+    } else {
+      b.className = 'btn btn-secondary btn-sm buy-category-btn';
+    }
+  });
+
+  if (felnottBlock) felnottBlock.style.display = cat === 'felnott' ? 'flex' : 'none';
+  if (diakBlock) diakBlock.style.display = cat === 'diak' ? 'flex' : 'none';
+  if (gyerekBlock) gyerekBlock.style.display = cat === 'gyerek' ? 'flex' : 'none';
+  if (partnerBlock) partnerBlock.style.display = cat === 'partner' ? 'flex' : 'none';
+}
+window.switchBuyCategory = switchBuyCategory;
+
+// Switch pricing category on public pages (klub.html, maszoklub.html)
+function switchPricingCategory(category) {
+  const felnott = document.getElementById('pricing-grid-felnott');
+  const diak = document.getElementById('pricing-grid-diak');
+  const gyerek = document.getElementById('pricing-grid-gyerek');
+  const partner = document.getElementById('pricing-grid-partner');
+
+  const tabFelnott = document.getElementById('pricing-tab-felnott');
+  const tabDiak = document.getElementById('pricing-tab-diak');
+  const tabGyerek = document.getElementById('pricing-tab-gyerek');
+  const tabPartner = document.getElementById('pricing-tab-partner');
+
+  if (tabFelnott) tabFelnott.className = category === 'felnott' ? 'btn btn-primary btn-sm pricing-tab-btn active' : 'btn btn-secondary btn-sm pricing-tab-btn';
+  if (tabDiak) tabDiak.className = category === 'diak' ? 'btn btn-primary btn-sm pricing-tab-btn active' : 'btn btn-secondary btn-sm pricing-tab-btn';
+  if (tabGyerek) tabGyerek.className = category === 'gyerek' ? 'btn btn-primary btn-sm pricing-tab-btn active' : 'btn btn-secondary btn-sm pricing-tab-btn';
+  if (tabPartner) tabPartner.className = category === 'partner' ? 'btn btn-primary btn-sm pricing-tab-btn active' : 'btn btn-secondary btn-sm pricing-tab-btn';
+
+  if (felnott) felnott.style.display = category === 'felnott' ? 'grid' : 'none';
+  if (diak) diak.style.display = category === 'diak' ? 'grid' : 'none';
+  if (gyerek) gyerek.style.display = category === 'gyerek' ? 'grid' : 'none';
+  if (partner) partner.style.display = category === 'partner' ? 'grid' : 'none';
+}
+window.switchPricingCategory = switchPricingCategory;
+
 // Buy Ticket (Opens Billing Modal first)
 function buyTicket(ticketType) {
   window.selectedTicketType = ticketType;
+  const meta = getTicketTypeMeta(ticketType);
+
+  // Partner eligibility check
+  if (meta.isPartner) {
+    const userJson = localStorage.getItem('user');
+    let currentUser = null;
+    try { if (userJson) currentUser = JSON.parse(userJson); } catch (e) {}
+
+    if (!currentUser || !currentUser.school_role || currentUser.school_role === 'NONE' || !currentUser.school_name) {
+      showToast('A 20%-os partneriskolai kedvezmény igénybevételéhez kérjük, előbb állítsd be a profilodban az iskoládat!', 'info');
+      if (typeof openSchoolStatusModal === 'function') openSchoolStatusModal();
+      return;
+    }
+
+    if (ticketType.includes('PARTNER_DIAK') && currentUser.school_role !== 'STUDENT') {
+      showToast('Ez a kedvezményes jegy diákok számára érhető el. Tanárként kérjük, a Tanári partnerjegyet válaszd!', 'error');
+      return;
+    }
+    if (ticketType.includes('PARTNER_TANAR') && currentUser.school_role !== 'TEACHER') {
+      showToast('Ez a kedvezményes jegy tanárok/oktatók számára érhető el. Diákként kérjük, a Diák partnerjegyet válaszd!', 'error');
+      return;
+    }
+  }
+
+  // Handle quantity selector in billing modal
+  const qtyContainer = document.getElementById('billing-quantity-container');
+  const qtySelect = document.getElementById('billing-ticket-qty');
+  const qtyUnitPrice = document.getElementById('billing-qty-unit-price');
+  const isDaily = ticketType && ticketType.startsWith('NAPI') && !meta.isPartner;
+
+  if (qtyContainer && qtySelect) {
+    if (isDaily) {
+      qtyContainer.style.display = 'block';
+      qtySelect.value = '1';
+      if (qtyUnitPrice) qtyUnitPrice.textContent = `Egységár: ${meta.priceText} / db`;
+    } else {
+      qtyContainer.style.display = 'none';
+      qtySelect.value = '1';
+    }
+  }
+
+  // Show selected ticket summary badge in billing modal
+  const summaryEl = document.getElementById('billing-ticket-summary');
+  if (summaryEl) {
+    let partnerNoticeHtml = '';
+    if (meta.isPartner) {
+      partnerNoticeHtml = `
+        <div style="margin-top:6px; font-size:11px; color:#fbbf24; background:rgba(242,118,32,0.1); padding:4px 8px; border-radius:5px; border:1px solid rgba(242,118,32,0.25);">
+          🎓 Partneriskolai kedvezmény: Az első helyszíni belépésnél a falmester ellenőrzi az érvényes igazolványodat! (Tranzakciónként 1 db partnerjegy vásárolható saját névre).
+        </div>
+      `;
+    }
+
+    let childNoticeHtml = '';
+    if (ticketType && ticketType.includes('GYEREK')) {
+      childNoticeHtml = `
+        <div style="margin-top:8px; font-size:11px; color:#fbbf24; background:rgba(242,118,32,0.08); padding:8px 10px; border-radius:6px; border:1px solid rgba(242,118,32,0.3); line-height:1.45; text-align:left;">
+          🧒 <strong>Gyermekjegy (10 éves kor alatt):</strong> Felhívjuk a figyelmet, hogy 10 év alatti gyermek kizárólag szülői vagy felelős kísérő személyes jelenléte mellett használhatja a termet. Amennyiben Ön csak kísérőként van jelen és maga nem mászik, külön felnőtt jegyet nem kell váltania, de a helyszínen kötelező megjelennie a gyermekkel!
+        </div>
+      `;
+    }
+
+    summaryEl.innerHTML = `
+      <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px;">Kiválasztott jegytípus</div>
+      <div style="font-size:14px; font-weight:700; color:#fff;">${escapeHtml(meta.label)}</div>
+      <div id="billing-summary-price" style="font-size:16px; font-weight:800; color:var(--primary); margin-top:3px;">${meta.priceText}</div>
+      ${partnerNoticeHtml}
+      ${childNoticeHtml}
+    `;
+    summaryEl.style.display = 'block';
+  }
+
+  if (typeof updateBillingModalTotal === 'function') {
+    updateBillingModalTotal();
+  }
   
   // Try to pre-fill user name and billing details from local storage details
   const userJson = localStorage.getItem('user');
@@ -2424,6 +2709,131 @@ function buyTicket(ticketType) {
     showToast('Nem található számlázási modal!', 'error');
   }
 }
+window.buyTicket = buyTicket;
+
+function updateBillingModalTotal() {
+  const ticketType = window.selectedTicketType;
+  if (!ticketType) return;
+  const meta = getTicketTypeMeta(ticketType);
+  const qtyEl = document.getElementById('billing-ticket-qty');
+  const qty = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
+  const total = meta.price * qty;
+
+  const totalEl = document.getElementById('billing-qty-total');
+  if (totalEl) {
+    totalEl.textContent = `Összesen: ${formatPrice(total)}`;
+  }
+
+  const priceBadgeEl = document.getElementById('billing-summary-price');
+  if (priceBadgeEl) {
+    priceBadgeEl.textContent = qty > 1 ? `${formatPrice(total)} (${qty} db × ${meta.priceText})` : meta.priceText;
+  }
+}
+window.updateBillingModalTotal = updateBillingModalTotal;
+
+// Attendee mode for booking (Adult climbing 0 or 1, and up to 3 children)
+window.isAdultClimbing = true;
+window.bookingChildCount = 0;
+window.selectedBookingType = 'SELF';
+
+function setAdultClimbing(isClimbing) {
+  if (!isClimbing && (!window.bookingChildCount || window.bookingChildCount === 0)) {
+    window.bookingChildCount = 1;
+  }
+  window.isAdultClimbing = !!isClimbing;
+  updateAttendeeUI();
+  if (typeof loadBookingSchedules === 'function') {
+    loadBookingSchedules();
+  }
+}
+window.setAdultClimbing = setAdultClimbing;
+
+function setChildCount(count) {
+  const c = Math.max(0, Math.min(3, parseInt(count) || 0));
+  if (c === 0 && window.isAdultClimbing === false) {
+    window.isAdultClimbing = true;
+  }
+  window.bookingChildCount = c;
+  updateAttendeeUI();
+  if (typeof loadBookingSchedules === 'function') {
+    loadBookingSchedules();
+  }
+}
+window.setChildCount = setChildCount;
+
+function updateAttendeeUI() {
+  const isAdult = window.isAdultClimbing !== false;
+  const childCount = typeof window.bookingChildCount === 'number' ? window.bookingChildCount : 0;
+  const totalSpots = (isAdult ? 1 : 0) + childCount;
+
+  // Adult buttons
+  const btnAdultYes = document.getElementById('btn-adult-climbing-yes');
+  const btnAdultNo = document.getElementById('btn-adult-climbing-no');
+  if (btnAdultYes && btnAdultNo) {
+    if (isAdult) {
+      btnAdultYes.className = 'btn btn-primary btn-sm attendee-adult-btn active';
+      btnAdultNo.className = 'btn btn-secondary btn-sm attendee-adult-btn';
+    } else {
+      btnAdultYes.className = 'btn btn-secondary btn-sm attendee-adult-btn';
+      btnAdultNo.className = 'btn btn-primary btn-sm attendee-adult-btn active';
+    }
+  }
+
+  // Child buttons
+  for (let i = 0; i <= 3; i++) {
+    const btn = document.getElementById(`btn-child-qty-${i}`);
+    if (btn) {
+      if (childCount === i) {
+        btn.className = 'btn btn-primary btn-sm attendee-child-btn active';
+      } else {
+        btn.className = 'btn btn-secondary btn-sm attendee-child-btn';
+      }
+    }
+  }
+
+  // Summary badge
+  const summaryEl = document.getElementById('booking-attendees-summary');
+  if (summaryEl) {
+    let desc = '';
+    if (isAdult && childCount === 0) {
+      desc = '1 felnőtt/diák mászó (1 szabad helyet köt le a teremből)';
+    } else if (isAdult && childCount > 0) {
+      desc = `${totalSpots} fő (1 felnőtt + ${childCount} gyermek) — ${totalSpots} szabad hely szükséges a teremből`;
+    } else {
+      desc = `${childCount} gyermek mászik kísérettel — ${totalSpots} szabad hely szükséges a teremből`;
+    }
+    summaryEl.innerHTML = `<span>Összesen: <strong>${desc}</strong></span>`;
+  }
+
+  // Child notice
+  const noticeEl = document.getElementById('booking-child-notice');
+  if (noticeEl) {
+    if (childCount > 0 && !isAdult) {
+      noticeEl.innerHTML = '⚠️ <strong>Fontos kísérői szabály:</strong> 10 éves kor alatti gyermek önállóan nem mászhat a teremben! Kísérőként kötelező személyesen megjelenned a gyermekkel/gyermekekkel a teljes edzésidő alatt. (A nem mászó felnőtt kísérőnek külön jegyet nem kell váltania).';
+      noticeEl.style.display = 'block';
+    } else if (childCount > 0 && isAdult) {
+      noticeEl.innerHTML = 'ℹ️ <strong>Közös mászás gyermek(ek)kel:</strong> 10 éves kor alatti gyermek kizárólag felnőtt személyes jelenléte mellett mászhat. A helyszínen a falmester ellenőrzi a gyermek(ek) jelenlétét.';
+      noticeEl.style.display = 'block';
+    } else {
+      noticeEl.style.display = 'none';
+    }
+  }
+}
+window.updateAttendeeUI = updateAttendeeUI;
+
+function selectBookingType(type) {
+  if (type === 'CHILD_ONLY') {
+    setAdultClimbing(false);
+    if (!window.bookingChildCount || window.bookingChildCount === 0) setChildCount(1);
+  } else if (type === 'SELF_AND_CHILD') {
+    setAdultClimbing(true);
+    if (!window.bookingChildCount || window.bookingChildCount === 0) setChildCount(1);
+  } else {
+    setAdultClimbing(true);
+    setChildCount(0);
+  }
+}
+window.selectBookingType = selectBookingType;
 
 // Load Slots for Booking Selector
 async function loadBookingSchedules() {
@@ -2448,6 +2858,10 @@ async function loadBookingSchedules() {
       return;
     }
 
+    const isAdult = window.isAdultClimbing !== false;
+    const childCount = typeof window.bookingChildCount === 'number' ? window.bookingChildCount : 0;
+    const neededSpots = (isAdult ? 1 : 0) + childCount;
+
     slots.forEach(slot => {
       const item = document.createElement('div');
       item.className = 'schedule-item';
@@ -2455,8 +2869,11 @@ async function loadBookingSchedules() {
         item.style.opacity = '0.5';
       }
       
-      const ratio = slot.booked_count / slot.max_capacity;
-      const isFull = ratio >= 1.0;
+      const bookedCount = slot.booked_count || 0;
+      const ratio = bookedCount / slot.max_capacity;
+      const freeSpots = Math.max(0, slot.max_capacity - bookedCount);
+      const isFull = freeSpots <= 0;
+      const hasEnoughSpace = freeSpots >= neededSpots;
       
       let progressClass = '';
       let occupancyText = 'Szabad';
@@ -2473,17 +2890,17 @@ async function loadBookingSchedules() {
         btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Elmúlt</button>`;
       } else if (slot.user_booked) {
         btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Foglaltad</button>`;
-      } else if (isFull) {
-        btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Betelt</button>`;
+      } else if (!hasEnoughSpace) {
+        btnHtml = `<button class="btn btn-secondary btn-sm btn-disabled" disabled>Nincs ${neededSpots} szabad hely</button>`;
       } else {
-        btnHtml = `<button onclick="bookSlot(${slot.id}, '${date}')" class="btn btn-primary btn-sm">Foglalás</button>`;
+        btnHtml = `<button onclick="bookSlot(${slot.id}, '${date}')" class="btn btn-primary btn-sm">Foglalás (${neededSpots} főre)</button>`;
       }
 
       item.innerHTML = `
         <div>
           <span class="schedule-time">${slot.start_time} - ${slot.end_time}</span>
           <div class="schedule-occupancy" style="margin-top: 8px;">
-            <span class="occupancy-text">${slot.booked_count}/${slot.max_capacity} hely foglalt (${occupancyText})</span>
+            <span class="occupancy-text">${bookedCount}/${slot.max_capacity} hely foglalt (${occupancyText})</span>
             <div class="progress-bar-bg" style="width: 150px;">
               <div class="progress-bar-fill ${progressClass}" style="width: ${ratio * 100}%;"></div>
             </div>
@@ -2500,22 +2917,65 @@ async function loadBookingSchedules() {
 
 // Perform Booking
 async function bookSlot(slotId, date) {
-  // Check if user has active ticket
-  if (!window.activeTicketsCount || window.activeTicketsCount <= 0) {
+  const isAdult = window.isAdultClimbing !== false;
+  const childCount = typeof window.bookingChildCount === 'number' ? window.bookingChildCount : 0;
+  const neededSpots = (isAdult ? 1 : 0) + childCount;
+
+  if (neededSpots < 1) {
+    showToast('Legalább 1 résztvevőt ki kell választanod a foglaláshoz!', 'error');
+    return;
+  }
+
+  // Check active tickets in client cache
+  const tickets = window.userActiveTickets || [];
+  const childTickets = tickets.filter(t => (t.ticket_type || '').includes('GYEREK'));
+  const adultTickets = tickets.filter(t => !(t.ticket_type || '').includes('GYEREK'));
+
+  let childSessions = 0;
+  for (const ct of childTickets) {
+    if ((ct.ticket_type || '').includes('HAVI')) {
+      childSessions += 999;
+    } else {
+      childSessions += Math.max(0, parseInt(ct.sessions_remaining) || 1);
+    }
+  }
+
+  if (childCount > 0 && childSessions < childCount) {
+    showToast(`A(z) ${childCount} gyermek számára történő foglaláshoz legalább ${childCount} db érvényes Gyermek jegy vagy bérlet szükséges a fiókodban (jelenleg: ${childSessions})!`, 'error');
+    return;
+  }
+
+  if (isAdult && adultTickets.length === 0) {
+    showToast('A saját mászásodhoz rendelkezned kell legalább egy érvényes felnőtt vagy diák jeggyel/bérlettel!', 'error');
+    return;
+  }
+
+  if (tickets.length === 0) {
     openNoTicketModal();
     return;
   }
 
   try {
+    const cleanBookingType = (!isAdult && childCount > 0) ? 'CHILD_ONLY' : (isAdult && childCount > 0 ? 'SELF_AND_CHILD' : 'SELF');
     const res = await fetch('/api/bookings', {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ slotId, date })
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        slotId,
+        date,
+        adultCount: isAdult ? 1 : 0,
+        childCount: childCount,
+        headsCount: neededSpots,
+        bookingType: cleanBookingType
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Foglalási hiba');
 
-    showToast('Sikeres foglalás!');
+    showToast(data.message || 'Sikeres foglalás!');
     loadProfileAndDashboard();
     loadBookingSchedules();
   } catch (err) {
@@ -2749,17 +3209,15 @@ async function validateScannedQR(uuid) {
     let statusText = isValid ? 'Belépésre Kész' : 'Érvénytelen Belépő';
     let statusIcon = isValid ? 'ℹ️' : '❌';
 
-    let hungarianType = '';
-    if (ticket.ticket_type === 'NAPI') hungarianType = 'Napijegy';
-    else if (ticket.ticket_type === 'TIZ_ALKALMAS') hungarianType = '10 Alkalmas Bérlet';
-    else if (ticket.ticket_type === 'HAVI') hungarianType = '30 Napos Bérlet';
+    const ticketMeta = getTicketTypeMeta(ticket.ticket_type);
+    let hungarianType = ticketMeta.label || ticket.ticket_type;
 
     let sessionsVal = '';
-    if (ticket.ticket_type === 'NAPI') {
+    if (ticketMeta.base === 'NAPI') {
       sessionsVal = '1x használatos (még nem használt)';
-    } else if (ticket.ticket_type === 'TIZ_ALKALMAS') {
+    } else if (ticketMeta.base === 'TIZ_ALKALMAS') {
       sessionsVal = `${ticket.sessions_remaining || 0} alkalom maradt`;
-    } else if (ticket.ticket_type === 'HAVI') {
+    } else if (ticketMeta.base === 'HAVI') {
       sessionsVal = 'Korlátlan';
     }
 
@@ -2782,6 +3240,41 @@ async function validateScannedQR(uuid) {
         <span class="badge badge-red" style="font-size:14px; padding:6px 15px;">
           PIROS KÁRTYÁS - NEM BIZTOSÍTHAT
         </span>
+      `;
+    }
+
+    // Partner School Verification prompt/badge for Falmester
+    let schoolVerificationHtml = '';
+    if (data.requiresSchoolCheck) {
+      const roleText = climber.school_role === 'TEACHER' ? 'Tanár / Oktató' : 'Diák / Tanuló';
+      schoolVerificationHtml = `
+        <div style="background: rgba(245, 158, 11, 0.12); border: 2px solid #f59e0b; border-radius: 10px; padding: 14px; margin: 15px 0; text-align: left;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size: 26px;">🎓</span>
+            <div>
+              <strong style="color: #fbbf24; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Partneriskolai Igazolvány Ellenőrzés!</strong>
+              <div style="font-size: 13px; color: #fff;">${escapeHtml(climber.school_name || 'Partneriskola')} – <strong>${roleText}</strong></div>
+              ${climber.school_id_number ? `<div style="font-size: 11px; color: var(--text-secondary);">Rögzített azonosító: ${escapeHtml(climber.school_id_number)}</div>` : ''}
+            </div>
+          </div>
+          <p style="font-size: 12px; color: #fef3c7; margin: 0 0 10px 0; line-height: 1.4;">
+            ⚠️ <strong>Feladat a falmesternek:</strong> Ellenőrizd a mászó érvényes diák- vagy tanári igazolványát a beléptetés előtt!
+          </p>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px;">
+            <input type="checkbox" id="scanner-verify-school-checkbox" checked style="width: 18px; height: 18px; accent-color: #f59e0b; cursor: pointer;">
+            <span>Ellenőrizve, igazolvány rendben! (Jóváhagyás: ${data.nextSchoolExpiry}-ig)</span>
+          </label>
+        </div>
+      `;
+    } else if (climber.school_role && climber.school_role !== 'NONE' && climber.school_discount_verified === 1) {
+      const roleText = climber.school_role === 'TEACHER' ? 'Tanár' : 'Diák';
+      schoolVerificationHtml = `
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px 14px; margin: 12px 0; text-align: left; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">🎓</span>
+          <div style="font-size: 12px; color: #34d399;">
+            <strong>Partneriskola igazolvány jóváhagyva:</strong> ${escapeHtml(climber.school_name || '')} (${roleText}) – Érvényes: ${climber.school_discount_verified_until || '-'}
+          </div>
+        </div>
       `;
     }
 
@@ -2828,11 +3321,18 @@ async function validateScannedQR(uuid) {
           <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 13px;">
             <div style="font-weight: 600; color: var(--text-secondary); margin-bottom: 5px;">Mászó egyéb foglalásai:</div>
             <ul style="margin: 0; padding-left: 15px; color: var(--text-muted); list-style-type: disc; text-align: left;">
-              ${otherBookingsList.map(b => `
+              ${otherBookingsList.map(b => {
+                const bAdult = b.adult_count !== undefined ? b.adult_count : (b.booking_type === 'CHILD_ONLY' ? 0 : 1);
+                const bChild = b.child_count !== undefined ? b.child_count : (b.booking_type === 'SELF_AND_CHILD' ? 1 : (b.booking_type === 'CHILD_ONLY' ? 1 : 0));
+                let extra = '';
+                if (bAdult === 0 && bChild > 0) extra = ` (${bChild} gyermek kísérettel)`;
+                else if (bAdult > 0 && bChild > 0) extra = ` (${b.heads_count || (bAdult + bChild)} fő: Te + ${bChild} gyermek)`;
+                return `
                 <li>
-                  <strong>${b.booking_date}</strong> | ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name}) ${b.attended > 0 ? '(Megjelent)' : ''}
+                  <strong>${b.booking_date}</strong> | ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location_name})${extra} ${b.attended > 0 ? '(Megjelent)' : ''}
                 </li>
-              `).join('')}
+                `;
+              }).join('')}
             </ul>
           </div>
         `;
@@ -2850,11 +3350,23 @@ async function validateScannedQR(uuid) {
             </div>
           `;
         } else {
+          let attendeeModeText = '';
+          const adultCount = matchingBooking.adult_count !== undefined ? matchingBooking.adult_count : (matchingBooking.booking_type === 'CHILD_ONLY' ? 0 : 1);
+          const childCount = matchingBooking.child_count !== undefined ? matchingBooking.child_count : (matchingBooking.booking_type === 'SELF_AND_CHILD' ? 1 : (matchingBooking.booking_type === 'CHILD_ONLY' ? 1 : 0));
+          const totalHeads = matchingBooking.heads_count || (adultCount + childCount);
+
+          if (adultCount === 0 && childCount > 0) {
+            attendeeModeText = ` <span style="display:block; font-size:12px; color:#fbbf24; margin-top:3px;">🧒 <strong>${childCount} gyermek mászik (Felnőtt kísérettel)!</strong></span>`;
+          } else if (adultCount > 0 && childCount > 0) {
+            attendeeModeText = ` <span style="display:block; font-size:12px; color:#34d399; margin-top:3px;">🧗+🧒 <strong>${totalHeads} fő (1 felnőtt + ${childCount} gyermek közös mászás)!</strong></span>`;
+          }
+
           bookingInfoHtml = `
             <div class="scan-booking-info">
               <div class="scan-booking-title">Mai foglalás ellenőrzése</div>
               <div class="scan-booking-match">
                 ✅ Foglalás ma: ${formatTime(matchingBooking.start_time)} - ${formatTime(matchingBooking.end_time)} (${matchingBooking.location_name})
+                ${attendeeModeText}
               </div>
               ${otherBookingsHtml}
             </div>
@@ -2960,6 +3472,8 @@ async function validateScannedQR(uuid) {
         </div>
       </div>
 
+      ${schoolVerificationHtml}
+
       ${bookingInfoHtml}
 
       ${actionButtonHtml}
@@ -2990,7 +3504,7 @@ async function processCheckIn(uuid, hasBookingToday = true, isAlreadyAttended = 
   } else if (!hasBookingToday) {
     const confirmCheckin = await showConfirmModal({
       title: 'Foglalás nélküli beléptetés',
-      message: 'A mászónak nincs mára érvényes foglalása erre a helyszínre. Ennek ellenére belépteted?',
+      message: 'A mászónak nincs mára érvényes foglalása erre a helyszíre. Ennek ellenére belépteted?',
       confirmText: 'Beléptetés',
       cancelText: 'Mégse',
       variant: 'warning'
@@ -3003,6 +3517,10 @@ async function processCheckIn(uuid, hasBookingToday = true, isAlreadyAttended = 
     showToast('Kérjük, válassz beléptetési helyszínt!', 'error');
     return;
   }
+
+  // Check if staff verified partner school discount checkbox
+  const verifySchoolCheck = document.getElementById('scanner-verify-school-checkbox');
+  const verifySchoolDiscount = verifySchoolCheck ? verifySchoolCheck.checked : false;
 
   // Disable button immediately to prevent double scan clicks
   const confirmBtn = document.getElementById('confirm-checkin-btn');
@@ -3020,7 +3538,7 @@ async function processCheckIn(uuid, hasBookingToday = true, isAlreadyAttended = 
     const res = await fetch('/api/tickets/validate', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ qrCodeUuid: uuid, locationId: parseInt(locationId) })
+      body: JSON.stringify({ qrCodeUuid: uuid, locationId: parseInt(locationId), verifySchoolDiscount })
     });
 
     const data = await res.json();
@@ -3030,17 +3548,15 @@ async function processCheckIn(uuid, hasBookingToday = true, isAlreadyAttended = 
     const ticket = data.ticket || {};
     const message = data.message || 'Sikeres belépés!';
 
-    let hungarianType = '';
-    if (ticket.ticket_type === 'NAPI') hungarianType = 'Napijegy';
-    else if (ticket.ticket_type === 'TIZ_ALKALMAS') hungarianType = '10 Alkalmas Bérlet';
-    else if (ticket.ticket_type === 'HAVI') hungarianType = '30 Napos Bérlet';
+    const ticketMeta = getTicketTypeMeta(ticket.ticket_type);
+    const hungarianType = ticketMeta.label || ticket.ticket_type;
 
     let sessionsVal = '';
-    if (ticket.ticket_type === 'NAPI') {
+    if (ticketMeta.base === 'NAPI') {
       sessionsVal = 'Elhasználva (Lezárva)';
-    } else if (ticket.ticket_type === 'TIZ_ALKALMAS') {
+    } else if (ticketMeta.base === 'TIZ_ALKALMAS') {
       sessionsVal = `${ticket.sessions_remaining || 0} alkalom maradt`;
-    } else if (ticket.ticket_type === 'HAVI') {
+    } else if (ticketMeta.base === 'HAVI') {
       sessionsVal = 'Korlátlan';
     }
 
@@ -3263,12 +3779,14 @@ function renderAdminUsers() {
       const role = (u.role || '').toLowerCase();
       const card = (u.card_type || '').toLowerCase();
       const license = (u.license_number || '').toLowerCase();
+      const school = (u.school_name || '').toLowerCase();
       return name.includes(searchFilter) ||
              email.includes(searchFilter) ||
              phone.includes(searchFilter) ||
              role.includes(searchFilter) ||
              card.includes(searchFilter) ||
-             license.includes(searchFilter);
+             license.includes(searchFilter) ||
+             school.includes(searchFilter);
     });
   }
 
@@ -3304,7 +3822,7 @@ function renderAdminUsers() {
     const isSuperAdmin = (u.email === 'admin@hawkstone.hu');
     const cannotDelete = isSelf || isSuperAdmin || isAdmin;
 
-    // Badges list (Support multiple roles & cards)
+    // Badges list (Support multiple roles & cards & partner school status)
     let badges = [];
     if (isAdmin) {
       badges.push('<span class="badge user-badge-role-admin" title="Adminisztrátor">ADMIN</span>');
@@ -3319,6 +3837,11 @@ function renderAdminUsers() {
       badges.push('<span class="badge badge-green" title="Biztosításra jogosult">ZÖLD KÁRTYA</span>');
     } else {
       badges.push('<span class="badge badge-red" title="Nem biztosíthat">PIROS KÁRTYA</span>');
+    }
+    if (u.school_role && u.school_role !== 'NONE') {
+      const isVerified = u.school_discount_verified === 1;
+      const roleText = u.school_role === 'TEACHER' ? 'Tanár' : 'Diák';
+      badges.push(`<span class="badge ${isVerified ? 'badge-green' : 'badge-secondary'}" style="${isVerified ? '' : 'border-color:#f59e0b; color:#fbbf24;'}" title="${escapeHtml(u.school_name || 'Partneriskola')} (${roleText})">🎓 ${roleText}</span>`);
     }
 
     rowsHtml += `
@@ -3777,6 +4300,29 @@ async function openUserDetailsModal(userId) {
     const roleEl = document.getElementById('subpage-user-role');
     if (roleEl) roleEl.textContent = roleLabel;
     
+    // Populate Partner school details in View Mode
+    const schoolView = document.getElementById('subpage-user-school');
+    const schoolBadge = document.getElementById('subpage-user-school-badge');
+    if (schoolView) {
+      if (user.school_role && user.school_role !== 'NONE') {
+        const roleText = user.school_role === 'TEACHER' ? 'Tanár / Oktató' : 'Diák / Tanuló';
+        schoolView.textContent = `${user.school_name || 'Partneriskola'} (${roleText})${user.school_id_number ? ' | Ig. szám: ' + user.school_id_number : ''}`;
+        if (schoolBadge) {
+          schoolBadge.style.display = 'inline-block';
+          if (user.school_discount_verified === 1) {
+            schoolBadge.className = 'badge badge-green';
+            schoolBadge.textContent = `Jóváhagyva (${user.school_discount_verified_until || '-'} -ig)`;
+          } else {
+            schoolBadge.className = 'badge badge-red';
+            schoolBadge.textContent = 'Ellenőrzésre vár';
+          }
+        }
+      } else {
+        schoolView.textContent = 'Nem partneriskolás';
+        if (schoolBadge) schoolBadge.style.display = 'none';
+      }
+    }
+
     // Pre-populate Edit fields
     document.getElementById('subpage-edit-user-id').value = user.id;
     document.getElementById('subpage-edit-user-name').value = user.name;
@@ -3785,6 +4331,18 @@ async function openUserDetailsModal(userId) {
     document.getElementById('subpage-edit-user-license').value = user.license_number || '';
     document.getElementById('subpage-edit-user-card').value = user.card_type;
     document.getElementById('subpage-edit-user-role').value = user.role;
+    
+    const editSchoolRole = document.getElementById('subpage-edit-user-school-role');
+    const editSchoolName = document.getElementById('subpage-edit-user-school-name');
+    const editSchoolId = document.getElementById('subpage-edit-user-school-id');
+    const editSchoolVerified = document.getElementById('subpage-edit-user-school-verified');
+    const editSchoolUntil = document.getElementById('subpage-edit-user-school-until');
+
+    if (editSchoolRole) editSchoolRole.value = user.school_role || 'NONE';
+    if (editSchoolName) editSchoolName.value = user.school_name || '';
+    if (editSchoolId) editSchoolId.value = user.school_id_number || '';
+    if (editSchoolVerified) editSchoolVerified.checked = (user.school_discount_verified === 1);
+    if (editSchoolUntil) editSchoolUntil.value = user.school_discount_verified_until || '';
     
     // Save tickets and bookings globally for subpage tabs filtering
     window.currentSubpageTickets = tickets || [];
@@ -4059,6 +4617,12 @@ async function handleSubpageEditUserSubmit(e) {
   const card_type = document.getElementById('subpage-edit-user-card').value;
   const role = document.getElementById('subpage-edit-user-role').value;
   const password = document.getElementById('subpage-edit-user-password').value;
+
+  const school_role = document.getElementById('subpage-edit-user-school-role')?.value || 'NONE';
+  const school_name = document.getElementById('subpage-edit-user-school-name')?.value || '';
+  const school_id_number = document.getElementById('subpage-edit-user-school-id')?.value || '';
+  const school_discount_verified = document.getElementById('subpage-edit-user-school-verified')?.checked ? 1 : 0;
+  const school_discount_verified_until = document.getElementById('subpage-edit-user-school-until')?.value || '';
   
   // Validation for ZÖLD card type
   if (card_type === 'ZÖLD') {
@@ -4073,7 +4637,19 @@ async function handleSubpageEditUserSubmit(e) {
     }
   }
   
-  const payload = { name, email, phone, license_number, card_type, role };
+  const payload = { 
+    name, 
+    email, 
+    phone, 
+    license_number, 
+    card_type, 
+    role,
+    school_role,
+    school_name,
+    school_id_number,
+    school_discount_verified,
+    school_discount_verified_until
+  };
   
   if (password && password.trim().length > 0) {
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;

@@ -365,6 +365,13 @@
                     <span id="subpage-user-role" style="font-size: 16px; font-weight: 600; color: var(--primary); margin-top: 4px; display: inline-block;"></span>
                   </div>
                 </div>
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-muted); display: block; text-transform: uppercase;">Partneriskolai státusz (-20%)</span>
+                  <div id="subpage-user-school-wrapper" style="margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span id="subpage-user-school" style="font-size: 15px; color: #ffffff; font-weight: 500;">-</span>
+                    <span id="subpage-user-school-badge" class="badge" style="display: none;"></span>
+                  </div>
+                </div>
               </div>
               
               <div style="display: flex; gap: 10px;">
@@ -408,6 +415,38 @@
                     <option value="STAFF">STAFF (Falmester)</option>
                     <option value="ADMIN">ADMIN (Rendszergazda)</option>
                   </select>
+                </div>
+                <div style="background: rgba(242, 118, 32, 0.05); border: 1px solid rgba(242, 118, 32, 0.25); border-radius: var(--radius); padding: 12px; margin-bottom: 15px;">
+                  <div style="font-size: 12px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">🎓 Partneriskolai Kedvezmény Beállítások</div>
+                  <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" for="subpage-edit-user-school-role" style="font-size: 12px;">Státusz</label>
+                    <select id="subpage-edit-user-school-role" class="form-control" style="font-size: 13px;">
+                      <option value="NONE">Nem partneriskolás</option>
+                      <option value="STUDENT">Diák / Tanuló (-20% a diák árból)</option>
+                      <option value="TEACHER">Tanár / Oktató (-20% a teljes felnőtt árból)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" for="subpage-edit-user-school-name" style="font-size: 12px;">Partneriskola</label>
+                    <select id="subpage-edit-user-school-name" class="form-control" style="font-size: 13px;">
+                      <option value="">Nincs kiválasztva</option>
+                      <option value="Eötvös József Gyakorlóiskola és Gimnázium">Nyíregyházi Egyetem Eötvös József Gyakorló Általános Iskola és Gimnázium</option>
+                      <option value="Evangélikus Kossuth Lajos Gimnázium">Nyíregyházi Evangélikus Kossuth Lajos Gimnázium</option>
+                      <option value="Zrínyi Ilona Gimnázium">Nyíregyházi Zrínyi Ilona Gimnázium</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" for="subpage-edit-user-school-id" style="font-size: 12px;">Diák- vagy Tanári Igazolvány szám</label>
+                    <input type="text" id="subpage-edit-user-school-id" class="form-control" placeholder="pl. OM szám" style="font-size: 13px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="subpage-edit-user-school-verified" style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
+                    <label for="subpage-edit-user-school-verified" style="font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; margin: 0;">Igazolvány ellenőrizve és érvényes</label>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="subpage-edit-user-school-until" style="font-size: 12px;">Érvényesség lejárata</label>
+                    <input type="date" id="subpage-edit-user-school-until" class="form-control" style="font-size: 13px;">
+                  </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="subpage-edit-user-password">Új jelszó (opcionális)</label>

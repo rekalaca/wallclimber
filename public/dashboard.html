@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
@@ -76,32 +76,165 @@
         <div>
           <!-- Buy Tickets -->
           <div class="glass-card" style="margin-bottom: 30px;">
-            <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">Jegy- és Bérletvásárlás</h3>
-            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Válassz egyet az alábbi jegytípusok közül. A vásárlás gombra kattintva a rendszer azonnal kiállítja a digitális jegyet és az egyedi QR kódot.</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+              <h3 style="font-size: 20px; margin: 0; color: var(--primary);">Jegy- és Bérletvásárlás</h3>
+              <div style="display:inline-flex; gap:6px; background:rgba(255,255,255,0.03); padding:3px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm buy-category-btn active" data-category="felnott" onclick="switchBuyCategory('felnott')" style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; margin:0;">Felnőtt</button>
+                <button type="button" class="btn btn-secondary btn-sm buy-category-btn" data-category="diak" onclick="switchBuyCategory('diak')" style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; margin:0;">Diák / Nyugd.</button>
+                <button type="button" class="btn btn-secondary btn-sm buy-category-btn" data-category="gyerek" onclick="switchBuyCategory('gyerek')" style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; margin:0;">Gyerek (10 éves kor alatt)</button>
+                <button type="button" class="btn btn-secondary btn-sm buy-category-btn" data-category="partner" onclick="switchBuyCategory('partner')" style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; margin:0; border-color: rgba(242,118,32,0.4); color: #fbbf24;">Partneriskolák (-20%)</button>
+              </div>
+            </div>
             
-            <div style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">Válassz a korosztályodnak és edzési szokásaidnak megfelelő belépőt. A vásárlás gombra kattintva a rendszer azonnal kiállítja a digitális jegyet és az egyedi QR kódot.</p>
+            
+            <!-- Category 1: Felnőtt -->
+            <div id="buy-tickets-felnott" style="display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
                 <div>
-                  <strong style="display:block;">Egyszeri Napijegy</strong>
-                  <span style="font-size:12px; color:var(--text-secondary);">2 800 Ft | 30 napig érvényes</span>
+                  <strong style="display:block; color:#fff;">Egyszeri Napijegy (Felnőtt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">2 800 Ft</strong> | 30 napig érvényes egyszeri belépés</span>
                 </div>
-                <button onclick="buyTicket('NAPI')" class="btn btn-primary btn-sm">Vásárlás</button>
+                <button onclick="buyTicket('NAPI')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
               </div>
               
               <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
                 <div>
-                  <strong style="display:block;">10 Alkalmas Bérlet</strong>
-                  <span style="font-size:12px; color:var(--text-secondary);">22 000 Ft | 30 napig / 10 alkalomra érvényes</span>
+                  <strong style="display:block; color:#fff;">10 Alkalmas Bérlet (Felnőtt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">22 000 Ft</strong> | 30 napig / 10 alkalomra érvényes</span>
                 </div>
-                <button onclick="buyTicket('TIZ_ALKALMAS')" class="btn btn-primary btn-sm">Vásárlás</button>
+                <button onclick="buyTicket('TIZ_ALKALMAS')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
               </div>
               
               <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
                 <div>
-                  <strong style="display:block;">30 Napos Korlátlan Bérlet</strong>
-                  <span style="font-size:12px; color:var(--text-secondary);">28 000 Ft | 30 napos korlátlan belépés</span>
+                  <strong style="display:block; color:#fff;">30 Napos Korlátlan Bérlet (Felnőtt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">28 000 Ft</strong> | 30 napos korlátlan belépés mindhárom falra</span>
                 </div>
-                <button onclick="buyTicket('HAVI')" class="btn btn-primary btn-sm">Vásárlás</button>
+                <button onclick="buyTicket('HAVI')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+            </div>
+
+            <!-- Category 2: Diák / Nyugdíjas -->
+            <div id="buy-tickets-diak" style="display:none; flex-direction:column; gap:12px;">
+              <div style="background:rgba(242,118,32,0.06); border:1px solid rgba(242,118,32,0.2); border-radius:8px; padding:8px 12px; font-size:11px; color:#fbbf24;">
+                Érvényes nappali diákigazolvánnyal vagy nyugdíjas szelvénnyel vehető igénybe. Belépéskor a falmester kérheti a felmutatását.
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">Egyszeri Napijegy (Diák / Nyugdíjas)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">2 400 Ft</strong> | 30 napig érvényes egyszeri belépés</span>
+                </div>
+                <button onclick="buyTicket('NAPI_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">10 Alkalmas Bérlet (Diák / Nyugdíjas)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">18 500 Ft</strong> | 30 napig / 10 alkalomra érvényes</span>
+                </div>
+                <button onclick="buyTicket('TIZ_ALKALMAS_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">30 Napos Korlátlan Bérlet (Diák / Nyugdíjas)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">23 600 Ft</strong> | 30 napos korlátlan belépés mindhárom falra</span>
+                </div>
+                <button onclick="buyTicket('HAVI_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+            </div>
+
+            <!-- Category 3: Gyerek (10 éves kor alatt) -->
+            <div id="buy-tickets-gyerek" style="display:none; flex-direction:column; gap:12px;">
+              <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:8px 12px; font-size:11px; color:#34d399;">
+                10 éves kor alatti mászópalántáknak szülői vagy hivatalos edzői felügyelet mellett használható.
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">Egyszeri Napijegy (Gyerek 10 éves kor alatt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">2 100 Ft</strong> | 30 napig érvényes egyszeri belépés</span>
+                </div>
+                <button onclick="buyTicket('NAPI_GYEREK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">10 Alkalmas Bérlet (Gyerek 10 éves kor alatt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">16 600 Ft</strong> | 30 napig / 10 alkalomra érvényes</span>
+                </div>
+                <button onclick="buyTicket('TIZ_ALKALMAS_GYEREK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">30 Napos Korlátlan Bérlet (Gyerek 10 éves kor alatt)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">21 200 Ft</strong> | 30 napos korlátlan belépés mindhárom falra</span>
+                </div>
+                <button onclick="buyTicket('HAVI_GYEREK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+            </div>
+
+            <!-- Category 4: Partneriskolák (-20%) -->
+            <div id="buy-tickets-partner" style="display:none; flex-direction:column; gap:12px;">
+              <div style="background:rgba(242,118,32,0.08); border:1px solid rgba(242,118,32,0.3); border-radius:10px; padding:12px 14px; font-size:12px; color:#fbbf24; line-height: 1.5;">
+                <strong>🎓 20% Partneriskolai Kedvezmény:</strong> Érvényes az <strong>Eötvös József Gyakorlóiskola</strong>, a <strong>Kossuth Lajos Gimnázium</strong> és a <strong>Zrínyi Ilona Gimnázium</strong> diákjai és tanárai részére. Az első belépésnél a falmester ellenőrzi az érvényes diák- vagy tanári igazolványt (tárgyév október 31-ig érvényes). Saját névre tranzakciónként legfeljebb 1 db partnerkedvezményes jegy vásárolható.
+              </div>
+
+              <!-- Partner Diák alcsoport -->
+              <div style="font-size: 13px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 5px; display: flex; align-items: center; gap: 6px;">
+                <span>📚</span> Diák Kedvezmény (-20% a diák árból)
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">Napijegy (Partner Diák -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">1 920 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">2 400 Ft</span> | 30 napig érvényes egyszeri belépés</span>
+                </div>
+                <button onclick="buyTicket('NAPI_PARTNER_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">10 Alkalmas Bérlet (Partner Diák -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">14 800 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">18 500 Ft</span> | 30 napig / 10 alkalomra érvényes</span>
+                </div>
+                <button onclick="buyTicket('TIZ_ALKALMAS_PARTNER_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">30 Napos Korlátlan Bérlet (Partner Diák -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">18 880 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">23 600 Ft</span> | 30 napos korlátlan belépés mindhárom falra</span>
+                </div>
+                <button onclick="buyTicket('HAVI_PARTNER_DIAK')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+
+              <!-- Partner Tanár alcsoport -->
+              <div style="font-size: 13px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 10px; display: flex; align-items: center; gap: 6px;">
+                <span>🎓</span> Tanár / Oktató Kedvezmény (-20% a felnőtt árból)
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">Napijegy (Partner Tanár -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">2 240 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">2 800 Ft</span> | 30 napig érvényes egyszeri belépés</span>
+                </div>
+                <button onclick="buyTicket('NAPI_PARTNER_TANAR')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">10 Alkalmas Bérlet (Partner Tanár -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">17 600 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">22 000 Ft</span> | 30 napig / 10 alkalomra érvényes</span>
+                </div>
+                <button onclick="buyTicket('TIZ_ALKALMAS_PARTNER_TANAR')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px;">
+                <div>
+                  <strong style="display:block; color:#fff;">30 Napos Korlátlan Bérlet (Partner Tanár -20%)</strong>
+                  <span style="font-size:12px; color:var(--text-secondary);"><strong style="color:var(--primary);">22 400 Ft</strong> <span style="text-decoration: line-through; opacity: 0.6; margin-left: 4px;">28 000 Ft</span> | 30 napos korlátlan belépés mindhárom falra</span>
+                </div>
+                <button onclick="buyTicket('HAVI_PARTNER_TANAR')" class="btn btn-primary btn-sm" style="font-weight:600;">Vásárlás</button>
               </div>
             </div>
           </div>
@@ -146,6 +279,52 @@
               <div class="form-group" style="margin-bottom:0;">
                 <label class="form-label" for="booking-date">Dátum</label>
                 <input type="date" id="booking-date" class="form-control">
+              </div>
+            </div>
+
+            <!-- Booking attendee mode selector (Adult climber + up to 3 children) -->
+            <div class="form-group" style="margin-bottom: 22px;">
+              <label class="form-label" style="display: block; margin-bottom: 10px; font-weight: 700;">Résztvevők száma a választott idősávban:</label>
+              
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px;">
+                <!-- Felnőtt / Diák (Te) -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #fff;">🧗 Felnőtt / Diák (Te magad)</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Mászol a falon vagy csak felügyelő kísérőként veszel részt?</div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-primary btn-sm attendee-adult-btn" id="btn-adult-climbing-yes" onclick="setAdultClimbing(true)" style="padding: 6px 12px; font-size: 12px; font-weight: 600;">
+                      Mászom (1 fő)
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm attendee-adult-btn" id="btn-adult-climbing-no" onclick="setAdultClimbing(false)" style="padding: 6px 12px; font-size: 12px; font-weight: 600;">
+                      Nem mászom (Kísérő)
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 10 év alatti gyermekek száma -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #fff;">🧒 10 év alatti gyermekek száma</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Hány 10 év alatti gyermek mászik veled? (max. 3 gyermek)</div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-primary btn-sm attendee-child-btn" id="btn-child-qty-0" onclick="setChildCount(0)" style="padding: 6px 12px; font-size: 12px; font-weight: 700; min-width: 36px;">0</button>
+                    <button type="button" class="btn btn-secondary btn-sm attendee-child-btn" id="btn-child-qty-1" onclick="setChildCount(1)" style="padding: 6px 12px; font-size: 12px; font-weight: 700; min-width: 36px;">1</button>
+                    <button type="button" class="btn btn-secondary btn-sm attendee-child-btn" id="btn-child-qty-2" onclick="setChildCount(2)" style="padding: 6px 12px; font-size: 12px; font-weight: 700; min-width: 36px;">2</button>
+                    <button type="button" class="btn btn-secondary btn-sm attendee-child-btn" id="btn-child-qty-3" onclick="setChildCount(3)" style="padding: 6px 12px; font-size: 12px; font-weight: 700; min-width: 36px;">3</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Summary indicator -->
+              <div id="booking-attendees-summary" style="margin-top: 10px; font-size: 12px; color: #60a5fa; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <span>Összesen: <strong>1 mászó</strong> (1 szabad helyet köt le a terem kapacitásából)</span>
+              </div>
+
+              <div id="booking-child-notice" style="display: none; margin-top: 10px; background: rgba(242,118,32,0.08); border: 1px solid rgba(242,118,32,0.35); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.5; color: #fbbf24;">
+                ⚠️ <strong>Fontos kísérői szabály:</strong> 10 éves kor alatti gyermek önállóan nem mászhat a teremben! Kísérőként kötelező személyesen megjelenned a gyermekkel a teljes edzésidő alatt. (A nem mászó felnőtt kísérőnek külön jegyet nem kell váltania).
               </div>
             </div>
 
@@ -250,6 +429,27 @@
       <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; text-align: center;">Kérjük, add meg a számlázási adataidat a számla kiállításához.</p>
       
       <form id="billing-form" onsubmit="handleBillingSubmit(event)" style="width: 100%; text-align: left;">
+        <div id="billing-ticket-summary" style="display: none; background: rgba(242,118,32,0.08); border: 1px solid rgba(242,118,32,0.3); border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; text-align: center;"></div>
+        
+        <div class="form-group" id="billing-quantity-container" style="margin-bottom: 18px; display: none; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09); padding: 12px 14px; border-radius: 8px;">
+          <label class="form-label" for="billing-ticket-qty" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span>Vásárolt jegyek darabszáma:</span>
+            <span id="billing-qty-unit-price" style="font-size: 11px; color: var(--text-secondary); font-weight: 500;"></span>
+          </label>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <select id="billing-ticket-qty" class="form-control" style="max-width: 130px; font-weight: 700;" onchange="updateBillingModalTotal()">
+              <option value="1">1 db</option>
+              <option value="2">2 db</option>
+              <option value="3">3 db</option>
+              <option value="4">4 db</option>
+            </select>
+            <div id="billing-qty-total" style="font-size: 15px; font-weight: 800; color: var(--primary);"></div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
+            Egyszerre több jegyet is megvásárolhatsz (pl. testvéreknek vagy kísérőknek) egyetlen fizetéssel.
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom: 15px;">
           <label class="form-label" for="billing-name">Számlázási név (Személy vagy Cég)</label>
           <input type="text" id="billing-name" class="form-control" placeholder="Pl. Kovács János vagy Kovács Kft." required>
@@ -303,6 +503,49 @@
         <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveBillingResponse(false)">Nem</button>
         <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveBillingResponse(true)">Igen</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Partner School Status Modal -->
+  <div class="modal-backdrop" id="school-status-modal-backdrop" onclick="closeSchoolStatusModal()">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width: 520px;">
+      <button class="modal-close" onclick="closeSchoolStatusModal()">×</button>
+      <h3 style="color: var(--primary); margin-bottom: 10px; text-align: center; font-size: 20px;">🎓 Partneriskolai Kedvezmény (-20%)</h3>
+      <p style="font-size: 12px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 20px; text-align: center;">
+        A partneriskoláink tanulói és tanárai 20% kedvezményre jogosultak jegy- és bérletvásárláskor. Az érvényes diák- vagy pedagógusigazolványt az első belépés alkalmával a falmester a helyszínen ellenőrzi.
+      </p>
+      <form id="school-status-form" onsubmit="handleSchoolStatusSubmit(event)">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" for="modal-school-role">Jogosultság státusza</label>
+          <select id="modal-school-role" class="form-control" onchange="toggleModalSchoolFields()">
+            <option value="NONE">Nem vagyok partneriskola diákja / tanára</option>
+            <option value="STUDENT">Diák / Tanuló (-20% a diák árból)</option>
+            <option value="TEACHER">Tanár / Oktató (-20% a teljes felnőtt árból)</option>
+          </select>
+        </div>
+        <div id="modal-school-subfields" style="display: none;">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="modal-school-name">Partneriskola kiválasztása *</label>
+            <select id="modal-school-name" class="form-control">
+              <option value="">Válassz intézményt...</option>
+              <option value="Eötvös József Gyakorlóiskola és Gimnázium">Nyíregyházi Egyetem Eötvös József Gyakorló Általános Iskola és Gimnázium</option>
+              <option value="Evangélikus Kossuth Lajos Gimnázium">Nyíregyházi Evangélikus Kossuth Lajos Gimnázium</option>
+              <option value="Zrínyi Ilona Gimnázium">Nyíregyházi Zrínyi Ilona Gimnázium</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label class="form-label" for="modal-school-id">Diákigazolvány vagy Oktatói azonosító szám (Opcionális)</label>
+            <input type="text" id="modal-school-id" class="form-control" placeholder="pl. 72345678901">
+            <small style="color: #fbbf24; font-size: 11px; display: block; margin-top: 5px;">
+              ⚠️ Az igazolvány érvényessége a tanév rendje szerint október 31-ig tart, melyet a falmester az első leolvasáskor ellenőriz.
+            </small>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 15px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeSchoolStatusModal()">Mégse</button>
+          <button type="submit" class="btn btn-primary btn-sm">Beállítások Mentése</button>
+        </div>
+      </form>
     </div>
   </div>
 
