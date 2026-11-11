@@ -282,6 +282,26 @@
   <script>
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
 
+    // If user is already logged in, redirect them to their panel / dashboard
+    (function checkAlreadyLoggedIn() {
+      const savedToken = localStorage.getItem('token');
+      if (savedToken) {
+        try {
+          const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const roles = (savedUser.role || '').split(',').map(r => r.trim().toUpperCase());
+          if (roles.includes('ADMIN')) {
+            window.location.href = 'admin.html';
+          } else if (roles.includes('STAFF')) {
+            window.location.href = 'admin.html#bookings';
+          } else {
+            window.location.href = 'dashboard.html';
+          }
+        } catch (_) {
+          window.location.href = 'dashboard.html';
+        }
+      }
+    })();
+
     function switchAuthTab(tab) {
       const tabLogin = document.getElementById('tab-login');
       const tabRegister = document.getElementById('tab-register');

@@ -1408,6 +1408,17 @@ function initScrollDivider() {
 async function initPublicLanding() {
   initParallax();
   initScrollDivider();
+
+  // If user is already logged in, update landing page CTA buttons to go to dashboard directly
+  const savedToken = localStorage.getItem('token');
+  if (savedToken) {
+    document.querySelectorAll('.price-card a[href="auth.html"]').forEach(a => {
+      a.href = 'dashboard.html';
+    });
+    document.querySelectorAll('.hero-content a[href="auth.html"]').forEach(a => {
+      a.href = 'dashboard.html';
+    });
+  }
   const video = document.querySelector('.hero-video-bg');
   const heroContent = document.querySelector('.hero-content');
   const isMobileInit = window.innerWidth <= 768;
@@ -2710,6 +2721,12 @@ function buyTicket(ticketType) {
   }
 }
 window.buyTicket = buyTicket;
+
+function formatPrice(amount) {
+  if (typeof amount !== 'number') amount = Number(amount) || 0;
+  return new Intl.NumberFormat('hu-HU').format(amount) + ' Ft';
+}
+window.formatPrice = formatPrice;
 
 function updateBillingModalTotal() {
   const ticketType = window.selectedTicketType;
