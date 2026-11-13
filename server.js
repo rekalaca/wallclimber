@@ -14,12 +14,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'hawkstone-secret-key-2026-super-secure';
 
-// Barion configuration
-const BARION_POS_KEY = process.env.BARION_POS_KEY;
-const BARION_PAYEE_EMAIL = process.env.BARION_PAYEE_EMAIL;
-const BARION_BASE_URL = process.env.BARION_ENVIRONMENT === 'production'
+// Barion configuration (strip any inline # comments or trailing whitespace from .env)
+const cleanEnvValue = (val) => (val ? String(val).split('#')[0].trim() : '');
+const BARION_POS_KEY = cleanEnvValue(process.env.BARION_POS_KEY);
+const BARION_PAYEE_EMAIL = cleanEnvValue(process.env.BARION_PAYEE_EMAIL);
+const BARION_ENV_CLEAN = cleanEnvValue(process.env.BARION_ENVIRONMENT).toLowerCase();
+// Strictly use Barion Sandbox (https://api.test.barion.com) unless BARION_ENVIRONMENT is explicitly 'production'
+const BARION_BASE_URL = BARION_ENV_CLEAN === 'production'
   ? 'https://api.barion.com'
   : 'https://api.test.barion.com';
+
+// Translate Barion API errors into clear, actionable Hungarian messages
+function formatBarionErrorMessage(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) return 'Ismeretlen Barion hiba történt.';
+  const first = errors[0] || {};
+  const code = first.ErrorCode || '';
+  const title = first.Title || 'Barion hiba';
+  const desc = first.Description || '';
+
+  if (code === 'ShopIsInDraftState') {
+    return 'A Barion elfogadóhely (bolt) még "Piszkozat" (Draft) státuszban van a Barion fiókban. Nyisd meg a test.barion.com tárcádat, és véglegesítsd / hagyd jóvá a teszt boltot!';
+  }
+  if (code === 'AuthenticationFailed' || title.includes('User authentication failed')) {
+    return 'Barion Sandbox hitelesítési hiba (User authentication failed): A .env fájlban megadott BARION_POS_KEY vagy BARION_PAYEE_EMAIL az éles (barion.com) fiókhoz tartozik, nem a teszt (https://test.barion.com) homokozóhoz! Kérjük, lépj be a https://test.barion.com oldalra, és az ottani teszt bolt POSKey kulcsát írd be a .env-be!';
+  }
+  return desc ? `${title} (${desc})` : title;
+}
 
 
 // SMTP Transporter configuration
@@ -38,6 +58,16 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
+
+// Log every 5xx response with method + URL (helps pinpointing "500 Internal Server Error" in the browser console)
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode >= 500) {
+      console.error(`[HTTP ${res.statusCode}] ${req.method} ${req.originalUrl}`);
+    }
+  });
+  next();
+});
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Subdomain Routing & SEO / AI Crawler Middleware for hawkstone.hu and klub.hawkstone.hu
@@ -680,11 +710,47 @@ async function migratePhoneNumbers() {
   }
 }
 
+// Ensure checkout & temporary booking columns exist in both local SQLite and Vercel Turso DB
+let checkoutSchemaEnsured = false;
+async function ensureCheckoutSchema() {
+  if (checkoutSchemaEnsured) return;
+  const migrations = [
+    "ALTER TABLE barion_payments ADD COLUMN child_quantity INTEGER DEFAULT 0",
+    "ALTER TABLE barion_payments ADD COLUMN temp_booking_id INTEGER",
+    "ALTER TABLE barion_payments ADD COLUMN companion_type TEXT",
+    "ALTER TABLE barion_payments ADD COLUMN companion_quantity INTEGER DEFAULT 0",
+    "ALTER TABLE bookings ADD COLUMN status TEXT DEFAULT 'CONFIRMED'",
+    "ALTER TABLE bookings ADD COLUMN payment_id TEXT",
+    "ALTER TABLE bookings ADD COLUMN temp_expires_at DATETIME"
+  ];
+  for (const sql of migrations) {
+    try {
+      await dbRun(sql);
+    } catch (_) {
+      // Column already exists
+    }
+  }
+  checkoutSchemaEnsured = true;
+}
+
+async function cleanupExpiredTempBookings() {
+  try {
+    await ensureCheckoutSchema();
+    await dbRun(
+      "DELETE FROM bookings WHERE status = 'PENDING' AND temp_expires_at IS NOT NULL AND temp_expires_at < datetime('now')"
+    );
+  } catch (e) {
+    // Ignore if table not ready yet
+  }
+}
+
 // Bypassing database initializations and migrations on Vercel
 // since it runs in a serverless environment where DB schema is already migrated in the cloud
 if (!process.env.VERCEL) {
-  initDB().then(() => updateAdminCredentials()).catch(console.error);
+  initDB().then(() => ensureCheckoutSchema()).then(() => updateAdminCredentials()).catch(console.error);
   migratePhoneNumbers();
+} else {
+  ensureCheckoutSchema().catch(() => {});
 }
 
 // Helper function to generate unique QR string
@@ -1384,6 +1450,8 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Hiányzó paraméterek (locationId, date)!' });
     }
 
+    await cleanupExpiredTempBookings();
+
     // day_of_week from date: 0 = Sun, 1 = Mon ... 6 = Sat
     const parsedDate = new Date(date);
     if (isNaN(parsedDate)) {
@@ -1394,14 +1462,15 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
     const slots = await dbAll(`
       SELECT s.*, l.name as location_name,
         (SELECT COALESCE(SUM(COALESCE(b.heads_count, 1)), 0) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ?) as booked_count,
-        (SELECT COUNT(*) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ? AND b.user_id = ?) as user_booked
+        (SELECT COUNT(*) FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ? AND b.user_id = ? AND COALESCE(b.status, 'CONFIRMED') = 'CONFIRMED') as user_booked,
+        (SELECT id FROM bookings b WHERE b.slot_id = s.id AND b.booking_date = ? AND b.user_id = ? AND b.status = 'PENDING' LIMIT 1) as user_temp_booking_id
       FROM slots s
       JOIN locations l ON s.location_id = l.id
       WHERE s.location_id = ? 
         AND s.day_of_week = ?
         AND s.id NOT IN (SELECT slot_id FROM slot_cancellations WHERE cancelled_date = ?)
       ORDER BY s.start_time ASC
-    `, [date, date, req.user.id, locationId, dayOfWeek, date]);
+    `, [date, date, req.user.id, date, req.user.id, locationId, dayOfWeek, date]);
 
     // Get current Budapest date and time to filter out past slots
     const now = new Date();
@@ -1438,9 +1507,127 @@ app.get('/api/schedule', authenticateToken, async (req, res) => {
   }
 });
 
+// Create temporary reservation during ticket checkout (held for 20 minutes until payment completes)
+app.post('/api/bookings/temp', authenticateToken, async (req, res) => {
+  try {
+    await cleanupExpiredTempBookings();
+
+    const { slotId, date, adultCount = 1, childCount = 0, headsCount, previousTempBookingId } = req.body;
+    if (!slotId || !date) {
+      return res.status(400).json({ error: 'Hiányzó paraméterek (slotId, date)!' });
+    }
+
+    // Remove previous unlinked temporary booking for this user so switching slots releases the old one immediately
+    if (previousTempBookingId) {
+      await dbRun("DELETE FROM bookings WHERE id = ? AND user_id = ? AND status = 'PENDING'", [previousTempBookingId, req.user.id]);
+    }
+    await dbRun("DELETE FROM bookings WHERE user_id = ? AND status = 'PENDING' AND payment_id IS NULL", [req.user.id]);
+
+    const slot = await dbGet('SELECT s.*, l.name as location_name FROM slots s JOIN locations l ON s.location_id = l.id WHERE s.id = ?', [slotId]);
+    if (!slot) return res.status(404).json({ error: 'A választott időpont nem létezik!' });
+
+    // Validate if the slot is in the past
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('hu-HU', {
+      timeZone: 'Europe/Budapest',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const timeStr = `${getPart('hour')}:${getPart('minute')}`;
+
+    if (date < dateStr || (date === dateStr && slot.start_time < timeStr)) {
+      return res.status(400).json({ error: 'Múltbeli időpontra nem lehet foglalni!' });
+    }
+
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(now.getDate() + 21);
+    const maxDateStr = maxBookingDate.toISOString().split('T')[0];
+    if (date > maxDateStr) {
+      return res.status(400).json({ error: 'Csak legfeljebb 3 hétre előre lehet időpontot foglalni!' });
+    }
+
+    // Check if user already has a CONFIRMED booking for this slot & date
+    const existingConfirmed = await dbGet(
+      "SELECT id FROM bookings WHERE user_id = ? AND slot_id = ? AND booking_date = ? AND COALESCE(status, 'CONFIRMED') = 'CONFIRMED'",
+      [req.user.id, slotId, date]
+    );
+    if (existingConfirmed) {
+      return res.status(400).json({ error: 'Erre az időpontra már van véglegesített foglalásod!' });
+    }
+
+    const cleanAdult = Math.max(0, Math.min(4, parseInt(adultCount) || 0));
+    const cleanChild = Math.max(0, Math.min(4, parseInt(childCount) || 0));
+    const actualHeads = Math.max(1, Math.min(8, parseInt(headsCount) || (cleanAdult + cleanChild) || 1));
+
+    let cleanBookingType = 'SELF';
+    if (cleanAdult === 0 && cleanChild > 0) cleanBookingType = 'CHILD_ONLY';
+    else if (cleanAdult > 0 && cleanChild > 0) cleanBookingType = 'SELF_AND_CHILD';
+
+    // Check capacity including active + non-expired temporary bookings
+    const bookedCountRow = await dbGet(
+      'SELECT COALESCE(SUM(COALESCE(heads_count, 1)), 0) as total FROM bookings WHERE slot_id = ? AND booking_date = ?',
+      [slotId, date]
+    );
+    const currentOccupancy = bookedCountRow.total || 0;
+    if (currentOccupancy + actualHeads > slot.max_capacity) {
+      const remaining = slot.max_capacity - currentOccupancy;
+      return res.status(400).json({
+        error: remaining > 0
+          ? `Ebben az idősávban már csak ${remaining} szabad hely van, de a foglaláshoz ${actualHeads} hely szükséges!`
+          : 'Ez az időpont már betelt (telt ház)!'
+      });
+    }
+
+    const result = await dbRun(
+      `INSERT INTO bookings (user_id, slot_id, booking_date, heads_count, booking_type, adult_count, child_count, status, temp_expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', datetime('now', '+20 minutes'))`,
+      [req.user.id, slotId, date, actualHeads, cleanBookingType, cleanAdult, cleanChild]
+    );
+
+    res.status(201).json({
+      message: 'Időpont ideiglenesen lefoglalva a fizetés idejére!',
+      booking: {
+        id: result.lastID,
+        slot_id: slot.id,
+        booking_date: date,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        location_name: slot.location_name,
+        heads_count: actualHeads,
+        adult_count: cleanAdult,
+        child_count: cleanChild,
+        status: 'PENDING'
+      }
+    });
+  } catch (error) {
+    console.error('[TEMP BOOKING ERROR]:', error);
+    res.status(500).json({ error: 'Hiba az ideiglenes foglalás során: ' + error.message });
+  }
+});
+
+// Release temporary reservation
+app.delete('/api/bookings/temp/:id', authenticateToken, async (req, res) => {
+  try {
+    await ensureCheckoutSchema();
+    const bookingId = req.params.id;
+    await dbRun("DELETE FROM bookings WHERE id = ? AND user_id = ? AND status = 'PENDING'", [bookingId, req.user.id]);
+    res.json({ message: 'Ideiglenes foglalás feloldva.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create booking
 app.post('/api/bookings', authenticateToken, async (req, res) => {
   try {
+    await cleanupExpiredTempBookings();
     const { slotId, date, bookingType = 'SELF', headsCount } = req.body;
     if (!slotId || !date) {
       return res.status(400).json({ error: 'Hiányzó paraméterek (slotId, date)!' });
@@ -1566,10 +1753,34 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
 
     // Insert booking (handles unique constraint per user-slot-date automatically)
     try {
-      await dbRun(
+      const bookingInsert = await dbRun(
         'INSERT INTO bookings (user_id, slot_id, booking_date, heads_count, booking_type, adult_count, child_count) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [req.user.id, slotId, date, actualHeads, cleanBookingType, adultCount, childCount]
       );
+
+      // Confirmation e-mail with calendar (.ics) attachment
+      try {
+        const bookingClimber = await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]);
+        const bookingLoc = await dbGet('SELECT name, address FROM locations WHERE id = ?', [slot.location_id]);
+        if (bookingClimber && bookingLoc) {
+          const mailProto = req.headers['x-forwarded-proto'] || 'http';
+          const mailDomain = `${mailProto}://${req.headers.host}`;
+          const mailInfo = {
+            id: bookingInsert.lastID,
+            location_name: bookingLoc.name,
+            location_address: bookingLoc.address,
+            booking_date: date,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            heads_count: actualHeads,
+            details_text: describeBookingAttendees(cleanBookingType, adultCount, childCount, actualHeads)
+          };
+          const mailPromise = sendBookingConfirmationEmail(bookingClimber, mailInfo, mailDomain);
+          if (process.env.VERCEL) await mailPromise;
+        }
+      } catch (mailErr) {
+        console.error('[BOOKING EMAIL ERROR]:', mailErr);
+      }
       let successMsg = 'Sikeres foglalás!';
       if (adultCount === 0 && childCount > 0) {
         successMsg = `Sikeres foglalás ${childCount} gyermek számára! (Ne feledd: kísérőként kötelező személyesen megjelenned a gyermekekkel).`;
@@ -1916,6 +2127,8 @@ app.get('/api/tickets/pricing', (req, res) => {
 // ---------------- BARION ONLINE PAYMENT ----------------
 // Helper to query and process Barion payment state
 async function processBarionPayment(paymentId, domain) {
+  await ensureCheckoutSchema();
+
   if (!BARION_POS_KEY) {
     throw new Error('A Barion nincs konfigurálva a szerveren.');
   }
@@ -1932,11 +2145,22 @@ async function processBarionPayment(paymentId, domain) {
   }
 
   // Fetch payment state from Barion
-  const response = await fetch(`${BARION_BASE_URL}/v2/Payment/GetPaymentState?PosKey=${BARION_POS_KEY}&PaymentId=${paymentId}`);
-  const stateData = await response.json();
+  let response, stateData;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      response = await fetch(`${BARION_BASE_URL}/v2/Payment/GetPaymentState?PosKey=${BARION_POS_KEY}&PaymentId=${paymentId}`);
+      const rawState = await response.text();
+      stateData = JSON.parse(rawState);
+      break;
+    } catch (fetchErr) {
+      console.warn(`[BARION] GetPaymentState attempt ${attempt} failed: ${fetchErr.message}`);
+      if (attempt === 3) throw new Error('A Barion átmenetileg nem válaszolt érvényesen, kérjük próbáld újra pár másodperc múlva.');
+      await new Promise(r => setTimeout(r, 1200 * attempt));
+    }
+  }
 
   if (!response.ok || (stateData.Errors && stateData.Errors.length > 0)) {
-    const errorMsg = stateData.Errors && stateData.Errors[0] ? stateData.Errors[0].Title : 'Lekérdezési hiba';
+    const errorMsg = formatBarionErrorMessage(stateData.Errors);
     throw new Error(`Barion hiba a lekéréskor: ${errorMsg}`);
   }
 
@@ -1968,6 +2192,7 @@ async function processBarionPayment(paymentId, domain) {
     let sessions = conf ? conf.sessions : (ticketType.startsWith('NAPI') ? 1 : ticketType.startsWith('TIZ_ALKALMAS') ? 10 : 9999);
 
     const qty = Math.max(1, parseInt(localPayment.quantity) || 1);
+    const childQty = Math.max(0, Math.min(4, parseInt(localPayment.child_quantity) || 0));
     const createdTickets = [];
 
     for (let i = 0; i < qty; i++) {
@@ -1986,9 +2211,76 @@ async function processBarionPayment(paymentId, domain) {
       });
     }
 
+    // Issue additional Child Daily Tickets (NAPI_GYEREK) if purchased together
+    if (childQty > 0) {
+      for (let c = 0; c < childQty; c++) {
+        const childQrUuid = generateUUID();
+        const childRes = await dbRun(
+          'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [userId, 'NAPI_GYEREK', purchaseDate, expiresDate, 1, childQrUuid, paymentId]
+        );
+        createdTickets.push({
+          id: childRes.lastID,
+          ticket_type: 'NAPI_GYEREK',
+          purchase_date: purchaseDate,
+          expires_date: expiresDate,
+          sessions_remaining: 1,
+          qr_code_uuid: childQrUuid
+        });
+      }
+    }
+
+    // Issue companion (adult / student) tickets bought together with a child ticket
+    const companionQty = Math.max(0, Math.min(4, parseInt(localPayment.companion_quantity) || 0));
+    const companionType = localPayment.companion_type;
+    if (companionQty > 0 && companionType) {
+      const compConf = getTicketConfig(companionType);
+      const compSessions = compConf ? compConf.sessions : 1;
+      for (let k = 0; k < companionQty; k++) {
+        const compQr = generateUUID();
+        const compRes = await dbRun(
+          'INSERT INTO tickets (user_id, ticket_type, purchase_date, expires_date, sessions_remaining, qr_code_uuid, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [userId, companionType, purchaseDate, expiresDate, compSessions, compQr, paymentId]
+        );
+        createdTickets.push({
+          id: compRes.lastID,
+          ticket_type: companionType,
+          purchase_date: purchaseDate,
+          expires_date: expiresDate,
+          sessions_remaining: compSessions,
+          qr_code_uuid: compQr
+        });
+      }
+    }
+
+    // Finalize temporary booking if one was attached to this payment
+    let bookingFinalized = false;
+    try {
+      if (localPayment.temp_booking_id) {
+        const finalizeRes = await dbRun(
+          "UPDATE bookings SET status = 'CONFIRMED', temp_expires_at = NULL WHERE (id = ? OR payment_id = ?) AND user_id = ?",
+          [localPayment.temp_booking_id, paymentId, userId]
+        );
+        if (finalizeRes && finalizeRes.changes > 0) {
+          bookingFinalized = true;
+        }
+      } else {
+        const finalizeRes = await dbRun(
+          "UPDATE bookings SET status = 'CONFIRMED', temp_expires_at = NULL WHERE payment_id = ? AND user_id = ?",
+          [paymentId, userId]
+        );
+        if (finalizeRes && finalizeRes.changes > 0) {
+          bookingFinalized = true;
+        }
+      }
+    } catch (bErr) {
+      console.error('[BARION BOOKING FINALIZE ERROR]:', bErr);
+    }
+
     const ticketObj = createdTickets[0];
 
-    // Generate invoice and send confirmation email synchronously to prevent serverless function termination
+    // Invoice + confirmation e-mail: awaited on serverless (Vercel freezes after response), background locally
+    const postPaymentWork = (async () => {
     try {
       const climber = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
       if (climber) {
@@ -2012,20 +2304,70 @@ async function processBarionPayment(paymentId, domain) {
           }
         }
         
-        await sendTicketConfirmationEmail(ticketObj, climber, domain, invoiceBuffer, invoiceNumber);
+        // Fetch confirmed booking details if finalized
+        let bookingInfo = null;
+        if (bookingFinalized) {
+          const bookingRow = await dbGet(
+            `SELECT b.*, s.start_time, s.end_time, l.name as location_name, l.address as location_address
+             FROM bookings b
+             JOIN slots s ON b.slot_id = s.id
+             JOIN locations l ON s.location_id = l.id
+             WHERE (b.id = ? OR b.payment_id = ?) AND b.user_id = ?`,
+            [localPayment.temp_booking_id || 0, paymentId, userId]
+          );
+          if (bookingRow) {
+            let detailsText = `${bookingRow.heads_count} fő`;
+            if (bookingRow.booking_type === 'CHILD_ONLY') {
+              detailsText = `${bookingRow.child_count} gyermek (kísérővel)`;
+            } else if (bookingRow.booking_type === 'SELF_AND_CHILD') {
+              detailsText = `1 felnőtt + ${bookingRow.child_count} gyermek`;
+            } else {
+              detailsText = `${bookingRow.adult_count || bookingRow.heads_count} felnőtt`;
+            }
+            bookingInfo = {
+              id: bookingRow.id,
+              location_name: bookingRow.location_name,
+              location_address: bookingRow.location_address,
+              booking_date: bookingRow.booking_date,
+              start_time: bookingRow.start_time,
+              end_time: bookingRow.end_time,
+              heads_count: bookingRow.heads_count,
+              details_text: detailsText
+            };
+          }
+        }
+
+        await sendTicketConfirmationEmail(ticketObj, climber, domain, invoiceBuffer, invoiceNumber, createdTickets, bookingInfo);
       }
     } catch (err) {
       console.error('[EMAIL/BILLING ERROR] Error processing post-payment email/invoice:', err);
     }
+    })();
+    if (process.env.VERCEL) { await postPaymentWork; } else { postPaymentWork.catch(() => {}); }
 
-
-    return { success: true, ticket: ticketObj };
+    return { success: true, ticket: ticketObj, tickets: createdTickets, bookingFinalized };
   } else {
     // Update local status with the non-success status
     await dbRun(
       'UPDATE barion_payments SET status = ? WHERE payment_id = ?',
       [stateData.Status, paymentId]
     );
+
+    // If payment ended in a terminal failure/cancellation state, delete the temporary reservation!
+    const terminalFailedStates = ['Failed', 'Canceled', 'Expired', 'Rejected'];
+    if (terminalFailedStates.includes(stateData.Status)) {
+      try {
+        if (localPayment.temp_booking_id) {
+          await dbRun("DELETE FROM bookings WHERE status = 'PENDING' AND (id = ? OR payment_id = ?)", [localPayment.temp_booking_id, paymentId]);
+        } else {
+          await dbRun("DELETE FROM bookings WHERE status = 'PENDING' AND payment_id = ?", [paymentId]);
+        }
+        console.log(`[BARION] Released temporary booking for failed/canceled payment ${paymentId} (${stateData.Status})`);
+      } catch (cleanupErr) {
+        console.error('[BARION TEMP BOOKING CLEANUP ERROR]:', cleanupErr);
+      }
+    }
+
     return { success: false, status: stateData.Status };
   }
 }
@@ -2033,7 +2375,21 @@ async function processBarionPayment(paymentId, domain) {
 // Start Barion Payment (returns GatewayUrl)
 app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
   try {
-    const { ticketType, quantity = 1, billingName, billingZip, billingCity, billingAddress, billingTaxNumber } = req.body;
+    await ensureCheckoutSchema();
+    const {
+      ticketType,
+      quantity = 1,
+      childQuantity = 0,
+      companionType = null,
+      companionQuantity = 0,
+      tempBookingId = null,
+      billingName,
+      billingZip,
+      billingCity,
+      billingAddress,
+      billingTaxNumber
+    } = req.body;
+
     const conf = getTicketConfig(ticketType);
     if (!conf) {
       return res.status(400).json({ error: 'Érvénytelen jegytípus!' });
@@ -2046,6 +2402,26 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
     } else {
       qty = Math.max(1, Math.min(4, parseInt(quantity) || 1));
     }
+
+    // Child ticket add-on (1-4 db NAPI_GYEREK) allowed for Adult / Student / Partner purchases
+    const isMainChildTicket = (ticketType || '').includes('GYEREK');
+    const childQty = isMainChildTicket ? 0 : Math.max(0, Math.min(4, parseInt(childQuantity) || 0));
+    const childConf = getTicketConfig('NAPI_GYEREK');
+    const childUnitPrice = childConf ? childConf.price : 2100;
+    const childTotal = childQty * childUnitPrice;
+
+    // Companion ticket (adult / student) offered together with a child ticket
+    let companionConf = null;
+    let companionTypeClean = null;
+    let companionQty = 0;
+    if (isMainChildTicket && companionType && ['NAPI', 'NAPI_DIAK'].includes(companionType)) {
+      companionConf = getTicketConfig(companionType);
+      if (companionConf) {
+        companionTypeClean = companionType;
+        companionQty = Math.max(1, Math.min(4, parseInt(companionQuantity) || 1));
+      }
+    }
+    const companionTotal = companionConf ? companionQty * companionConf.price : 0;
 
     // Partner discount eligibility and companion abuse check
     if (conf.isPartner) {
@@ -2082,7 +2458,8 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
     }
 
     const price = conf.price;
-    const totalPrice = price * qty;
+    const mainItemTotal = price * qty;
+    const totalPrice = mainItemTotal + childTotal + companionTotal;
     const ticketName = conf.fullName;
     const ticketDesc = conf.desc;
 
@@ -2093,7 +2470,40 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
     // For Barion callbacks, always use the public production URL.
     // If the request comes from localhost, Barion cannot reach it → CallbackFailed.
     // BARION_CALLBACK_DOMAIN should be set in .env (e.g. https://webpage-tau-roan.vercel.app)
-    const callbackDomain = process.env.BARION_CALLBACK_DOMAIN || domain;
+    const callbackDomain = cleanEnvValue(process.env.BARION_CALLBACK_DOMAIN) || domain;
+
+    const items = [
+      {
+        Name: ticketName,
+        Description: ticketDesc,
+        Quantity: qty,
+        Unit: 'db',
+        UnitPrice: price,
+        ItemTotal: mainItemTotal
+      }
+    ];
+
+    if (childQty > 0) {
+      items.push({
+        Name: childConf ? childConf.fullName : 'Egyszeri Napijegy (Gyerek - 10 év alatt)',
+        Description: childConf ? childConf.desc : 'Kedvezményes gyermek napijegy 10 éves kor alatt.',
+        Quantity: childQty,
+        Unit: 'db',
+        UnitPrice: childUnitPrice,
+        ItemTotal: childTotal
+      });
+    }
+
+    if (companionConf && companionQty > 0) {
+      items.push({
+        Name: companionConf.fullName,
+        Description: companionConf.desc,
+        Quantity: companionQty,
+        Unit: 'db',
+        UnitPrice: companionConf.price,
+        ItemTotal: companionTotal
+      });
+    }
 
     const paymentRequest = {
       POSKey: BARION_POS_KEY,
@@ -2111,21 +2521,12 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
           POSTransactionId: `tx_${Date.now()}_${req.user.id}`,
           Payee: BARION_PAYEE_EMAIL,
           Total: totalPrice,
-          Items: [
-            {
-              Name: ticketName,
-              Description: ticketDesc,
-              Quantity: qty,
-              Unit: 'db',
-              UnitPrice: price,
-              ItemTotal: totalPrice
-            }
-          ]
+          Items: items
         }
       ]
     };
 
-    console.log('[BARION] Initiating payment for user:', req.user.id, ticketType, 'Qty:', qty, 'Total:', totalPrice);
+    console.log('[BARION] Initiating payment for user:', req.user.id, ticketType, 'Qty:', qty, 'ChildQty:', childQty, 'Total:', totalPrice);
 
     const response = await fetch(`${BARION_BASE_URL}/v2/Payment/Start`, {
       method: 'POST',
@@ -2136,15 +2537,23 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
     });
 
     const responseData = await response.json();
+
     if (!response.ok || (responseData.Errors && responseData.Errors.length > 0)) {
-      const errorMsg = responseData.Errors && responseData.Errors[0] ? responseData.Errors[0].Title : 'Barion hiba';
+      const errorMsg = formatBarionErrorMessage(responseData.Errors);
       console.error('[BARION ERROR] Failed to start payment:', responseData.Errors);
+      // Release temporary reservation if payment failed to start
+      if (tempBookingId) {
+        await dbRun("DELETE FROM bookings WHERE id = ? AND user_id = ? AND status = 'PENDING'", [tempBookingId, req.user.id]);
+      }
       return res.status(400).json({ error: `Barion hiba: ${errorMsg}` });
     }
 
-    // Save payment details in database with Prepared status and billing details
+    // Save payment details in database with Prepared status, child_quantity, temp_booking_id, and billing details
     await dbRun(
-      'INSERT INTO barion_payments (payment_id, user_id, ticket_type, status, amount, quantity, processed, billing_name, billing_zip, billing_city, billing_address, billing_tax_number) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+      `INSERT INTO barion_payments (
+        payment_id, user_id, ticket_type, status, amount, quantity, child_quantity, temp_booking_id, companion_type, companion_quantity, processed,
+        billing_name, billing_zip, billing_city, billing_address, billing_tax_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
       [
         responseData.PaymentId,
         req.user.id,
@@ -2152,6 +2561,10 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
         'Prepared',
         totalPrice,
         qty,
+        childQty,
+        tempBookingId ? parseInt(tempBookingId) : null,
+        companionTypeClean,
+        companionQty,
         billingName || '',
         billingZip || '',
         billingCity || '',
@@ -2159,6 +2572,14 @@ app.post('/api/barion/start-payment', authenticateToken, async (req, res) => {
         billingTaxNumber || ''
       ]
     );
+
+    // Link the temporary booking to this payment_id and refresh its expiration window
+    if (tempBookingId) {
+      await dbRun(
+        "UPDATE bookings SET payment_id = ?, temp_expires_at = datetime('now', '+25 minutes') WHERE id = ? AND user_id = ? AND status = 'PENDING'",
+        [responseData.PaymentId, tempBookingId, req.user.id]
+      );
+    }
 
     res.json({
       PaymentId: responseData.PaymentId,
@@ -2184,15 +2605,59 @@ app.post('/api/barion/verify-payment', authenticateToken, async (req, res) => {
 
     const result = await processBarionPayment(paymentId, domain);
     if (result.success) {
-      res.json({ message: 'Fizetés sikeresen igazolva!', ticket: result.ticket });
+      res.json({
+        message: 'Fizetés sikeresen igazolva!',
+        ticket: result.ticket,
+        tickets: result.tickets,
+        bookingFinalized: !!result.bookingFinalized
+      });
     } else {
-      res.status(400).json({ error: `Sikertelen fizetés! Státusz: ${result.status}` });
+      res.status(400).json({ error: `Sikertelen fizetés! Státusz: ${result.status}. Az esetlegesen kiválasztott ideiglenes időpontfoglalás törlésre került.` });
     }
   } catch (error) {
     console.error('[BARION VERIFY ERROR]:', error);
     res.status(500).json({ error: 'Hiba az ellenőrzés során: ' + error.message });
   }
 });
+
+// Barion Webhook IPN Callback (Support both POST and GET callbacks)
+// We must await the execution of processBarionPayment BEFORE sending the response.
+// If we return 200 OK immediately and do fire-and-forget processing, serverless environments (like Vercel)
+// will freeze execution, leading to truncated connections or 502/504 errors on Barion's end (CallbackFailed).
+const handleBarionCallback = async (req, res) => {
+  const paymentId = (req.body && (req.body.PaymentId || req.body.paymentId)) || 
+                    (req.query && (req.query.PaymentId || req.query.paymentId));
+  if (!paymentId) {
+    console.warn('[BARION CALLBACK] Received callback without paymentId');
+    return res.status(400).send('Missing paymentId');
+  }
+
+  console.log('[BARION CALLBACK] Received IPN for payment:', paymentId, '— processing payment state.');
+
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers.host;
+  const domain = `${protocol}://${host}`;
+
+  try {
+    const result = await processBarionPayment(paymentId, domain);
+    if (result.alreadyProcessed) {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} was already processed — no action needed.`);
+    } else if (result.success) {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} successfully processed.`);
+    } else {
+      console.log(`[BARION CALLBACK] Payment ${paymentId} not succeeded — status: ${result.status}`);
+    }
+    // Respond with 200 OK after successful processing
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error(`[BARION CALLBACK ERROR] Processing failed for payment ${paymentId}:`, err.message);
+    // Return 500 error so Barion knows it failed and will retry
+    res.status(500).send('Error processing callback: ' + err.message);
+  }
+};
+
+app.post('/api/barion/callback', handleBarionCallback);
+app.get('/api/barion/callback', handleBarionCallback);
 
 // Barion Webhook IPN Callback
 // We must await the execution of processBarionPayment BEFORE sending the response.
@@ -2459,121 +2924,359 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
    });
  }
  
- // Send ticket purchase confirmation email with dynamic domain and inline QR code
- async function sendTicketConfirmationEmail(ticket, climber, domain, invoiceBuffer = null, invoiceNumber = null) {
-   try {
-     const { pdfData, qrBuffer } = await generatePDFBuffer(ticket, climber, domain);
- 
-     const conf = getTicketConfig(ticket.ticket_type);
-     const HungarianType = conf ? conf.fullName : ticket.ticket_type;
-     const baseType = getTicketBaseType(ticket.ticket_type);
-     const priceText = conf ? `${conf.price.toLocaleString('hu-HU')} Ft` : '';
-     let sessionsText = '';
-     if (baseType === 'NAPI') {
-       sessionsText = '1 alkalom (felhasználható)';
-     } else if (baseType === 'TIZ_ALKALMAS') {
-       sessionsText = '10 alkalom';
-     } else if (baseType === 'HAVI') {
-       sessionsText = 'Korlátlan (30 napig)';
-     }
- 
-     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-       await transporter.sendMail({
-         from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
-         to: climber.email,
-         subject: `HawkStone Jegyvásárlás - ${HungarianType}`,
-         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegy adatai:\nJegy azonosítója (ID): #${ticket.id}\nTípus: ${HungarianType}\nÖsszeg: ${priceText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\nEgyenleg: ${sessionsText}\n\nELÁLLÁSI / FELMONDÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Tájékoztatjuk, hogy a 45/2014. (II. 26.) Korm. rendelet értelmében a vásárlással kifejezetten kérte a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszi, hogy az azonnali megkezdés miatt elállás (szerződés felmondás) esetén köteles megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe való belépéssel) elállási/felmondási jogát elveszíti. Az elálláshoz szükséges a Jegy azonosítója: #${ticket.id}, melyet megadhatsz az elállási oldalon: ${domain}/withdrawal.html\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
-         html: `
-           <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-             <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
-             <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center; font-size: 24px;">Sikeres vásárlás!</h2>
-             <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; text-align: center;">Kedves ${climber.name}, köszönjük a vásárlást a <strong>HawkStone Városi Mászóklubban</strong>.</p>
-             
-             <!-- Ticket Info Card -->
-             <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 10px; margin: 25px 0;">
-               <h3 style="margin: 0 0 15px 0; color: #ff6b00; font-family: 'Outfit', sans-serif; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">Jegy Részletei</h3>
-               <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                 <tr>
-                   <td style="padding: 6px 0; color: #94a3b8;">Jegytípus:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${HungarianType}</td>
-                 </tr>
-                 <tr style="background: rgba(255, 107, 0, 0.08); border-radius: 6px;">
-                   <td style="padding: 8px 6px; color: #ff6b00; font-weight: 700;">🎫 Jegy azonosítója (ID):</td>
-                   <td style="padding: 8px 6px; color: #ff6b00; text-align: right; font-weight: 700; font-size: 16px; letter-spacing: 1px;">#${ticket.id}</td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 6px 0; color: #94a3b8;">Fizetett összeg:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${priceText}</td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 6px 0; color: #94a3b8;">Vásárlás időpontja:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.purchase_date.substring(0, 10)}</td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 6px 0; color: #94a3b8;">Lejárat dátuma:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${ticket.expires_date}</td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 6px 0; color: #94a3b8;">Alkalmak száma:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right;">${sessionsText}</td>
-                 </tr>
-               </table>
+ // ---------- Közös e-mail arculat (sötét háttér, bézs szöveg, az oldal narancs színe) ----------
+const MAIL_THEME = {
+  bg: '#12141d',
+  panel: 'rgba(233, 223, 204, 0.06)',
+  border: 'rgba(233, 223, 204, 0.16)',
+  text: '#e9dfcc',
+  muted: '#b3a68f',
+  strong: '#f6eedd',
+  accent: '#f27620'
+};
+
+function mailHeaderAttachment() {
+  return {
+    filename: 'mail_header.png',
+    path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
+    cid: 'mail_header_image'
+  };
+}
+
+function mailRow(label, value, accent) {
+  const T = MAIL_THEME;
+  return `<tr>
+    <td style="padding: 7px 0; color: ${T.muted}; font-size: 14px;">${label}</td>
+    <td style="padding: 7px 0; text-align: right; color: ${accent ? T.accent : T.strong}; font-size: 15px; font-weight: 600;"><a style="color: ${accent ? T.accent : T.strong}; text-decoration: none; pointer-events: none;">${value}</a></td>
+  </tr>`;
+}
+
+function brandedMail({ title, subtitle, bodyHtml, footerHtml }) {
+  const T = MAIL_THEME;
+  return `
+  <div style="background: ${T.bg}; padding: 24px 12px;">
+    <div style="font-family: Arial, Helvetica, sans-serif; background: ${T.bg}; color: ${T.text}; max-width: 600px; margin: 0 auto; border: 1px solid ${T.border}; border-radius: 12px; padding: 28px;">
+      <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 24px;">
+      <h2 style="color: ${T.accent}; font-weight: 600; font-size: 22px; letter-spacing: 0.02em; text-align: center; margin: 0 0 6px 0;">${title}</h2>
+      ${subtitle ? `<p style="text-align: center; margin: 0 0 22px 0; color: ${T.muted}; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;">${subtitle}</p>` : '<div style="height: 14px;"></div>'}
+      ${bodyHtml}
+      <hr style="border: 0; border-top: 1px solid ${T.border}; margin: 26px 0 16px 0;">
+      <div style="font-size: 12px; line-height: 1.6; color: ${T.muted}; text-align: center;">
+        ${footerHtml || 'Üdvözlettel,<br>HawkStone Csapata'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildBookingEmailHtml(climber, info, domain, gcal, weekday) {
+  const T = MAIL_THEME;
+  const body = `
+    <p style="font-size: 15px; line-height: 1.65; color: ${T.text}; margin: 0 0 20px 0;">
+      Kedves ${climber.name}, a helyed a falon biztosított – várunk a HawkStone Városi Mászóklubban!
+    </p>
+    <div style="background: ${T.panel}; border: 1px solid ${T.border}; border-radius: 10px; padding: 16px 20px; margin: 0 0 22px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        ${mailRow('Helyszín', info.location_name)}
+        ${info.location_address ? mailRow('Cím', info.location_address) : ''}
+        ${mailRow('Dátum', info.booking_date + ' (' + weekday + ')')}
+        ${mailRow('Idősáv', info.start_time + ' – ' + info.end_time, true)}
+        ${mailRow('Létszám', info.heads_count + ' fő (' + info.details_text + ')')}
+      </table>
+    </div>
+    <div style="text-align: center; margin: 0 0 10px 0;">
+      <a href="${gcal}" style="background: transparent; border: 1.5px solid ${T.accent}; color: ${T.accent}; padding: 11px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;"><span style="font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 17px; margin-right: 8px; vertical-align: middle;"><span style="color:#4285F4;">G</span></span><span style="vertical-align: middle;">Hozzáadás a Google Naptárhoz</span></a>
+    </div>
+    <p style="font-size: 12px; line-height: 1.6; color: ${T.muted}; text-align: center; margin: 0 0 22px 0;">
+      Apple vagy Outlook naptárhoz használd a csatolt .ics fájlt – egy kattintással bekerül az esemény egy 2 órás emlékeztetővel.
+    </p>
+    <div style="background: ${T.panel}; border: 1px solid ${T.border}; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: ${T.text};">
+      Belépéskor mutasd be a jegyed QR kódját (a Mászói Fiókban is megtalálod). A foglalást a fiókodban az Időpontfoglalás fülön tudod megtekinteni vagy lemondani.
+    </div>
+    <div style="text-align: center; margin: 22px 0 0 0;">
+      <a href="${domain}/dashboard.html" style="color: ${T.accent}; font-weight: 600; font-size: 15px; text-decoration: none;">Mászói Fiók megnyitása →</a>
+    </div>`;
+  return brandedMail({ title: 'Időpontfoglalás rögzítve', subtitle: 'Foglalás visszaigazolása', bodyHtml: body });
+}
+
+// ---------- Booking calendar (.ics) + booking confirmation e-mail ----------
+function icsEscape(t) {
+  return String(t == null ? '' : t)
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function icsLocalStamp(dateStr, timeStr) {
+  const d = String(dateStr).replace(/-/g, '');
+  const t = String(timeStr || '00:00').replace(':', '').padEnd(4, '0').slice(0, 4);
+  return d + 'T' + t + '00';
+}
+
+function buildBookingIcs(info) {
+  const uid = 'booking-' + (info.id || Date.now()) + '@hawkstone.hu';
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const place = info.location_name + (info.location_address ? ', ' + info.location_address : '');
+  const description = [
+    'HawkStone Városi Mászóklub – időpontfoglalás',
+    'Létszám: ' + info.heads_count + ' fő (' + info.details_text + ')',
+    'Belépéskor mutasd be a jegyed QR kódját (a Mászói Fiókban is megtalálod).'
+  ].join('\n');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//HawkStone//Maszoklub//HU',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Budapest',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0100',
+    'TZOFFSETTO:+0200',
+    'TZNAME:CEST',
+    'DTSTART:19700329T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0200',
+    'TZOFFSETTO:+0100',
+    'TZNAME:CET',
+    'DTSTART:19701025T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    'UID:' + uid,
+    'DTSTAMP:' + stamp,
+    'DTSTART;TZID=Europe/Budapest:' + icsLocalStamp(info.booking_date, info.start_time),
+    'DTEND;TZID=Europe/Budapest:' + icsLocalStamp(info.booking_date, info.end_time),
+    'SUMMARY:' + icsEscape('HawkStone mászás – ' + info.location_name),
+    'LOCATION:' + icsEscape(place),
+    'DESCRIPTION:' + icsEscape(description),
+    'STATUS:CONFIRMED',
+    'TRANSP:OPAQUE',
+    'BEGIN:VALARM',
+    'TRIGGER:-PT2H',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:' + icsEscape('HawkStone mászás 2 óra múlva'),
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+  return lines.join('\r\n') + '\r\n';
+}
+
+function buildGoogleCalendarUrl(info) {
+  const place = info.location_name + (info.location_address ? ', ' + info.location_address : '');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: 'HawkStone mászás – ' + info.location_name,
+    dates: icsLocalStamp(info.booking_date, info.start_time) + '/' + icsLocalStamp(info.booking_date, info.end_time),
+    ctz: 'Europe/Budapest',
+    location: place,
+    details: 'HawkStone Városi Mászóklub – ' + info.heads_count + ' fő (' + info.details_text + '). Belépéskor mutasd be a jegyed QR kódját.'
+  });
+  return 'https://calendar.google.com/calendar/render?' + params.toString();
+}
+
+function describeBookingAttendees(bookingType, adultCount, childCount, headsCount) {
+  if (bookingType === 'CHILD_ONLY') return childCount + ' gyermek (kísérővel)';
+  if (bookingType === 'SELF_AND_CHILD') return (adultCount || 1) + ' felnőtt + ' + childCount + ' gyermek';
+  return (adultCount || headsCount || 1) + ' felnőtt';
+}
+
+async function sendBookingConfirmationEmail(climber, info, domain) {
+  try {
+    if (!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)) {
+      console.log('[EMAIL MOCK] SMTP not configured. Booking email would be sent to ' + climber.email);
+      return;
+    }
+    const weekday = new Date(info.booking_date + 'T12:00:00').toLocaleDateString('hu-HU', { weekday: 'long' });
+    const gcal = buildGoogleCalendarUrl(info);
+    const icsContent = buildBookingIcs(info);
+    const subject = 'HawkStone időpontfoglalás – ' + info.booking_date + ' ' + info.start_time;
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || '"HawkStone" <noreply@hawkstone.hu>',
+      to: climber.email,
+      subject,
+      text: 'Kedves ' + climber.name + '!\n\nIdőpontfoglalásodat rögzítettük.\n\nHelyszín: ' + info.location_name + (info.location_address ? ' (' + info.location_address + ')' : '') + '\nDátum: ' + info.booking_date + ' (' + weekday + ')\nIdősáv: ' + info.start_time + ' – ' + info.end_time + '\nLétszám: ' + info.heads_count + ' fő (' + info.details_text + ')\n\nA csatolt .ics fájllal hozzáadhatod a naptáradhoz, vagy használd ezt a linket (Google Naptár): ' + gcal + '\n\nBelépéskor mutasd be a jegyed QR kódját. A foglalást a Mászói Fiókban kezelheted: ' + domain + '/dashboard.html\n\nÜdvözlettel,\nHawkStone Csapata',
+      html: buildBookingEmailHtml(climber, info, domain, gcal, weekday),
+      attachments: [
+        mailHeaderAttachment(),
+        { filename: 'hawkstone-foglalas.ics', content: icsContent, contentType: 'text/calendar; charset=utf-8; method=PUBLISH' }
+      ]
+    });
+    console.log('[EMAIL] Booking confirmation sent to ' + climber.email);
+  } catch (err) {
+    console.error('[EMAIL ERROR] Failed to send booking confirmation email:', err);
+  }
+}
+
+// Send ticket purchase confirmation email with dynamic domain and inline QR code
+ async function sendTicketConfirmationEmail(ticket, climber, domain, invoiceBuffer = null, invoiceNumber = null, allTickets = [], bookingInfo = null) {
+  try {
+    const { pdfData, qrBuffer } = await generatePDFBuffer(ticket, climber, domain);
+
+    const conf = getTicketConfig(ticket.ticket_type);
+    const HungarianType = conf ? conf.fullName : ticket.ticket_type;
+    const baseType = getTicketBaseType(ticket.ticket_type);
+
+    const ticketsList = (allTickets && allTickets.length > 0) ? allTickets : [ticket];
+    const totalAmount = ticketsList.reduce((sum, t) => {
+      const c = getTicketConfig(t.ticket_type);
+      return sum + (c ? c.price : 0);
+    }, 0);
+    const totalAmountText = `${totalAmount.toLocaleString('hu-HU')} Ft`;
+
+    let sessionsText = '';
+    if (baseType === 'NAPI') {
+      sessionsText = '1 alkalom (felhasználható)';
+    } else if (baseType === 'TIZ_ALKALMAS') {
+      sessionsText = '10 alkalom';
+    } else if (baseType === 'HAVI') {
+      sessionsText = 'Korlátlan (30 napig)';
+    }
+
+    const ticketsRowsHtml = ticketsList.map(t => {
+      const c = getTicketConfig(t.ticket_type);
+      const name = c ? c.fullName : t.ticket_type;
+      const price = c ? `${c.price.toLocaleString('hu-HU')} Ft` : '';
+      return `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <td style="padding: 8px 6px; color: #ff6b00; font-weight: 700;">🎫 #${t.id}</td>
+          <td style="padding: 8px 6px; color: #ffffff;">${name}</td>
+          <td style="padding: 8px 6px; color: #ffffff; text-align: right; font-weight: 600;">${price}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const ticketIdsText = ticketsList.map(t => `#${t.id}`).join(', ');
+
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
+        to: climber.email,
+        subject: `HawkStone Jegyvásárlás - ${HungarianType}${ticketsList.length > 1 ? ` (+${ticketsList.length - 1} db jegy)` : ''}`,
+        text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegyek:\n${ticketsList.map(t => {
+          const c = getTicketConfig(t.ticket_type);
+          return `- #${t.id}: ${c ? c.fullName : t.ticket_type} (${c ? c.price.toLocaleString('hu-HU') : ''} Ft)`;
+        }).join('\n')}\n\nÖsszesen fizetve: ${totalAmountText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\n\nELÁLLÁSI / FELMONDÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Tájékoztatjuk, hogy a 45/2014. (II. 26.) Korm. rendelet értelmében a vásárlással kifejezetten kérte a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszi, hogy az azonnali megkezdés miatt elállás (szerződés felmondás) esetén köteles megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe való belépéssel) elállási/felmondási jogát elveszíti. Az elálláshoz szükséges a Jegy azonosítója (${ticketIdsText}), melyet megadhatsz az elállási oldalon: ${domain}/withdrawal.html\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
+        html: `
+          <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
+            <img src="cid:mail_header_image" alt="HawkStone" style="width: 100%; max-width: 600px; display: block; border-radius: 8px; margin-bottom: 25px;">
+            <h2 style="color: #ff6b00; font-family: 'Outfit', sans-serif; margin-bottom: 15px; text-align: center; font-size: 24px;">Sikeres vásárlás!</h2>
+            <p style="font-size: 15px; line-height: 1.6; color: #f27620; text-align: center;">Kedves ${climber.name}, köszönjük a vásárlást a <strong>HawkStone Városi Mászóklubban</strong>.</p>
+            
+            <!-- Ticket Info Card -->
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 10px; margin: 25px 0;">
+              <h3 style="margin: 0 0 15px 0; color: #ff6b00; font-family: 'Outfit', sans-serif; font-size: 19px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">Vásárolt Jegyek (${ticketsList.length} db)</h3>
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 15px;">
+                <thead>
+                  <tr style="color: #f27620; font-size: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <th style="padding: 6px;">ID</th>
+                    <th style="padding: 6px;">Jegytípus</th>
+                    <th style="padding: 6px; text-align: right;">Ár</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${ticketsRowsHtml}
+                </tbody>
+              </table>
+
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                <tr style="background: rgba(255, 107, 0, 0.08); border-radius: 6px;">
+                  <td style="padding: 10px 8px; color: #ff6b00; font-weight: 600;">Fizetett végösszeg:</td>
+                  <td style="padding: 10px 8px; color: #ff6b00; text-align: right; font-weight: 600; font-size: 19px;">${totalAmountText}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 8px; color: #f27620;">Vásárlás időpontja:</td>
+                  <td style="padding: 6px 8px; color: #ffffff; text-align: right;">${ticket.purchase_date.substring(0, 10)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 8px; color: #f27620;">Lejárat dátuma:</td>
+                  <td style="padding: 6px 8px; color: #ffffff; text-align: right;">${ticket.expires_date}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 8px; color: #f27620;">Alkalmak száma:</td>
+                  <td style="padding: 6px 8px; color: #ffffff; text-align: right;">${sessionsText}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Withdrawal Info Box -->
+            <div style="background: rgba(255, 107, 0, 0.05); border: 1px solid rgba(255, 107, 0, 0.2); padding: 15px 18px; border-radius: 8px; margin: 0 0 20px 0;">
+               <p style="margin: 0 0 6px 0; font-size: 13px; color: #ff6b00; font-weight: 600;">⚠️ Elállási és Felmondási jog (45/2014. Korm. rendelet)</p>
+               <p style="margin: 0; font-size: 12px; color: #f27620; line-height: 1.5;">A vásárlástól számított <strong style="color:#fff;">14 napon belül</strong> online elállhatsz a szerződéstől (szolgáltatás megkezdése után felmondás). Az elálláshoz szükséges a fenti jegyazonosító(k): <strong style="color:#ff6b00;">${ticketIdsText}</strong>, amelyet add meg az <a href="${domain}/withdrawal.html" style="color:#2ecc71;">elállási oldalon</a>.</p>
+               <p style="margin: 8px 0 0 0; font-size: 11px; color: #f27620; line-height: 1.4; border-top: 1px solid rgba(255,107,0,0.15); padding-top: 8px;"><em>Tájékoztatás: A vásárlással kifejezetten kérted a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszed, hogy elállás (szerződés felmondás) esetén köteles vagy megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe történő belépéssel) elállási jogodat elveszíted.</em></p>
              </div>
 
-             <!-- Withdrawal Info Box -->
-             <div style="background: rgba(255, 107, 0, 0.05); border: 1px solid rgba(255, 107, 0, 0.2); padding: 15px 18px; border-radius: 8px; margin: 0 0 20px 0;">
-                <p style="margin: 0 0 6px 0; font-size: 13px; color: #ff6b00; font-weight: 700;">⚠️ Elállási és Felmondási jog (45/2014. Korm. rendelet)</p>
-                <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">A vásárlástól számított <strong style="color:#fff;">14 napon belül</strong> online elállhatsz a szerződéstől (szolgáltatás megkezdése után felmondás). Az elálláshoz szükséges a fenti <strong style="color:#ff6b00;">Jegy azonosítója: #${ticket.id}</strong>, amelyet add meg az <a href="${domain}/withdrawal.html" style="color:#ff6b00;">elállási oldalon</a>.</p>
-                <p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4; border-top: 1px solid rgba(255,107,0,0.15); padding-top: 8px;"><em>Tájékoztatás: A vásárlással kifejezetten kérted a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszed, hogy elállás (szerződés felmondás) esetén köteles vagy megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe történő belépéssel) elállási jogodat elveszíted.</em></p>
+            ${bookingInfo ? `
+            <!-- Confirmed Booking Card -->
+            <div style="background: rgba(233, 223, 204, 0.06); border: 1px solid rgba(233, 223, 204, 0.16); padding: 18px; border-radius: 10px; margin: 20px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #f27620; font-family: 'Outfit', sans-serif; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                Véglegesített időpontfoglalás
+              </h3>
+              <p style="margin: 0 0 8px 0; font-size: 13.5px; color: #e9dfcc; line-height: 1.5;">
+                A vásárláshoz kiválasztott mászóidőpontodat sikeresen véglegesítettük a naptárunkban:
+              </p>
+              <div style="background: rgba(0,0,0,0.20); padding: 10px 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; color: #e9dfcc;">
+                <div><strong>Helyszín:</strong> ${bookingInfo.location_name}</div>
+                <div><strong>Dátum:</strong> ${bookingInfo.booking_date}</div>
+                <div><strong>Idősáv:</strong> ${bookingInfo.start_time} - ${bookingInfo.end_time}</div>
+                <div><strong>Létszám:</strong> ${bookingInfo.heads_count} fő (${bookingInfo.details_text})</div>
+                <div style="margin-top:8px; font-size:12px; color:#b3a68f;">A csatolt <strong>.ics</strong> fájllal egy kattintással hozzáadhatod a naptáradhoz.</div>
               </div>
- 
-             ${invoiceNumber ? `
-             <!-- Invoice Box -->
-             <div style="background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.2); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-               <p style="margin: 0; font-size: 14px; color: #2ecc71;"><strong>A kiállított e-számla (${invoiceNumber}) elkészült és csatolva van ehhez a levélhez.</strong></p>
-             </div>` : ''}
+            </div>` : ''}
 
-             <!-- QR Code Section -->
-             <div style="text-align: center; margin: 30px 0;">
-               <p style="font-size: 15px; color: #94a3b8; margin-bottom: 15px;"><strong>Belépő QR kódod:</strong></p>
-               <div style="display: inline-block; background: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-                 <img src="cid:qr_code_image" alt="QR kód a belépéshez" style="width: 160px; height: 160px; display: block;">
-               </div>
-               <p style="font-size: 12px; color: #64748b; margin-top: 10px;">Mutasd be ezt a QR kódot a leolvasónál a belépéshez.</p>
-             </div>
- 
-             <!-- Action Button -->
-             <div style="text-align: center; margin: 30px 0;">
-               <a href="${domain}/dashboard.html" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Mászói Fiók megnyitása</a>
-             </div>
- 
-             <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; text-align: center;">A belépéshez szükséges szabályzatot és az aláírandó felelősségnyilatkozatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.</p>
-             <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
-             <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
-           </div>
-         `,
-         attachments: [
-           {
-             filename: 'mail_header.png',
-             path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
-             cid: 'mail_header_image'
-           },
-           {
-             filename: 'qr_code.png',
-             content: qrBuffer,
-             cid: 'qr_code_image'
-           },
-           {
-             filename: `HawkStone_Szabalyzat_${ticket.id}.pdf`,
-             content: pdfData
-           },
-           ...(invoiceBuffer ? [{
-             filename: `Szamla_${invoiceNumber}.pdf`,
-             content: invoiceBuffer
-           }] : [])
-         ]
-       });
-       console.log(`[EMAIL] Trendy purchase confirmation email sent successfully to ${climber.email}`);
+            ${invoiceNumber ? `
+            <!-- Invoice Box -->
+            <div style="background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.2); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+              <p style="margin: 0; font-size: 14px; color: #2ecc71;"><strong>A kiállított e-számla (${invoiceNumber}) elkészült és csatolva van ehhez a levélhez.</strong></p>
+            </div>` : ''}
+
+            <!-- QR Code Section -->
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 15px; color: #f27620; margin-bottom: 15px;"><strong>Fő Belépő QR kódod:</strong></p>
+              <div style="display: inline-block; background: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                <img src="cid:qr_code_image" alt="QR kód a belépéshez" style="width: 160px; height: 160px; display: block;">
+              </div>
+              <p style="font-size: 12px; color: #f27620; margin-top: 10px;">Mutasd be ezt a QR kódot a leolvasónál a belépéshez.</p>
+            </div>
+
+            <!-- Action Button -->
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${domain}/dashboard.html" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);">Mászói Fiók megnyitása</a>
+            </div>
+
+            <p style="font-size: 14px; line-height: 1.6; color: #f27620; text-align: center;">A belépéshez szükséges szabályzatot és az aláírandó felelősségnyilatkozatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
+            <p style="font-size: 12px; color: #f27620; text-align: center; margin: 0;">Üdvözlettel,<br><strong>HawkStone Csapata</strong></p>
+          </div>
+        `,
+        attachments: [
+          {
+            filename: 'mail_header.png',
+            path: path.join(__dirname, 'public', 'pictures', 'letter', 'mail_header.png'),
+            cid: 'mail_header_image'
+          },
+          {
+            filename: 'qr_code.png',
+            content: qrBuffer,
+            cid: 'qr_code_image'
+          },
+          {
+            filename: `HawkStone_Szabalyzat_${ticket.id}.pdf`,
+            content: pdfData
+          },
+          ...(bookingInfo ? [{ filename: 'hawkstone-foglalas.ics', content: buildBookingIcs(bookingInfo), contentType: 'text/calendar; charset=utf-8; method=PUBLISH' }] : []),
+...(invoiceBuffer ? [{
+            filename: `Szamla_${invoiceNumber}.pdf`,
+            content: invoiceBuffer
+          }] : [])
+        ]
+      });
+    console.log(`[EMAIL] Trendy purchase confirmation email sent successfully to ${climber.email}`);
      } else {
        console.log(`[EMAIL MOCK] SMTP not configured. Purchase email for ticket ${ticket.id} would be sent to ${climber.email}`);
      }
@@ -2596,12 +3299,43 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
   let itemName = conf ? conf.fullName : (payment.ticket_type || 'HawkStone Szolgáltatás');
   const qty = Math.max(1, parseInt(payment.quantity) || 1);
   const totalBrutto = payment.amount;
-  const unitBrutto = totalBrutto / qty;
 
-  // Math calculation for Hungarian 27% VAT
-  const unitNetto = (unitBrutto / 1.27).toFixed(2);
-  const totalNetto = (parseFloat(unitNetto) * qty).toFixed(2);
-  const totalAfa = (totalBrutto - parseFloat(totalNetto)).toFixed(2);
+  // Build invoice lines from what was actually purchased (main + child + companion tickets)
+  const rawLines = [];
+  const mainUnit = conf ? conf.price : totalBrutto / qty;
+  rawLines.push({ name: itemName, qty, unit: mainUnit });
+  const invChildQty = parseInt(payment.child_quantity) || 0;
+  if (invChildQty > 0) {
+    const cc = getTicketConfig('NAPI_GYEREK');
+    rawLines.push({ name: cc ? cc.fullName : 'Egyszeri Napijegy (Gyerek)', qty: invChildQty, unit: cc ? cc.price : 2100 });
+  }
+  const invCompQty = parseInt(payment.companion_quantity) || 0;
+  if (invCompQty > 0 && payment.companion_type) {
+    const pc = getTicketConfig(payment.companion_type);
+    if (pc) rawLines.push({ name: pc.fullName, qty: invCompQty, unit: pc.price });
+  }
+  let linesSum = rawLines.reduce((sum, l) => sum + l.unit * l.qty, 0);
+  // Safety: if the computed lines do not match the paid amount, fall back to a single line
+  const invoiceLines = (Math.round(linesSum) === Math.round(totalBrutto))
+    ? rawLines
+    : [{ name: itemName, qty: 1, unit: totalBrutto }];
+
+  const tetelekXml = invoiceLines.map(l => {
+    const lineBrutto = Math.round(l.unit * l.qty);
+    const unitNetto = (l.unit / 1.27).toFixed(2);
+    const lineNetto = (parseFloat(unitNetto) * l.qty).toFixed(2);
+    const lineAfa = (lineBrutto - parseFloat(lineNetto)).toFixed(2);
+    return '    <tetel>\n' +
+      '      <megnevezes><![CDATA[' + l.name + ']]></megnevezes>\n' +
+      '      <mennyiseg>' + l.qty + '.0</mennyiseg>\n' +
+      '      <mennyisegiEgyseg>db</mennyisegiEgyseg>\n' +
+      '      <nettoEgysegar>' + unitNetto + '</nettoEgysegar>\n' +
+      '      <afakulcs>27</afakulcs>\n' +
+      '      <nettoErtek>' + lineNetto + '</nettoErtek>\n' +
+      '      <afaErtek>' + lineAfa + '</afaErtek>\n' +
+      '      <bruttoErtek>' + lineBrutto + '</bruttoErtek>\n' +
+      '    </tetel>';
+  }).join('\n');
 
   // Build the XML payload strictly matching Számla Agent schema
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -2634,16 +3368,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
     ${payment.billing_tax_number ? `<adoszam>${payment.billing_tax_number}</adoszam>` : ''}
   </vevo>
   <tetelek>
-    <tetel>
-      <megnevezes><![CDATA[${itemName}]]></megnevezes>
-      <mennyiseg>${qty}.0</mennyiseg>
-      <mennyisegiEgyseg>db</mennyisegiEgyseg>
-      <nettoEgysegar>${unitNetto}</nettoEgysegar>
-      <afakulcs>27</afakulcs>
-      <nettoErtek>${totalNetto}</nettoErtek>
-      <afaErtek>${totalAfa}</afaErtek>
-      <bruttoErtek>${totalBrutto}</bruttoErtek>
-    </tetel>
+${tetelekXml}
   </tetelek>
 </xmlszamla>`;
 
@@ -4321,9 +5046,12 @@ app.post('/api/withdrawal/lookup', async (req, res) => {
 // 2. Withdrawal Confirm Endpoint (Public)
 app.post('/api/withdrawal/confirm', async (req, res) => {
   try {
-    const { email, name, identifier, ticketIds } = req.body;
+    const { email, name, identifier, ticketIds, bookingsAck } = req.body;
     if (!email || !name || !identifier || !ticketIds || !Array.isArray(ticketIds) || ticketIds.length === 0) {
       return res.status(400).json({ error: 'Hiányzó vagy helytelen elállási adatok!' });
+    }
+    if (bookingsAck !== true) {
+      return res.status(400).json({ error: 'Az elálláshoz tudomásul kell venned, hogy a lefoglalt időpontjaid törlődnek!' });
     }
 
     // Lookup user by email (case-insensitive)
@@ -4411,17 +5139,40 @@ app.post('/api/withdrawal/confirm', async (req, res) => {
         ticket.sessions_remaining
       ]);
 
-      let typeLabel = '';
-      if (ticket.ticket_type === 'NAPI') typeLabel = 'Egyszeri Napijegy';
-      else if (ticket.ticket_type === 'TIZ_ALKALMAS') typeLabel = '10 Alkalmas Bérlet';
-      else if (ticket.ticket_type === 'HAVI') typeLabel = 'Korlátlan Havi Bérlet';
+      const typeCfg = getTicketConfig(ticket.ticket_type);
+      const typeLabel = typeCfg ? typeCfg.fullName : ticket.ticket_type;
 
       processedDetails.push(`
-        <li style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-          <strong>${typeLabel}</strong> (Azonosító: #${ticket.id})<br>
-          <span style="color:#64748b; font-size:12px;">Vásárolva: ${ticket.purchase_date.substring(0, 10)} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
+        <li style="margin: 0 0 10px 0; padding: 0 0 10px 0; border-bottom: 1px solid ${MAIL_THEME.border}; color: ${MAIL_THEME.strong}; font-size: 14px; font-weight: 600;">
+          ${typeLabel} <span style="font-weight: 400; color: ${MAIL_THEME.muted};">(Azonosító: #${ticket.id})</span><br>
+          <span style="color: ${MAIL_THEME.muted}; font-size: 12px; font-weight: 400;">Vásárolva: ${ticket.purchase_date.substring(0, 10)} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
         </li>
       `);
+    }
+
+    // Delete the customer's upcoming (not yet finished) bookings – they are void after withdrawal
+    let cancelledBookings = [];
+    try {
+      const nowParts = new Intl.DateTimeFormat('hu-HU', {
+        timeZone: 'Europe/Budapest', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(new Date());
+      const gp = (t) => nowParts.find(p => p.type === t).value;
+      const nowBudapestStr = `${gp('year')}-${gp('month')}-${gp('day')}T${gp('hour') === '24' ? '00' : gp('hour')}:${gp('minute')}`;
+      const userBookings = await dbAll(`
+        SELECT b.id, b.booking_date, s.start_time, s.end_time
+        FROM bookings b JOIN slots s ON s.id = b.slot_id
+        WHERE b.user_id = ?
+      `, [user.id]);
+      cancelledBookings = userBookings.filter(b => `${b.booking_date}T${b.end_time}` >= nowBudapestStr);
+      for (const b of cancelledBookings) {
+        await dbRun('DELETE FROM bookings WHERE id = ?', [b.id]);
+      }
+      if (cancelledBookings.length > 0) {
+        console.log(`[WITHDRAWAL] Deleted ${cancelledBookings.length} upcoming booking(s) of user #${user.id}`);
+      }
+    } catch (bookErr) {
+      console.error('[WITHDRAWAL] Failed to delete bookings:', bookErr);
     }
 
     // Send transaction email
@@ -4437,47 +5188,48 @@ Vásárló e-mail címe: ${email.trim()}
 Nyilatkozat beérkezésének pontos ideje: ${hungarianTimeStr}
 
 Érintett szolgáltatások:
-${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}
+${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${(getTicketConfig(t.ticket_type) || {}).fullName || t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}
 
-Mi történik ezután?
+${cancelledBookings.length > 0 ? `Törölt időpontfoglalások:\n${cancelledBookings.map(b => `- ${b.booking_date} ${b.start_time}–${b.end_time}`).join('\n')}\nAz elállással a lefoglalt, még le nem zajlott időpontjaid törlődtek. Új jegy vásárlása esetén új időpontfoglalás szükséges.\n\n` : ''}Mi történik ezután?
 Munkatársaink megvizsgálják az elállás jogosságát (pl. fel nem használt alkalmak ellenőrzése). Amennyiben az elállás megfelel az ÁSZF-ben foglalt feltételeknek, a vételárat 14 napon belül visszatérítjük arra a bankkártyára, amellyel a vásárlás történt.
 
 Üdvözlettel,
 HawkStone Mászóklub`;
 
-    const mailHtml = `
-      <div style="font-family: 'Montserrat', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-        <h2 style="color: #f27620; font-weight: 700; margin-bottom: 5px; text-align: center;">Átvételi elismervény</h2>
-        <h3 style="color: #ffffff; font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 20px; margin-top: 0; text-transform: uppercase; letter-spacing: 0.05em;">Elállási nyilatkozat beérkezése</h3>
-        <p style="font-size: 15px; line-height: 1.6; color: #94a3b8;">Kedves <strong>${user.name}</strong>!</p>
-        <p style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 20px;">
+    const mailHtml = brandedMail({
+      title: 'Átvételi elismervény',
+      subtitle: 'Elállási nyilatkozat beérkezése',
+      bodyHtml: `
+        <p style="font-size: 15px; line-height: 1.65; color: ${MAIL_THEME.text}; margin: 0 0 8px 0;">Kedves ${user.name}!</p>
+        <p style="font-size: 15px; line-height: 1.65; color: ${MAIL_THEME.text}; margin: 0 0 20px 0;">
           Tájékoztatjuk, hogy az alábbi szolgáltatástól/rendeléstől való elállási nyilatkozata sikeresen beérkezett a HawkStone Városi Mászóklub rendszerébe.
         </p>
-        
-        <div style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
-          <p style="margin: 0 0 8px 0; color: #94a3b8;">Rendelés azonosítója: <strong style="color: #ffffff;">#${identifier}</strong></p>
-          <p style="margin: 0 0 8px 0; color: #94a3b8;">Vásárló neve: <strong style="color: #ffffff;">${user.name}</strong></p>
-          <p style="margin: 0 0 8px 0; color: #94a3b8;">Vásárló e-mail címe: <strong style="color: #ffffff;">${email.trim()}</strong></p>
-          <p style="margin: 0 0 15px 0; color: #94a3b8;">Nyilatkozat beérkezésének pontos ideje: <strong style="color: #ffffff;">${hungarianTimeStr}</strong></p>
-          
-          <p style="margin: 0 0 10px 0; color: #f27620; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing:0.05em;">Visszavont szolgáltatások:</p>
-          <ul style="margin: 0; padding-left: 0; list-style:none; color: #ffffff;">
+        <div style="background: ${MAIL_THEME.panel}; border: 1px solid ${MAIL_THEME.border}; border-radius: 10px; padding: 16px 20px; margin: 0 0 22px 0;">
+          <table style="width: 100%; border-collapse: collapse;">
+            ${mailRow('Rendelés azonosítója', '#' + identifier)}
+            ${mailRow('Vásárló neve', user.name)}
+            ${mailRow('Vásárló e-mail címe', '<a href="mailto:' + email.trim() + '" style="color: ' + MAIL_THEME.strong + '; text-decoration: none;">' + email.trim() + '</a>')}
+            ${mailRow('Nyilatkozat beérkezése', hungarianTimeStr)}
+          </table>
+          <p style="margin: 16px 0 8px 0; color: ${MAIL_THEME.accent}; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;">Visszavont szolgáltatások</p>
+          <ul style="margin: 0; padding: 0; list-style: none;">
             ${processedDetails.join('')}
           </ul>
         </div>
-
-        <h4 style="color: #f27620; font-size: 15px; margin: 20px 0 10px 0; font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Mi történik ezután?</h4>
-        <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 25px;">
+        ${cancelledBookings.length > 0 ? `
+        <div style="background: ${MAIL_THEME.panel}; border: 1px solid ${MAIL_THEME.border}; border-radius: 10px; padding: 16px 20px; margin: 0 0 22px 0;">
+          <p style="margin: 0 0 8px 0; color: ${MAIL_THEME.accent}; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;">Törölt időpontfoglalások</p>
+          <ul style="margin: 0 0 10px 0; padding: 0; list-style: none; color: ${MAIL_THEME.strong}; font-size: 14px;">
+            ${cancelledBookings.map(b => `<li style="margin: 0 0 4px 0;">${b.booking_date} ${b.start_time}–${b.end_time}</li>`).join('')}
+          </ul>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: ${MAIL_THEME.text};">Az elállással a lefoglalt, még le nem zajlott időpontjaid törlődtek. Új jegy vásárlása esetén új időpontfoglalás szükséges.</p>
+        </div>` : ''}
+        <h4 style="color: ${MAIL_THEME.accent}; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 8px 0;">Mi történik ezután?</h4>
+        <p style="font-size: 14px; line-height: 1.65; color: ${MAIL_THEME.text}; margin: 0;">
           Munkatársaink megvizsgálják az elállás jogosságát (pl. fel nem használt alkalmak ellenőrzése). Amennyiben az elállás megfelel az ÁSZF-ben foglalt feltételeknek, a vételárat 14 napon belül visszatérítjük arra a bankkártyára, amellyel a vásárlás történt.
-        </p>
-
-        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
-        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0; line-height: 1.4;">
-          Ez egy automatikus, tartós adathordozón küldött visszaigazolás az új fogyasztóvédelmi előírásoknak megfelelően.<br><br>
-          Üdvözlettel,<br><strong>HawkStone Mászóklub</strong>
-        </p>
-      </div>
-    `;
+        </p>`,
+      footerHtml: 'Ez egy automatikus, tartós adathordozón küldött visszaigazolás az új fogyasztóvédelmi előírásoknak megfelelően.<br><br>Üdvözlettel,<br>HawkStone Mászóklub'
+    });
 
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
@@ -4486,7 +5238,8 @@ HawkStone Mászóklub`;
           to: email.trim(),
           subject: mailSubject,
           text: mailText,
-          html: mailHtml
+          html: mailHtml,
+          attachments: [mailHeaderAttachment()]
         });
         console.log(`[EMAIL] Withdrawal confirmation sent successfully to ${email}`);
       } catch (mailError) {
@@ -4505,7 +5258,8 @@ HawkStone Mászóklub`;
       customerName: user.name,
       customerEmail: email.trim(),
       withdrawalTime: hungarianTimeStr,
-      tickets: validTickets.map(t => ({ id: t.id, type: t.ticket_type }))
+      tickets: validTickets.map(t => ({ id: t.id, type: t.ticket_type })),
+      cancelledBookings: cancelledBookings.map(b => ({ date: b.booking_date, start: b.start_time, end: b.end_time }))
     });
   } catch (error) {
     console.error('[WITHDRAWAL CONFIRM ERROR]:', error);
@@ -4739,6 +5493,7 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['ADMIN']
     let refundInvoiceError = null;
     let refundInvoiceWarning = null;
     let isFullStornoDoc = false;
+    let refundAlreadyCovered = false;
 
     if (refund_status === 'REFUNDED' && withdrawal.refund_status !== 'REFUNDED') {
       ticket = await dbGet('SELECT * FROM tickets WHERE id = ?', [withdrawal.ticket_id]);
@@ -4771,30 +5526,46 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['ADMIN']
               throw new Error('Nem található tranzakció a Barion fizetésben.');
             }
 
-            const transaction = stateData.Transactions[0];
+            const transaction = stateData.Transactions.find(t => !t.RelatedId && !/fee/i.test(t.TransactionType || '')) || stateData.Transactions[0];
             const transactionId = transaction.TransactionId;
             const posTransactionId = transaction.POSTransactionId;
 
-            // B. Calculate refund amount based on unused sessions
-            let refundAmount = payment.amount;
-            if (withdrawal.ticket_type === 'NAPI') {
-              refundAmount = withdrawal.sessions_remaining > 0 ? payment.amount : 0;
-            } else if (withdrawal.ticket_type === 'TIZ_ALKALMAS') {
+            // B. Refund amount = what THIS ticket cost (not the whole payment), based on unused sessions
+            const refundBaseType = getTicketBaseType(withdrawal.ticket_type);
+            const ticketCfgForRefund = getTicketConfig(withdrawal.ticket_type);
+            const ticketPaid = ticketCfgForRefund ? ticketCfgForRefund.price : payment.amount;
+            let refundAmount = ticketPaid;
+            if (refundBaseType === 'NAPI') {
+              refundAmount = withdrawal.sessions_remaining > 0 ? ticketPaid : 0;
+            } else if (refundBaseType === 'TIZ_ALKALMAS') {
               const ratio = Math.max(0, Math.min(1, withdrawal.sessions_remaining / 10));
-              refundAmount = Math.round(payment.amount * ratio);
-            } else if (withdrawal.ticket_type === 'HAVI') {
+              refundAmount = Math.round(ticketPaid * ratio);
+            } else if (refundBaseType === 'HAVI') {
               // Proportional to remaining days out of 30 days validity
               const purchaseDate = new Date(withdrawal.purchase_date);
               const withdrawalDate = new Date(withdrawal.withdrawal_time);
-              const diffMs = withdrawalDate.getTime() - purchaseDate.getTime();
-              const diffDays = diffMs / (1000 * 3600 * 24);
+              const diffDays = (withdrawalDate.getTime() - purchaseDate.getTime()) / (1000 * 3600 * 24);
               const daysRemaining = Math.max(0, 30 - diffDays);
               const ratio = Math.max(0, Math.min(1, daysRemaining / 30));
-              refundAmount = Math.round(payment.amount * ratio);
+              refundAmount = Math.round(ticketPaid * ratio);
             }
 
-            console.log(`[REFUND] Calculated refund amount: ${refundAmount} HUF (original: ${payment.amount} HUF, unused: ${withdrawal.sessions_remaining} sessions)`);
+            // Never refund more than what is still refundable on the Barion transaction
+            const alreadyRefunded = stateData.Transactions
+              .filter(t => /^Refund/i.test(t.TransactionType || '') && t.Status === 'Succeeded')
+              .reduce((sum, t) => sum + (Number(t.Total) || 0), 0);
+            const refundableLeft = Math.max(0, (Number(transaction.Total) || payment.amount) - alreadyRefunded);
+            if (refundableLeft <= 0) {
+              refundAlreadyCovered = true;
+            } else if (refundAmount > refundableLeft) {
+              refundAmount = refundableLeft;
+            }
 
+            console.log(`[REFUND] Calculated refund amount: ${refundAmount} HUF (ticket price: ${ticketPaid} HUF, payment: ${payment.amount} HUF, already refunded: ${alreadyRefunded} HUF, unused: ${withdrawal.sessions_remaining} sessions)`);
+
+            if (refundAlreadyCovered) {
+              console.log(`[REFUND] Payment ${paymentId} has already been fully refunded on Barion – no new refund needed.`);
+            } else {
             if (refundAmount <= 0) {
               throw new Error('A kiszámolt visszatérítési összeg 0 Ft, nincs mit visszatéríteni.');
             }
@@ -4853,6 +5624,7 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['ADMIN']
             } else {
               refundInvoiceWarning = 'Nem található eredeti számlaszám az adatbázisban, ezért a sztornó/helyesbítő számlát manuálisan kell kiállítani.';
             }
+            }
           } catch (err) {
             console.error('[REFUND ERROR]:', err);
             refundErrorMsg = err.message;
@@ -4888,6 +5660,8 @@ app.patch('/api/admin/withdrawals/:id', authenticateToken, requireRole(['ADMIN']
       } else if (refundInvoiceWarning) {
         finalNote = `[SZÁMLÁZÁS FIGYELMEZTETÉS] ${refundInvoiceWarning}\n` + finalNote;
       }
+    } else if (refundAlreadyCovered) {
+      finalNote = `[BARION] A fizetés teljes összege már visszautalásra került egy korábbi elállásnál – új visszatérítés nem történt. (${new Date().toLocaleString('hu-HU')})\n` + finalNote;
     } else if (refund_status === 'REFUNDED' && (!ticket || !ticket.payment_id)) {
       finalNote = `[MANUÁLIS VISSZATÉRÍTÉS] Manuálisan elszámolva (nem Barionos fizetés).\n` + finalNote;
     }
@@ -4915,27 +5689,28 @@ app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['
     if (!withdrawal) return res.status(404).json({ error: 'Elállás nem található.' });
 
     const mailSubject = subject || `HawkStone – Elállási ügy értesítő (#${withdrawal.contract_id})`;
-    const mailHtml = `
-      <div style="font-family: 'Montserrat', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
-        <h2 style="color: #f27620; font-weight: 700; text-align: center; margin-bottom: 5px;">HawkStone Városi Mászóklub</h2>
-        <h3 style="color: #fff; font-size: 15px; text-align: center; margin-top: 0; text-transform: uppercase; letter-spacing: 0.05em;">Elállási ügy – Admin értesítő</h3>
-        <p style="font-size: 15px; color: #94a3b8;">Kedves <strong style="color:#fff;">${withdrawal.customer_name}</strong>!</p>
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 18px; margin: 20px 0; font-size: 14px; color: #94a3b8;">
-          <p style="margin: 0 0 6px;">Elállás azonosítója: <strong style="color:#fff;">#${withdrawal.contract_id}</strong></p>
-          <p style="margin: 0;">Jegy ID: <strong style="color:#fff;">#${withdrawal.ticket_id}</strong></p>
+    const mailHtml = brandedMail({
+      title: 'HawkStone Városi Mászóklub',
+      subtitle: 'Elállási ügy – értesítő',
+      bodyHtml: `
+        <p style="font-size: 15px; line-height: 1.65; color: ${MAIL_THEME.text}; margin: 0 0 16px 0;">Kedves ${withdrawal.customer_name}!</p>
+        <div style="background: ${MAIL_THEME.panel}; border: 1px solid ${MAIL_THEME.border}; border-radius: 10px; padding: 14px 20px; margin: 0 0 18px 0;">
+          <table style="width: 100%; border-collapse: collapse;">
+            ${mailRow('Elállás azonosítója', '#' + withdrawal.contract_id)}
+            ${mailRow('Jegy ID', '#' + withdrawal.ticket_id)}
+          </table>
         </div>
-        <div style="background: rgba(242,118,32,0.06); border-left: 3px solid #f27620; padding: 16px 18px; border-radius: 6px; font-size: 14px; line-height: 1.7; color: #e2e8f0; white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        <hr style="border:0; border-top: 1px solid rgba(255,255,255,0.08); margin: 25px 0;">
-        <p style="font-size: 12px; color: #64748b; text-align: center;">Üdvözlettel,<br><strong>HawkStone Mászóklub Adminisztráció</strong></p>
-      </div>
-    `;
+        <div style="border-left: 3px solid ${MAIL_THEME.accent}; background: ${MAIL_THEME.panel}; padding: 14px 18px; border-radius: 6px; font-size: 14px; line-height: 1.7; color: ${MAIL_THEME.text}; white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`,
+      footerHtml: 'Üdvözlettel,<br>HawkStone Mászóklub Adminisztráció'
+    });
 
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
         from: process.env.SMTP_FROM || `"HawkStone" <noreply@hawkstone.hu>`,
         to: withdrawal.customer_email,
         subject: mailSubject,
-        html: mailHtml
+        html: mailHtml,
+        attachments: [mailHeaderAttachment()]
       });
       console.log(`[EMAIL] Admin message sent to ${withdrawal.customer_email}`);
     } else {
