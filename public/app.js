@@ -469,6 +469,38 @@ function getCachedContactInfo() {
   return defaults;
 }
 
+// Jump to Dashboard Bookings view
+function goToDashboardBookingsView() {
+  if (window.location.pathname.endsWith('dashboard.html')) {
+    switchDashboardView('booking');
+    const myBookingsCard = document.getElementById('dashboard-bookings');
+    if (myBookingsCard) {
+      setTimeout(() => {
+        myBookingsCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  } else {
+    window.location.href = 'dashboard.html?view=booking';
+  }
+}
+window.goToDashboardBookingsView = goToDashboardBookingsView;
+
+// Jump to Dashboard New Booking slot selector
+function goToDashboardBookingNew() {
+  if (window.location.pathname.endsWith('dashboard.html')) {
+    switchDashboardView('booking');
+    const bookingPanel = document.getElementById('booking-location');
+    if (bookingPanel) {
+      setTimeout(() => {
+        bookingPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  } else {
+    window.location.href = 'dashboard.html?view=booking&action=new';
+  }
+}
+window.goToDashboardBookingNew = goToDashboardBookingNew;
+
 function renderHeader() {
   const headerEl = document.querySelector('header');
   if (!headerEl) return;
@@ -667,6 +699,7 @@ function renderHeader() {
   }
 
   let authSection = '';
+  let bookingCtaMobileHtml = '';
   let authSectionMobile = '';
   const userName = user.name || 'Fiókom';
 
@@ -712,8 +745,48 @@ function renderHeader() {
     // Klub oldalon és annak aloldalain: bejelentkezett fiók kezelése (mászó, staff vagy admin)
     if (token) {
       const panelHref = isStaffOnly ? 'admin.html#bookings' : (isAdmin ? 'admin.html#dashboard' : 'dashboard.html');
+
+      // Check user booking & ticket status for quick pulsing glass header button
+      let bookingStatusBtnHtml = '';
+      if (!isAdmin && !isStaff) {
+        let activeTicketsCount = window.activeTicketsCount !== undefined ? window.activeTicketsCount : 0;
+        let upcomingBookingsCount = 0;
+
+        if (window.dashboardBookings) {
+          upcomingBookingsCount = window.dashboardBookings.filter(b => !isBookingExpired(b.booking_date, b.end_time)).length;
+        } else {
+          // Check cached counts in localStorage if on another page
+          try {
+            activeTicketsCount = parseInt(localStorage.getItem('hs_cached_active_tickets') || '0', 10);
+            upcomingBookingsCount = parseInt(localStorage.getItem('hs_cached_upcoming_bookings') || '0', 10);
+          } catch (_) {}
+        }
+
+        let ctaClass = '';
+        let ctaLabel = '';
+        let ctaAction = '';
+        let ctaTitle = '';
+        if (upcomingBookingsCount > 0) {
+          ctaClass = 'has-booking';
+          ctaLabel = 'Van foglalásod!';
+          ctaAction = 'goToDashboardBookingsView()';
+          ctaTitle = 'Aktív időpontfoglalásod megtekintése';
+        } else if (activeTicketsCount > 0) {
+          ctaClass = 'needs-booking';
+          ctaLabel = 'Foglalj időpontot!';
+          ctaAction = 'goToDashboardBookingNew()';
+          ctaTitle = 'Van érvényes jegyed vagy bérleted – foglalj időpontot';
+        }
+        if (ctaLabel) {
+          const ctaBtn = '<button type="button" class="header-booking-status-btn ' + ctaClass + '" onclick="' + ctaAction + '" title="' + ctaTitle + '">' + ctaLabel + '</button>';
+          bookingStatusBtnHtml = ctaBtn;
+          bookingCtaMobileHtml = '<div class="header-booking-mobile">' + ctaBtn + '</div>';
+        }
+      }
+
       authSection = `
-        <div class="nav-auth">
+        <div class="nav-auth" style="display:flex; align-items:center;">
+          ${bookingStatusBtnHtml}
           <button class="search-trigger-btn" onclick="toggleHeaderSearch()" title="Keresés" aria-label="Keresés">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
@@ -878,6 +951,8 @@ function renderHeader() {
         ${authSection}
       </nav>
     </div>
+
+    ${bookingCtaMobileHtml}
 
     ${(isAdminPage && isConfiguredAdmin) ? '' : `
       <!-- Search Bar Dropdown -->
@@ -1409,14 +1484,25 @@ async function initPublicLanding() {
   initParallax();
   initScrollDivider();
 
-  // If user is already logged in, update landing page CTA buttons to go to dashboard directly
+  // If user is already logged in, update landing page CTA buttons to go to dashboard directly (preserving category & ticket params)
   const savedToken = localStorage.getItem('token');
-  if (savedToken) {
-    document.querySelectorAll('.price-card a[href="auth.html"]').forEach(a => {
-      a.href = 'dashboard.html';
+  document.querySelectorAll('.price-card a[href^="auth.html"]').forEach(a => {
+    a.addEventListener('click', () => {
+      try {
+        const url = new URL(a.getAttribute('href'), window.location.origin);
+        const cat = url.searchParams.get('category');
+        const tick = url.searchParams.get('ticket');
+        if (cat) sessionStorage.setItem('hawkstone_preselect_category', cat);
+        if (tick) sessionStorage.setItem('hawkstone_preselect_ticket', tick);
+      } catch (_) {}
     });
-    document.querySelectorAll('.hero-content a[href="auth.html"]').forEach(a => {
-      a.href = 'dashboard.html';
+    if (savedToken) {
+      a.href = a.getAttribute('href').replace(/^auth\.html/, 'dashboard.html');
+    }
+  });
+  if (savedToken) {
+    document.querySelectorAll('.hero-content a[href^="auth.html"]').forEach(a => {
+      a.href = a.getAttribute('href').replace(/^auth\.html/, 'dashboard.html');
     });
   }
   const video = document.querySelector('.hero-video-bg');
@@ -1731,6 +1817,19 @@ async function initDashboard() {
 
   await checkBarionCallback(); // Verify transaction if returning from Barion checkout
   await loadProfileAndDashboard();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedView = urlParams.get('view');
+  if (requestedView === 'booking') {
+    switchDashboardView('booking');
+    const isNewAction = urlParams.get('action') === 'new';
+    const targetEl = isNewAction ? document.getElementById('booking-location') : document.getElementById('dashboard-bookings');
+    if (targetEl) {
+      setTimeout(() => {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }
 }
 
 async function loadProfileAndDashboard() {
@@ -1772,6 +1871,12 @@ async function loadProfileAndDashboard() {
     
     // Save/update local storage user details
     localStorage.setItem('user', JSON.stringify(user));
+
+    // Cache active tickets & upcoming bookings count for header buttons across all pages
+    const upcomingBookingsList = bookings.filter(b => !isBookingExpired(b.booking_date, b.end_time));
+    localStorage.setItem('hs_cached_active_tickets', String(window.activeTicketsCount || 0));
+    localStorage.setItem('hs_cached_upcoming_bookings', String(upcomingBookingsList.length || 0));
+    renderHeader();
 
     // Render profile card
     const profileEl = document.getElementById('user-profile-info');
@@ -1871,34 +1976,88 @@ async function loadProfileAndDashboard() {
     renderDashboardTickets(window.currentTicketTab || 'active');
     renderDashboardBookings(window.currentBookingTab || 'upcoming');
 
-    // Initialize locations dynamic dropdown for Booking
+    // Update sub-tab badge counts if present
+    const tabTicketsBtn = document.getElementById('db-tab-tickets');
+    if (tabTicketsBtn) {
+      const activeCount = window.activeTicketsCount || 0;
+      tabTicketsBtn.innerHTML = activeCount > 0
+        ? `🎫 Megvásárolt Jegyeim &amp; Előzmények <span class="badge" style="margin-left:6px; font-size:10px; padding:2px 7px; background-color:#ffffff; color:#059669; font-weight:700; border-radius:12px; border:1px solid #ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.2);">${activeCount} aktív</span>`
+        : `🎫 Megvásárolt Jegyeim &amp; Előzmények`;
+    }
+
+    // Initialize locations dynamic dropdown for Booking & Inline Checkout Booking
     const locSelect = document.getElementById('booking-location');
-    if (locSelect && locSelect.options.length <= 1) {
+    const checkoutLocSelect = document.getElementById('checkout-booking-location');
+    if ((locSelect && locSelect.options.length <= 1) || (checkoutLocSelect && checkoutLocSelect.options.length <= 1)) {
       const locRes = await fetch('/api/locations');
       const locations = await locRes.json();
-      locations.forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = loc.id;
-        opt.textContent = loc.name;
-        locSelect.appendChild(opt);
-      });
+      window.cachedLocationsList = locations;
 
-      // Bind listener
-      locSelect.addEventListener('change', loadBookingSchedules);
+      if (locSelect && locSelect.options.length <= 1) {
+        locations.forEach(loc => {
+          const opt = document.createElement('option');
+          opt.value = loc.id;
+          opt.textContent = loc.name;
+          locSelect.appendChild(opt);
+        });
+        locSelect.addEventListener('change', loadBookingSchedules);
+      }
+
+      if (checkoutLocSelect && checkoutLocSelect.options.length <= 1) {
+        locations.forEach(loc => {
+          const opt = document.createElement('option');
+          opt.value = loc.id;
+          opt.textContent = loc.name;
+          checkoutLocSelect.appendChild(opt);
+        });
+      }
+
+      const todayObj = new Date();
+      const today = todayObj.toISOString().split('T')[0];
+      const maxDateObj = new Date();
+      maxDateObj.setDate(todayObj.getDate() + 21);
+      const maxDate = maxDateObj.toISOString().split('T')[0];
+
       const bookingDate = document.getElementById('booking-date');
       if (bookingDate) {
-        const todayObj = new Date();
-        const today = todayObj.toISOString().split('T')[0];
-        
-        // Max date is 3 weeks (21 days) from today
-        const maxDateObj = new Date();
-        maxDateObj.setDate(todayObj.getDate() + 21);
-        const maxDate = maxDateObj.toISOString().split('T')[0];
-        
         bookingDate.value = today;
         bookingDate.min = today;
         bookingDate.max = maxDate;
         bookingDate.addEventListener('change', loadBookingSchedules);
+      }
+
+      const checkoutBookingDate = document.getElementById('checkout-booking-date');
+      if (checkoutBookingDate) {
+        checkoutBookingDate.value = today;
+        checkoutBookingDate.min = today;
+        checkoutBookingDate.max = maxDate;
+      }
+    }
+
+    // Apply preselected category / ticket from URL or sessionStorage (from klub.html / maszoklub.html)
+    if (!window.hasAppliedPreselection) {
+      window.hasAppliedPreselection = true;
+      const preCatParam = urlParams.get('category') || sessionStorage.getItem('hawkstone_preselect_category');
+      const preTicketParam = urlParams.get('ticket') || sessionStorage.getItem('hawkstone_preselect_ticket');
+
+      let resolvedCat = preCatParam;
+      if (!resolvedCat && preTicketParam) {
+        if (preTicketParam.includes('PARTNER')) resolvedCat = 'partner';
+        else if (preTicketParam.includes('DIAK')) resolvedCat = 'diak';
+        else if (preTicketParam.includes('GYEREK')) resolvedCat = 'gyerek';
+        else resolvedCat = 'felnott';
+      }
+
+      if (resolvedCat && ['felnott', 'diak', 'gyerek', 'partner'].includes(resolvedCat)) {
+        switchBuyCategory(resolvedCat);
+      }
+
+      if (preTicketParam) {
+        sessionStorage.removeItem('hawkstone_preselect_ticket');
+        // Let the profile upper section render first, then after 500ms trigger smooth scroll & selection
+        setTimeout(() => {
+          buyTicket(preTicketParam, true);
+        }, 500);
       }
     }
 
@@ -2062,16 +2221,14 @@ function renderDashboardTickets(filter) {
 
   ticketsContainer.innerHTML = '';
   filteredTickets.forEach(t => {
-    let hungarianType = '';
+    const tMeta = getTicketTypeMeta(t.ticket_type);
+    const hungarianType = tMeta.label || t.ticket_type;
     let usageText = '';
-    if (t.ticket_type === 'NAPI') {
-      hungarianType = 'Egyszeri Napijegy';
+    if (tMeta.base === 'NAPI') {
       usageText = t.status === 'USED' ? 'Felhasználva' : 'Még nem használt (1 alkalom)';
-    } else if (t.ticket_type === 'TIZ_ALKALMAS') {
-      hungarianType = '10 Alkalmas Bérlet';
+    } else if (tMeta.base === 'TIZ_ALKALMAS') {
       usageText = `Fennmaradó alkalmak: ${t.sessions_remaining}/10`;
-    } else if (t.ticket_type === 'HAVI') {
-      hungarianType = '30 Napos Korlátlan Bérlet';
+    } else if (tMeta.base === 'HAVI') {
       usageText = 'Korlátlan belépés érvényességi időn belül';
     }
 
@@ -2303,6 +2460,9 @@ function openNoTicketModal() {
 function closeNoTicketModal() {
   const backdrop = document.getElementById('no-ticket-modal-backdrop');
   if (backdrop) backdrop.classList.remove('open');
+  if (typeof switchDashboardView === 'function') {
+    switchDashboardView('overview');
+  }
 }
 
 // Download PDF
@@ -2384,17 +2544,42 @@ async function checkBarionCallback() {
   }
 
   try {
-    const res = await fetch('/api/barion/verify-payment', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ paymentId })
-    });
-    const data = await res.json();
+    let res = null;
+    let data = null;
+    let lastRaw = '';
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        res = await fetch('/api/barion/verify-payment', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ paymentId })
+        });
+        lastRaw = await res.text();
+        data = JSON.parse(lastRaw);
+        // A szerver érvényes JSON választ adott; 5xx esetén is újrapróbáljuk (átmeneti hiba lehet)
+        if (res.status < 500 || attempt === 4) break;
+      } catch (e) {
+        data = null;
+        console.warn('[BARION VERIFY] attempt ' + attempt + ' failed:', e.message, lastRaw.slice(0, 200));
+      }
+      await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
+    if (!data) {
+      throw new Error('A szerver nem érvényes választ adott' + (res ? ' (HTTP ' + res.status + ')' : '') + '. Kérjük, frissítsd az oldalt – a fizetésed rögzítve van, a jegyed pár másodpercen belül megjelenik.');
+    }
     if (!res.ok) throw new Error(data.error || 'Sikertelen fizetésellenőrzés');
 
-    showToast('Sikeres fizetés! A jegyet és a QR kódot kiállítottuk.', 'success');
+    const msg = data.bookingFinalized
+      ? 'Sikeres fizetés! A jegyedet kiállítottuk, és a kiválasztott időpontfoglalásod véglegesítésre került a naptárban!'
+      : 'Sikeres fizetés! A jegyet és a QR kódot kiállítottuk.';
+    showToast(msg, 'success');
+    // A profil betöltését az initDashboard() közvetlenül utána elvégzi – nem töltjük be kétszer
+    setTimeout(() => {
+      switchDashboardView('tickets');
+    }, 300);
   } catch (err) {
     showToast(err.message, 'error');
+    showAlertModal(err.message, 'Fizetés nem fejeződött be', 'warning');
   } finally {
     // Remove overlay
     overlay.remove();
@@ -2406,16 +2591,305 @@ async function checkBarionCallback() {
 
 // Global storage for checkout flow
 window.selectedTicketType = null;
+window.checkoutTempBooking = null;
 
-// Close Billing Modal
-function closeBillingModal() {
-  const form = document.getElementById('billing-form');
-  if (form) form.reset();
+// Close Inline Checkout (or legacy modal if present)
+async function closeBillingModal(keepTempBooking = false) {
+  if (!keepTempBooking && window.checkoutTempBooking && window.checkoutTempBooking.id) {
+    await releaseCheckoutTempBooking(true);
+  }
+  const inlineSection = document.getElementById('inline-checkout-section');
+  if (inlineSection) inlineSection.style.display = 'none';
+
+  const step2 = document.getElementById('checkout-step-2');
+  const step3 = document.getElementById('checkout-step-3');
+  if (step2) step2.style.display = 'none';
+  if (step3) step3.style.display = 'none';
+
+  document.querySelectorAll('.buy-ticket-item').forEach(el => {
+    el.style.borderColor = 'var(--border-color)';
+    el.style.background = 'rgba(255,255,255,0.02)';
+    el.style.boxShadow = 'none';
+  });
+
   const checkbox = document.getElementById('immediate-commencement');
   if (checkbox) checkbox.checked = false;
   const modal = document.getElementById('billing-modal-backdrop');
   if (modal) modal.classList.remove('open');
 }
+
+function toggleBillingChildAddon() {
+  const cb = document.getElementById('billing-add-child-checkbox');
+  const wrapper = document.getElementById('billing-child-qty-wrapper');
+  const qtySelect = document.getElementById('billing-child-ticket-qty');
+  if (cb && wrapper) {
+    wrapper.style.display = cb.checked ? 'flex' : 'none';
+    if (cb.checked && qtySelect && !qtySelect.value) {
+      qtySelect.value = '1';
+    }
+  }
+  updateBillingModalTotal();
+}
+window.toggleBillingChildAddon = toggleBillingChildAddon;
+
+function getCompanionSelection() {
+  const ticketType = window.selectedTicketType || '';
+  if (!ticketType.includes('GYEREK')) return null;
+  const cb = document.getElementById('billing-add-companion-checkbox');
+  if (!cb || !cb.checked) return null;
+  const typeEl = document.getElementById('billing-companion-type');
+  const qtyEl = document.getElementById('billing-companion-qty');
+  const type = typeEl ? typeEl.value : 'NAPI';
+  const qty = Math.max(1, Math.min(4, parseInt(qtyEl && qtyEl.value) || 1));
+  return { type, qty };
+}
+window.getCompanionSelection = getCompanionSelection;
+
+function refreshCompanionOptionLabels() {
+  const typeEl = document.getElementById('billing-companion-type');
+  if (!typeEl) return;
+  Array.from(typeEl.options).forEach(o => {
+    const m = getTicketTypeMeta(o.value);
+    const base = o.value === 'NAPI' ? 'Felnőtt napijegy' : 'Diák / Nyugdíjas napijegy';
+    o.textContent = base + ' – ' + m.priceText;
+  });
+}
+
+function toggleBillingCompanionAddon() {
+  const cb = document.getElementById('billing-add-companion-checkbox');
+  const opts = document.getElementById('billing-companion-options');
+  if (cb && opts) {
+    opts.style.display = cb.checked ? 'flex' : 'none';
+    if (cb.checked) refreshCompanionOptionLabels();
+  }
+  updateBillingModalTotal();
+}
+window.toggleBillingCompanionAddon = toggleBillingCompanionAddon;
+
+function getCheckoutAttendeeCounts() {
+  const ticketType = window.selectedTicketType || '';
+  const meta = getTicketTypeMeta(ticketType);
+  const qtyEl = document.getElementById('billing-ticket-qty');
+  const isDaily = ticketType.startsWith('NAPI') && !meta.isPartner;
+  const mainQty = (isDaily && qtyEl) ? (parseInt(qtyEl.value) || 1) : 1;
+
+  const isMainChild = ticketType.includes('GYEREK');
+  const childAddonCb = document.getElementById('billing-add-child-checkbox');
+  const childAddonQtyEl = document.getElementById('billing-child-ticket-qty');
+  const isChildChecked = !!(childAddonCb && childAddonCb.checked);
+  const addonChildQty = (!isMainChild && isChildChecked && childAddonQtyEl)
+    ? Math.max(1, Math.min(4, parseInt(childAddonQtyEl.value) || 1))
+    : 0;
+
+  const companionSel = getCompanionSelection();
+  const adultCount = isMainChild ? (companionSel ? companionSel.qty : 0) : mainQty;
+  const childCount = isMainChild ? mainQty : addonChildQty;
+  const headsCount = adultCount + childCount;
+
+  return { adultCount, childCount, headsCount };
+}
+
+async function handleCheckoutBookingModeChange(mode) {
+  const laterRadio = document.getElementById('checkout-booking-later');
+  const nowRadio = document.getElementById('checkout-booking-now');
+  const laterCard = document.getElementById('checkout-booking-choice-later-card');
+  const nowCard = document.getElementById('checkout-booking-choice-now-card');
+  const panel = document.getElementById('checkout-inline-booking-panel');
+
+  if (mode === 'now') {
+    if (nowRadio) nowRadio.checked = true;
+    if (nowCard) {
+      nowCard.style.border = '2px solid var(--primary)';
+      nowCard.style.background = 'rgba(242,118,32,0.08)';
+    }
+    if (laterCard) {
+      laterCard.style.border = '1px solid rgba(255,255,255,0.12)';
+      laterCard.style.background = 'rgba(255,255,255,0.02)';
+    }
+    if (panel) panel.style.display = 'block';
+
+    // Default location to first location if not selected yet
+    const locSelect = document.getElementById('checkout-booking-location');
+    if (locSelect && !locSelect.value && locSelect.options.length > 1) {
+      locSelect.selectedIndex = 1;
+    }
+    await loadCheckoutBookingSchedules();
+  } else {
+    if (laterRadio) laterRadio.checked = true;
+    if (laterCard) {
+      laterCard.style.border = '2px solid var(--primary)';
+      laterCard.style.background = 'rgba(242,118,32,0.08)';
+    }
+    if (nowCard) {
+      nowCard.style.border = '1px solid rgba(255,255,255,0.12)';
+      nowCard.style.background = 'rgba(255,255,255,0.02)';
+    }
+    if (panel) panel.style.display = 'none';
+    if (window.checkoutTempBooking && window.checkoutTempBooking.id) {
+      await releaseCheckoutTempBooking(true);
+    }
+  }
+}
+window.handleCheckoutBookingModeChange = handleCheckoutBookingModeChange;
+
+async function loadCheckoutBookingSchedules() {
+  const locSelect = document.getElementById('checkout-booking-location');
+  const dateInput = document.getElementById('checkout-booking-date');
+  const container = document.getElementById('checkout-booking-slots-container');
+  const attendeesInfo = document.getElementById('checkout-booking-attendees-info');
+
+  if (!locSelect || !dateInput || !container) return;
+
+  const { adultCount, childCount, headsCount } = getCheckoutAttendeeCounts();
+  if (attendeesInfo) {
+    let parts = [];
+    if (adultCount > 0) parts.push(`${adultCount} felnőtt/diák`);
+    if (childCount > 0) parts.push(`${childCount} gyermek (10 év alatt)`);
+    attendeesInfo.innerHTML = `👥 Foglalás létszáma a kiválasztott jegyek alapján: <strong>${headsCount} fő (${parts.join(' + ')})</strong>`;
+  }
+
+  const locationId = locSelect.value;
+  const date = dateInput.value;
+  if (!locationId || !date) {
+    container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Kérjük, válassz helyszínt és dátumot a szabad helyek megjelenítéséhez.</p>';
+    return;
+  }
+
+  container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Idősávok betöltése...</p>';
+
+  try {
+    const res = await fetch(`/api/schedule?locationId=${locationId}&date=${date}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error();
+    const slots = await res.json();
+
+    container.innerHTML = '';
+    if (slots.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Nincs elérhető időpont ezen a napon.</p>';
+      return;
+    }
+
+    slots.forEach(slot => {
+      const item = document.createElement('div');
+      item.className = 'schedule-item';
+      if (slot.is_past) item.style.opacity = '0.5';
+
+      const bookedCount = slot.booked_count || 0;
+      const ratio = bookedCount / slot.max_capacity;
+      const freeSpots = Math.max(0, slot.max_capacity - bookedCount);
+      const isFull = freeSpots <= 0;
+      const hasEnoughSpace = freeSpots >= headsCount;
+      const isCurrentTemp = window.checkoutTempBooking && String(window.checkoutTempBooking.slot_id) === String(slot.id) && window.checkoutTempBooking.booking_date === date;
+
+      let progressClass = '';
+      let occupancyText = 'Szabad';
+      if (isFull) {
+        progressClass = 'high';
+        occupancyText = 'Betelt (Telt ház)';
+      } else if (ratio >= 0.7) {
+        progressClass = 'medium';
+        occupancyText = 'Zsúfolt';
+      }
+
+      let btnHtml = '';
+      if (isCurrentTemp) {
+        btnHtml = `<span class="badge badge-green" style="padding: 8px 14px; font-size: 12px;">⏳ Ideiglenesen kiválasztva</span>`;
+      } else if (slot.is_past) {
+        btnHtml = `<button type="button" class="btn btn-secondary btn-sm btn-disabled" disabled>Elmúlt</button>`;
+      } else if (slot.user_booked) {
+        btnHtml = `<button type="button" class="btn btn-secondary btn-sm btn-disabled" disabled>Már foglaltad</button>`;
+      } else if (!hasEnoughSpace) {
+        btnHtml = `<button type="button" class="btn btn-secondary btn-sm btn-disabled" disabled>Nincs ${headsCount} szabad hely</button>`;
+      } else {
+        btnHtml = `<button type="button" onclick="reserveCheckoutTempSlot(${slot.id}, '${date}')" class="btn btn-primary btn-sm">Időpont kiválasztása (${headsCount} fő)</button>`;
+      }
+
+      item.innerHTML = `
+        <div>
+          <span class="schedule-time">${slot.start_time} - ${slot.end_time}</span>
+          <div class="schedule-occupancy" style="margin-top: 8px;">
+            <span class="occupancy-text">${bookedCount}/${slot.max_capacity} hely foglalt (${occupancyText})</span>
+            <div class="progress-bar-bg" style="width: 150px;">
+              <div class="progress-bar-fill ${progressClass}" style="width: ${Math.min(100, ratio * 100)}%;"></div>
+            </div>
+          </div>
+        </div>
+        ${btnHtml}
+      `;
+      container.appendChild(item);
+    });
+  } catch (err) {
+    container.innerHTML = '<p style="color: var(--danger); font-size: 13px;">Hiba az idősávok betöltésekor.</p>';
+  }
+}
+window.loadCheckoutBookingSchedules = loadCheckoutBookingSchedules;
+
+async function reserveCheckoutTempSlot(slotId, date) {
+  const { adultCount, childCount, headsCount } = getCheckoutAttendeeCounts();
+  const previousTempBookingId = window.checkoutTempBooking ? window.checkoutTempBooking.id : null;
+
+  try {
+    const res = await fetch('/api/bookings/temp', {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        slotId,
+        date,
+        adultCount,
+        childCount,
+        headsCount,
+        previousTempBookingId
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nem sikerült az ideiglenes foglalás.');
+
+    window.checkoutTempBooking = data.booking;
+
+    const statusBanner = document.getElementById('checkout-temp-booking-status');
+    const detailsEl = document.getElementById('checkout-temp-booking-details');
+    if (statusBanner && detailsEl && data.booking) {
+      detailsEl.innerHTML = `
+        <strong>⏳ Ideiglenesen lefoglalt időpont:</strong><br>
+        📍 <strong>${escapeHtml(data.booking.location_name)}</strong> — 📅 <strong>${escapeHtml(data.booking.booking_date)}</strong> | 🕒 <strong>${escapeHtml(data.booking.start_time)} - ${escapeHtml(data.booking.end_time)}</strong> (${data.booking.heads_count} fő részére)<br>
+        <span style="font-size: 11.5px; color: #fbbf24;">A foglalás a sikeres fizetéssel válik véglegessé. Sikertelen fizetés esetén automatikusan törlődik.</span>
+      `;
+      statusBanner.style.display = 'flex';
+    }
+
+    showToast('Időpont ideiglenesen lefoglalva a fizetés idejére!', 'success');
+    await loadCheckoutBookingSchedules();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+window.reserveCheckoutTempSlot = reserveCheckoutTempSlot;
+
+async function releaseCheckoutTempBooking(silent = false) {
+  const temp = window.checkoutTempBooking;
+  window.checkoutTempBooking = null;
+
+  const statusBanner = document.getElementById('checkout-temp-booking-status');
+  if (statusBanner) statusBanner.style.display = 'none';
+
+  if (temp && temp.id) {
+    try {
+      await fetch(`/api/bookings/temp/${temp.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!silent) {
+        showToast('Ideiglenes időpontfoglalás feloldva.', 'info');
+        await loadCheckoutBookingSchedules();
+      }
+    } catch (_) {}
+  }
+}
+window.releaseCheckoutTempBooking = releaseCheckoutTempBooking;
 
 // Handle Billing Form Submit
 async function handleBillingSubmit(event) {
@@ -2438,12 +2912,32 @@ async function handleBillingSubmit(event) {
     return;
   }
 
+  // Check if "Most foglalok időpontot" is selected
+  const bookingNowRadio = document.getElementById('checkout-booking-now');
+  const isBookingNow = bookingNowRadio && bookingNowRadio.checked;
+  if (isBookingNow && (!window.checkoutTempBooking || !window.checkoutTempBooking.id)) {
+    showToast('A „Most foglalok időpontot” opciót választottad. Kérjük, válassz ki egy idősávot a listából az ideiglenes foglaláshoz, vagy jelöld be a „Később foglalok időpontot” lehetőséget!', 'error');
+    return;
+  }
+
   const qtyEl = document.getElementById('billing-ticket-qty');
   const quantity = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
+
+  const isMainChild = (window.selectedTicketType || '').includes('GYEREK');
+  const childAddonCb = document.getElementById('billing-add-child-checkbox');
+  const childAddonQtyEl = document.getElementById('billing-child-ticket-qty');
+  const isChildChecked = !!(childAddonCb && childAddonCb.checked);
+  const childQuantity = (!isMainChild && isChildChecked && childAddonQtyEl)
+    ? Math.max(1, Math.min(4, parseInt(childAddonQtyEl.value) || 1))
+    : 0;
 
   // Store pending payment data in window
   window.pendingPaymentData = {
     quantity,
+    childQuantity,
+    companionType: (getCompanionSelection() || {}).type || null,
+    companionQuantity: (getCompanionSelection() || {}).qty || 0,
+    tempBookingId: (isBookingNow && window.checkoutTempBooking) ? window.checkoutTempBooking.id : null,
     billingName,
     billingZip,
     billingCity,
@@ -2451,16 +2945,12 @@ async function handleBillingSubmit(event) {
     billingTaxNumber
   };
 
-  // Close the main billing modal first
-  closeBillingModal();
-
   // Check if billing details are already saved in user profile
   const userJson = localStorage.getItem('user');
   let hasSavedBilling = false;
   if (userJson) {
     try {
       const user = JSON.parse(userJson);
-      // We check if billing_name and billing_address are present
       if (user.billing_name && user.billing_address) {
         hasSavedBilling = true;
       }
@@ -2470,16 +2960,13 @@ async function handleBillingSubmit(event) {
   }
 
   if (!hasSavedBilling) {
-    // Show confirmation modal to ask if they want to save details
     const confirmModal = document.getElementById('confirm-save-billing-modal-backdrop');
     if (confirmModal) {
       confirmModal.classList.add('open');
     } else {
-      // If modal doesn't exist, fallback to direct payment start
       await handleSaveBillingResponse(false);
     }
   } else {
-    // Already has saved billing, proceed directly to Barion
     await handleSaveBillingResponse(false);
   }
 }
@@ -2499,7 +2986,6 @@ async function handleSaveBillingResponse(save) {
 
   if (save) {
     try {
-      // Save billing details in the database via API
       const res = await fetch('/api/auth/billing', {
         method: 'POST',
         headers: {
@@ -2517,7 +3003,6 @@ async function handleSaveBillingResponse(save) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Mentési hiba');
       
-      // Update local storage user profile cache
       const userJson = localStorage.getItem('user');
       if (userJson) {
         const user = JSON.parse(userJson);
@@ -2535,6 +3020,13 @@ async function handleSaveBillingResponse(save) {
     }
   }
 
+  const submitBtn = document.getElementById('billing-submit-btn');
+  const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Átirányítás a Barion fizetési oldalra...';
+  }
+
   // Proceed with initiating Barion payment
   try {
     showToast('Fizetés kezdeményezése a Barion rendszerében...', 'info');
@@ -2547,6 +3039,10 @@ async function handleSaveBillingResponse(save) {
       body: JSON.stringify({
         ticketType: window.selectedTicketType,
         quantity: paymentData.quantity || 1,
+        childQuantity: paymentData.childQuantity || 0,
+        companionType: paymentData.companionType || null,
+        companionQuantity: paymentData.companionQuantity || 0,
+        tempBookingId: paymentData.tempBookingId || null,
         billingName: paymentData.billingName,
         billingZip: paymentData.billingZip,
         billingCity: paymentData.billingCity,
@@ -2561,12 +3057,18 @@ async function handleSaveBillingResponse(save) {
     window.location.href = data.GatewayUrl;
   } catch (err) {
     showToast(err.message, 'error');
+    showAlertModal(err.message, 'Fizetés indítási hiba', 'warning');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = origBtnText || '💳 Fizetés indítása (Barion)';
+    }
   }
 }
 
 // Switch ticket category on dashboard
 function switchBuyCategory(cat) {
   window.selectedBuyCategory = cat;
+  sessionStorage.setItem('hawkstone_preselect_category', cat);
   const felnottBlock = document.getElementById('buy-tickets-felnott');
   const diakBlock = document.getElementById('buy-tickets-diak');
   const gyerekBlock = document.getElementById('buy-tickets-gyerek');
@@ -2589,6 +3091,9 @@ window.switchBuyCategory = switchBuyCategory;
 
 // Switch pricing category on public pages (klub.html, maszoklub.html)
 function switchPricingCategory(category) {
+  try {
+    sessionStorage.setItem('hawkstone_preselect_category', category);
+  } catch (_) {}
   const felnott = document.getElementById('pricing-grid-felnott');
   const diak = document.getElementById('pricing-grid-diak');
   const gyerek = document.getElementById('pricing-grid-gyerek');
@@ -2611,10 +3116,54 @@ function switchPricingCategory(category) {
 }
 window.switchPricingCategory = switchPricingCategory;
 
-// Buy Ticket (Opens Billing Modal first)
-function buyTicket(ticketType) {
+// Step progression inside inline checkout
+function proceedToCheckoutStep2() {
+  const step2 = document.getElementById('checkout-step-2');
+  if (step2) {
+    step2.style.display = 'block';
+    setTimeout(() => {
+      step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  }
+}
+window.proceedToCheckoutStep2 = proceedToCheckoutStep2;
+
+function proceedToCheckoutStep3() {
+  const billingName = (document.getElementById('billing-name')?.value || '').trim();
+  const billingZip = (document.getElementById('billing-zip')?.value || '').trim();
+  const billingCity = (document.getElementById('billing-city')?.value || '').trim();
+  const billingAddress = (document.getElementById('billing-address')?.value || '').trim();
+
+  if (!billingName || !billingZip || !billingCity || !billingAddress) {
+    showToast('Kérjük, töltsd ki az összes kötelező számlázási mezőt (*)!', 'error');
+    if (!billingName) document.getElementById('billing-name')?.focus();
+    else if (!billingZip) document.getElementById('billing-zip')?.focus();
+    else if (!billingCity) document.getElementById('billing-city')?.focus();
+    else if (!billingAddress) document.getElementById('billing-address')?.focus();
+    return;
+  }
+
+  const step3 = document.getElementById('checkout-step-3');
+  if (step3) {
+    step3.style.display = 'block';
+    setTimeout(() => {
+      step3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  }
+}
+window.proceedToCheckoutStep3 = proceedToCheckoutStep3;
+
+// Buy Ticket (Opens Inline Checkout Section directly below the ticket list)
+function buyTicket(ticketType, isInitialSmoothAutoScroll = false) {
   window.selectedTicketType = ticketType;
   const meta = getTicketTypeMeta(ticketType);
+
+  // Ensure the corresponding category tab is visible
+  let targetCat = 'felnott';
+  if (ticketType.includes('PARTNER')) targetCat = 'partner';
+  else if (ticketType.includes('DIAK')) targetCat = 'diak';
+  else if (ticketType.includes('GYEREK')) targetCat = 'gyerek';
+  switchBuyCategory(targetCat);
 
   // Partner eligibility check
   if (meta.isPartner) {
@@ -2638,7 +3187,20 @@ function buyTicket(ticketType) {
     }
   }
 
-  // Handle quantity selector in billing modal
+  // Highlight selected ticket row visually
+  document.querySelectorAll('.buy-ticket-item').forEach(el => {
+    if (el.dataset.ticketCode === ticketType) {
+      el.style.borderColor = 'var(--primary)';
+      el.style.background = 'rgba(242,118,32,0.08)';
+      el.style.boxShadow = '0 0 0 1px rgba(242,118,32,0.35)';
+    } else {
+      el.style.borderColor = 'var(--border-color)';
+      el.style.background = 'rgba(255,255,255,0.02)';
+      el.style.boxShadow = 'none';
+    }
+  });
+
+  // Handle quantity selector in inline checkout
   const qtyContainer = document.getElementById('billing-quantity-container');
   const qtySelect = document.getElementById('billing-ticket-qty');
   const qtyUnitPrice = document.getElementById('billing-qty-unit-price');
@@ -2655,41 +3217,70 @@ function buyTicket(ticketType) {
     }
   }
 
-  // Show selected ticket summary badge in billing modal
+  // Handle Child Ticket Add-on option (shown for Felnőtt & Diák/Nyugdíjas & Partner tickets)
+  const childAddonContainer = document.getElementById('billing-child-addon-container');
+  const childAddonCb = document.getElementById('billing-add-child-checkbox');
+  const childQtyWrapper = document.getElementById('billing-child-qty-wrapper');
+  const childQtySelect = document.getElementById('billing-child-ticket-qty');
+  const isChildTicket = ticketType && ticketType.includes('GYEREK');
+
+  // Reset Child Ticket Add-on checkbox and select
+  if (childAddonCb) childAddonCb.checked = false;
+  if (childQtyWrapper) childQtyWrapper.style.display = 'none';
+  if (childQtySelect) childQtySelect.value = '1';
+
+  if (childAddonContainer) {
+    childAddonContainer.style.display = isChildTicket ? 'none' : 'block';
+  }
+
+  // Companion (adult / student) offer when a child ticket is selected
+  const companionContainer = document.getElementById('billing-companion-addon-container');
+  const companionCb = document.getElementById('billing-add-companion-checkbox');
+  const companionOpts = document.getElementById('billing-companion-options');
+  if (companionCb) companionCb.checked = false;
+  if (companionOpts) companionOpts.style.display = 'none';
+  const companionQtySel = document.getElementById('billing-companion-qty');
+  if (companionQtySel) companionQtySel.value = '1';
+  const companionTypeSel = document.getElementById('billing-companion-type');
+  if (companionTypeSel) companionTypeSel.value = 'NAPI';
+  if (companionContainer) companionContainer.style.display = isChildTicket ? 'block' : 'none';
+  refreshCompanionOptionLabels();
+
+  // Show selected ticket summary badge
   const summaryEl = document.getElementById('billing-ticket-summary');
   if (summaryEl) {
     let partnerNoticeHtml = '';
     if (meta.isPartner) {
       partnerNoticeHtml = `
-        <div style="margin-top:6px; font-size:11px; color:#fbbf24; background:rgba(242,118,32,0.1); padding:4px 8px; border-radius:5px; border:1px solid rgba(242,118,32,0.25);">
+        <div style="margin-top:8px; font-size:12px; color:#fbbf24; background:rgba(242,118,32,0.1); padding:6px 10px; border-radius:6px; border:1px solid rgba(242,118,32,0.25);">
           🎓 Partneriskolai kedvezmény: Az első helyszíni belépésnél a falmester ellenőrzi az érvényes igazolványodat! (Tranzakciónként 1 db partnerjegy vásárolható saját névre).
         </div>
       `;
     }
 
     let childNoticeHtml = '';
-    if (ticketType && ticketType.includes('GYEREK')) {
+    if (isChildTicket) {
       childNoticeHtml = `
-        <div style="margin-top:8px; font-size:11px; color:#fbbf24; background:rgba(242,118,32,0.08); padding:8px 10px; border-radius:6px; border:1px solid rgba(242,118,32,0.3); line-height:1.45; text-align:left;">
+        <div style="margin-top:8px; font-size:12px; color:#fbbf24; background:rgba(242,118,32,0.08); padding:8px 10px; border-radius:6px; border:1px solid rgba(242,118,32,0.3); line-height:1.45; text-align:left;">
           🧒 <strong>Gyermekjegy (10 éves kor alatt):</strong> Felhívjuk a figyelmet, hogy 10 év alatti gyermek kizárólag szülői vagy felelős kísérő személyes jelenléte mellett használhatja a termet. Amennyiben Ön csak kísérőként van jelen és maga nem mászik, külön felnőtt jegyet nem kell váltania, de a helyszínen kötelező megjelennie a gyermekkel!
         </div>
       `;
     }
 
     summaryEl.innerHTML = `
-      <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px;">Kiválasztott jegytípus</div>
-      <div style="font-size:14px; font-weight:700; color:#fff;">${escapeHtml(meta.label)}</div>
-      <div id="billing-summary-price" style="font-size:16px; font-weight:800; color:var(--primary); margin-top:3px;">${meta.priceText}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px;">Kiválasztott jegytípus</div>
+          <div style="font-size:16px; font-weight:700; color:#fff;">${escapeHtml(meta.label)}</div>
+        </div>
+        <div id="billing-summary-price" style="font-size:18px; font-weight:800; color:var(--primary);">${meta.priceText}</div>
+      </div>
       ${partnerNoticeHtml}
       ${childNoticeHtml}
     `;
     summaryEl.style.display = 'block';
   }
 
-  if (typeof updateBillingModalTotal === 'function') {
-    updateBillingModalTotal();
-  }
-  
   // Try to pre-fill user name and billing details from local storage details
   const userJson = localStorage.getItem('user');
   if (userJson) {
@@ -2701,23 +3292,32 @@ function buyTicket(ticketType) {
       const addressInput = document.getElementById('billing-address');
       const taxInput = document.getElementById('billing-tax-number');
 
-      if (nameInput) nameInput.value = user.billing_name || user.name || '';
-      if (zipInput) zipInput.value = user.billing_zip || '';
-      if (cityInput) cityInput.value = user.billing_city || '';
-      if (addressInput) addressInput.value = user.billing_address || '';
-      if (taxInput) taxInput.value = user.billing_tax_number || '';
+      if (nameInput && !nameInput.value) nameInput.value = user.billing_name || user.name || '';
+      if (zipInput && !zipInput.value) zipInput.value = user.billing_zip || '';
+      if (cityInput && !cityInput.value) cityInput.value = user.billing_city || '';
+      if (addressInput && !addressInput.value) addressInput.value = user.billing_address || '';
+      if (taxInput && !taxInput.value) taxInput.value = user.billing_tax_number || '';
     } catch (e) {
       console.error('Error pre-filling billing details:', e);
     }
   }
 
-  // Open billing modal
-  const modal = document.getElementById('billing-modal-backdrop');
-  if (modal) {
-    modal.classList.add('open');
-  } else {
-    // Fallback if modal not present (e.g. on other pages)
-    showToast('Nem található számlázási modal!', 'error');
+  updateBillingModalTotal();
+
+  // Ensure Step 2 and Step 3 are hidden initially until clicking forward buttons
+  const step2 = document.getElementById('checkout-step-2');
+  const step3 = document.getElementById('checkout-step-3');
+  if (step2) step2.style.display = 'none';
+  if (step3) step3.style.display = 'none';
+
+  // Reveal inline checkout section directly below the ticket list
+  const inlineSection = document.getElementById('inline-checkout-section');
+  if (inlineSection) {
+    inlineSection.style.display = 'block';
+    setTimeout(() => {
+      const step1El = document.getElementById('checkout-step-1') || inlineSection;
+      step1El.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, isInitialSmoothAutoScroll ? 100 : 50);
   }
 }
 window.buyTicket = buyTicket;
@@ -2733,17 +3333,61 @@ function updateBillingModalTotal() {
   if (!ticketType) return;
   const meta = getTicketTypeMeta(ticketType);
   const qtyEl = document.getElementById('billing-ticket-qty');
-  const qty = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
-  const total = meta.price * qty;
+  const isDaily = ticketType.startsWith('NAPI') && !meta.isPartner;
+  const qty = (isDaily && qtyEl) ? (parseInt(qtyEl.value) || 1) : 1;
+  const mainTotal = meta.price * qty;
+
+  const isMainChild = ticketType.includes('GYEREK');
+  const childAddonCb = document.getElementById('billing-add-child-checkbox');
+  const childAddonQtyEl = document.getElementById('billing-child-ticket-qty');
+  const isChildChecked = !!(childAddonCb && childAddonCb.checked);
+  const childQty = (!isMainChild && isChildChecked && childAddonQtyEl)
+    ? Math.max(1, Math.min(4, parseInt(childAddonQtyEl.value) || 1))
+    : 0;
+  const childUnitPrice = 2100;
+  const childTotal = childQty * childUnitPrice;
+  const companionSel = getCompanionSelection();
+  const companionMeta = companionSel ? getTicketTypeMeta(companionSel.type) : null;
+  const companionTotal = companionSel ? companionMeta.price * companionSel.qty : 0;
+  const companionSubEl = document.getElementById('billing-companion-subtotal');
+  if (companionSubEl) companionSubEl.textContent = companionSel ? ('Részösszeg: ' + formatPrice(companionTotal)) : '';
+  const grandTotal = mainTotal + childTotal + companionTotal;
 
   const totalEl = document.getElementById('billing-qty-total');
   if (totalEl) {
-    totalEl.textContent = `Összesen: ${formatPrice(total)}`;
+    totalEl.textContent = `Részösszeg: ${formatPrice(mainTotal)}`;
+  }
+
+  const childSubtotalEl = document.getElementById('billing-child-subtotal');
+  if (childSubtotalEl) {
+    childSubtotalEl.textContent = `Részösszeg: ${formatPrice(childTotal)}`;
   }
 
   const priceBadgeEl = document.getElementById('billing-summary-price');
   if (priceBadgeEl) {
-    priceBadgeEl.textContent = qty > 1 ? `${formatPrice(total)} (${qty} db × ${meta.priceText})` : meta.priceText;
+    priceBadgeEl.textContent = qty > 1 ? `${formatPrice(mainTotal)} (${qty} db × ${meta.priceText})` : meta.priceText;
+  }
+
+  const grandItemsEl = document.getElementById('billing-grand-total-items');
+  const grandAmountEl = document.getElementById('billing-grand-total-amount');
+  if (grandItemsEl) {
+    let lines = [`<strong>${qty} × ${escapeHtml(meta.label)}</strong> (${formatPrice(mainTotal)})`];
+    if (childQty > 0) {
+      lines.push(`<strong>+ ${childQty} × Egyszeri Napijegy (Gyerek 10 éves kor alatt)</strong> (${formatPrice(childTotal)})`);
+    }
+    if (companionSel) {
+      lines.push('<strong>+ ' + companionSel.qty + ' × ' + escapeHtml(companionMeta.label) + '</strong> (' + formatPrice(companionTotal) + ')');
+    }
+    grandItemsEl.innerHTML = lines.join('<br>');
+  }
+  if (grandAmountEl) {
+    grandAmountEl.textContent = formatPrice(grandTotal);
+  }
+
+  // If "Most foglalok időpontot" is open, refresh attendee count info & slots
+  const bookingNowRadio = document.getElementById('checkout-booking-now');
+  if (bookingNowRadio && bookingNowRadio.checked) {
+    loadCheckoutBookingSchedules();
   }
 }
 window.updateBillingModalTotal = updateBillingModalTotal;
@@ -5937,6 +6581,7 @@ async function initiateWithdrawalRefund(withdrawalId) {
     await loadAdminWithdrawals();
   } catch (err) {
     showToast(err.message, 'error');
+    showAlertModal(err.message, 'Visszatérítés sikertelen', 'danger');
   }
 }
 
@@ -7905,23 +8550,36 @@ window.switchWithdrawalFilter = switchWithdrawalFilter;
 window.renderAdminWithdrawals = renderAdminWithdrawals;
 
 function switchDashboardView(view) {
-  const tabOverview = document.getElementById('db-tab-overview');
-  const tabPassword = document.getElementById('db-tab-password');
-  const secOverview = document.getElementById('dashboard-overview-section');
-  const secPassword = document.getElementById('dashboard-password-section');
+  const tabs = {
+    overview: document.getElementById('db-tab-overview'),
+    booking: document.getElementById('db-tab-booking'),
+    tickets: document.getElementById('db-tab-tickets'),
+    password: document.getElementById('db-tab-password')
+  };
+  const sections = {
+    overview: document.getElementById('dashboard-overview-section'),
+    booking: document.getElementById('dashboard-booking-section'),
+    tickets: document.getElementById('dashboard-tickets-section'),
+    password: document.getElementById('dashboard-password-section')
+  };
 
-  if (!secOverview || !secPassword) return;
+  const targetView = sections[view] ? view : 'overview';
 
-  if (view === 'overview') {
-    if (tabOverview) tabOverview.className = 'btn btn-primary btn-sm';
-    if (tabPassword) tabPassword.className = 'btn btn-secondary btn-sm';
-    secOverview.style.display = 'block';
-    secPassword.style.display = 'none';
-  } else {
-    if (tabOverview) tabOverview.className = 'btn btn-secondary btn-sm';
-    if (tabPassword) tabPassword.className = 'btn btn-primary btn-sm';
-    secOverview.style.display = 'none';
-    secPassword.style.display = 'block';
+  Object.keys(sections).forEach(k => {
+    if (sections[k]) {
+      sections[k].style.display = (k === targetView) ? 'block' : 'none';
+    }
+    if (tabs[k]) {
+      tabs[k].className = (k === targetView) ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    }
+  });
+
+  if (targetView === 'booking') {
+    const locSelect = document.getElementById('booking-location');
+    if (locSelect && !locSelect.value && locSelect.options.length > 1) {
+      locSelect.selectedIndex = 1;
+      loadBookingSchedules();
+    }
   }
 }
 window.switchDashboardView = switchDashboardView;

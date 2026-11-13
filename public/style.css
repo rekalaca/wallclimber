@@ -9304,3 +9304,82 @@ header .logo:hover img.header-logo-img {
   margin-top: 8px;
   font-family: monospace;
 }
+
+/* Header booking call-to-action: elegáns, lassan lüktető üveggomb */
+.header-booking-status-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 18px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-right: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+}
+
+.header-booking-status-btn.has-booking {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.10);
+  border: 1px solid rgba(110, 231, 183, 0.40);
+  animation: hsCtaPulseGreen 4.5s ease-in-out infinite;
+}
+.header-booking-status-btn.has-booking:hover {
+  color: #ecfdf5;
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(110, 231, 183, 0.75);
+}
+
+.header-booking-status-btn.needs-booking {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(252, 165, 165, 0.40);
+  animation: hsCtaPulseRed 4.5s ease-in-out infinite;
+}
+.header-booking-status-btn.needs-booking:hover {
+  color: #fef2f2;
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(252, 165, 165, 0.75);
+}
+
+@keyframes hsCtaPulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.00), 0 0 8px rgba(16, 185, 129, 0.12); }
+  50%      { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.07), 0 0 16px rgba(16, 185, 129, 0.28); }
+}
+@keyframes hsCtaPulseRed {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.00), 0 0 8px rgba(239, 68, 68, 0.12); }
+  50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.07), 0 0 16px rgba(239, 68, 68, 0.28); }
+}
+
+/* Mobil: a gomb a fejléc alatt, középen jelenik meg */
+.header-booking-mobile { display: none; }
+
+@media (max-width: 768px) {
+  header .nav-auth .header-booking-status-btn { display: none; }
+  .header-booking-mobile {
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 10px;
+    pointer-events: none;
+    z-index: 99;
+  }
+  .header-booking-mobile .header-booking-status-btn {
+    margin-right: 0;
+    pointer-events: auto;
+    font-size: 10.5px;
+    padding: 7px 16px;
+    background-color: rgba(12, 14, 23, 0.82);
+  }
+}

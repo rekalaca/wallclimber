@@ -40,7 +40,7 @@
   <meta name="twitter:title" content="Bejelentkezés & Regisztráció | HawkStone">
   <meta name="twitter:description" content="Belépés és regisztráció a HawkStone mászói fiókba.">
   <meta name="twitter:image" content="https://hawkstone.hu/pictures/share.png">
-  <link rel="stylesheet" href="style.css?v=20261107_c100">
+  <link rel="stylesheet" href="style.css?v=20261112_c102">
     <!-- Barion Pixel -->
     <script>
       window["bp"] = window["bp"] || function () {
@@ -362,6 +362,15 @@
       }
     }
 
+    // Megőrizzük a főoldalon/klub oldalon kiválasztott árkategóriát és jegytípust
+    (function savePreselectedTicketFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const cat = params.get('category');
+      const tick = params.get('ticket');
+      if (cat) sessionStorage.setItem('hawkstone_preselect_category', cat);
+      if (tick) sessionStorage.setItem('hawkstone_preselect_ticket', tick);
+    })();
+
     async function handleLogin(e) {
       e.preventDefault();
       const email = document.getElementById('login-email').value;
@@ -382,15 +391,31 @@
         
         showToast('Sikeres bejelentkezés! Átirányítás...');
         setTimeout(() => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const preCat = urlParams.get('category') || sessionStorage.getItem('hawkstone_preselect_category') || '';
+          const preTicket = urlParams.get('ticket') || sessionStorage.getItem('hawkstone_preselect_ticket') || '';
+          const hasExplicitTicketSelection = !!(urlParams.get('category') || urlParams.get('ticket'));
+
+          const buildDashboardUrl = (extraParams = {}) => {
+            const p = new URLSearchParams();
+            if (preCat) p.set('category', preCat);
+            if (preTicket) p.set('ticket', preTicket);
+            Object.entries(extraParams).forEach(([k, v]) => p.set(k, v));
+            const qs = p.toString();
+            return 'dashboard.html' + (qs ? `?${qs}` : '');
+          };
+
           const userRoles = (data.user && data.user.role ? data.user.role : '').split(',').map(r => r.trim().toUpperCase());
           if (data.mustChangePassword) {
-            window.location.href = 'dashboard.html?forceChangePassword=true';
+            window.location.href = buildDashboardUrl({ forceChangePassword: 'true' });
+          } else if (hasExplicitTicketSelection) {
+            window.location.href = buildDashboardUrl();
           } else if (userRoles.includes('ADMIN')) {
             window.location.href = 'admin.html';
           } else if (userRoles.includes('STAFF')) {
             window.location.href = 'admin.html#bookings';
           } else {
-            window.location.href = 'dashboard.html';
+            window.location.href = buildDashboardUrl();
           }
         }, 800);
       } catch (err) {
@@ -609,6 +634,6 @@
       }
     });
   </script>
-  <script src="app.js?v=20261107_c100"></script>
+  <script src="app.js?v=20261112_c105"></script>
 </body>
 </html>

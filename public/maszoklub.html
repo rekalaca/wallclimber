@@ -52,7 +52,7 @@
   <meta name="twitter:description" content="Nyíregyházi Városi Mászóklub 3 helyszínen. Online időpontfoglalás, jegy- és bérletvásárlás, élő órarend.">
   <meta name="twitter:image" content="https://klub.hawkstone.hu/pictures/share.png">
 
-  <link rel="stylesheet" href="style.css?v=20261107_c100">
+  <link rel="stylesheet" href="style.css?v=20261112_c102">
 
   <!-- Schema.org Structured Data for Google & AI Engines (ChatGPT, Perplexity, Gemini) -->
   <script type="application/ld+json">
@@ -631,7 +631,7 @@
           <li>30 napig használható fel</li>
           <li>Kártya szint szerinti jogosultság</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=felnott&ticket=NAPI" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card popular">
@@ -644,7 +644,7 @@
           <li>Vásárlástól számított 30 napig él</li>
           <li>QR kódos leolvasás alkalmanként</li>
         </ul>
-        <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=felnott&ticket=TIZ_ALKALMAS" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card">
@@ -656,7 +656,7 @@
           <li>Napi többszöri belépés</li>
           <li>Nincs alkalmi levonás</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=felnott&ticket=HAVI" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
     </div>
 
@@ -671,7 +671,7 @@
           <li>30 napig használható fel</li>
           <li>Érvényes igazolvány szükséges</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=diak&ticket=NAPI_DIAK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card popular">
@@ -684,7 +684,7 @@
           <li>Vásárlástól számított 30 napig él</li>
           <li>Kedvezményes diák/nyugdíjas tarifa</li>
         </ul>
-        <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=diak&ticket=TIZ_ALKALMAS_DIAK" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card">
@@ -696,7 +696,7 @@
           <li>Napi többszöri belépés</li>
           <li>Kedvezményes diák/nyugdíjas tarifa</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=diak&ticket=HAVI_DIAK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
     </div>
 
@@ -711,7 +711,7 @@
           <li>30 napig használható fel</li>
           <li>Szülői/edzői felügyelet szükséges</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=gyerek&ticket=NAPI_GYEREK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card popular">
@@ -724,7 +724,7 @@
           <li>Vásárlástól számított 30 napig él</li>
           <li>Gyermekbarát edzéslehetőség</li>
         </ul>
-        <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=gyerek&ticket=TIZ_ALKALMAS_GYEREK" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
       </div>
       
       <div class="glass-card price-card">
@@ -736,7 +736,7 @@
           <li>Napi többszöri belépés</li>
           <li>Gyermekbarát edzéslehetőség</li>
         </ul>
-        <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+        <a href="auth.html?category=gyerek&ticket=HAVI_GYEREK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
       </div>
     </div>
 
@@ -767,7 +767,7 @@
             <li>30 napig használható fel</li>
             <li>Érvényes partner diákigazolvány szükséges</li>
           </ul>
-          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=NAPI_PARTNER_DIAK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
         </div>
         
         <div class="glass-card price-card popular">
@@ -781,7 +781,7 @@
             <li>Vásárlástól számított 30 napig él</li>
             <li>Kiemelt partneriskolai diákkedvezmény</li>
           </ul>
-          <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=TIZ_ALKALMAS_PARTNER_DIAK" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
         </div>
         
         <div class="glass-card price-card">
@@ -794,7 +794,7 @@
             <li>Napi többszöri belépés</li>
             <li>Kiemelt partneriskolai diákkedvezmény</li>
           </ul>
-          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=HAVI_PARTNER_DIAK" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
         </div>
       </div>
 
@@ -813,7 +813,7 @@
             <li>30 napig használható fel</li>
             <li>Érvényes pedagógusigazolvány szükséges</li>
           </ul>
-          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=NAPI_PARTNER_TANAR" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
         </div>
         
         <div class="glass-card price-card popular">
@@ -827,7 +827,7 @@
             <li>Vásárlástól számított 30 napig él</li>
             <li>Kiemelt partnerintézményi oktatói kedvezmény</li>
           </ul>
-          <a href="auth.html" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=TIZ_ALKALMAS_PARTNER_TANAR" class="btn btn-primary" style="width: 100%;">Vásárlás</a>
         </div>
         
         <div class="glass-card price-card">
@@ -840,7 +840,7 @@
             <li>Napi többszöri belépés</li>
             <li>Kiemelt partnerintézményi oktatói kedvezmény</li>
           </ul>
-          <a href="auth.html" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
+          <a href="auth.html?category=partner&ticket=HAVI_PARTNER_TANAR" class="btn btn-secondary" style="width: 100%;">Vásárlás</a>
         </div>
       </div>
     </div>
@@ -1069,6 +1069,6 @@
   <script>
     if (typeof QRCode !== 'undefined') window.qrcode = QRCode;
   </script>
-  <script src="app.js?v=20261107_c100"></script>
+  <script src="app.js?v=20261112_c105"></script>
 </body>
 </html>
