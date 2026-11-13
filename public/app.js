@@ -6481,6 +6481,30 @@ function openWithdrawalInvestigationModal(w) {
   };
   const rf = refundLabels[w.refund_status || 'PENDING'] || refundLabels['PENDING'];
 
+  // 14-day withdrawal deadline check (purchase -> withdrawal declaration, and purchase -> now)
+  const parseWdDate = (s) => {
+    if (!s) return null;
+    const str = String(s);
+    const d = new Date(/[zZ]|[+-]\d\d:?\d\d$|T/.test(str) ? str : str.replace(' ', 'T') + 'Z');
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const wdPurchase = parseWdDate(w.purchase_date);
+  const wdDeclared = parseWdDate(w.withdrawal_time);
+  const DAY_MS = 1000 * 3600 * 24;
+  let deadlineHtml = '<span style="color:var(--text-muted);">Nem állapítható meg (hiányzó vásárlási dátum).</span>';
+  if (wdPurchase && wdDeclared) {
+    const daysAtWd = (wdDeclared - wdPurchase) / DAY_MS;
+    const daysNow = (Date.now() - wdPurchase) / DAY_MS;
+    const inTime = daysAtWd <= 14;
+    const color = inTime ? '#10b981' : '#ef4444';
+    const verdict = inTime ? '✅ Az elállás a 14 napos határidőn BELÜL érkezett' : '❌ Az elállás a 14 napos határidő LEJÁRTA UTÁN érkezett';
+    deadlineHtml = `
+      <strong style="color:${color}; font-size:14px;">${verdict}</strong>
+      <span>A nyilatkozat a vásárlás után <strong style="color:#fff;">${Math.floor(Math.max(0, daysAtWd))} nappal</strong> (${daysAtWd.toFixed(1)} nap) érkezett.</span>
+      <span>Határidő vége: <strong style="color:#fff;">${formatHungarianDateTime(new Date(wdPurchase.getTime() + 14 * DAY_MS).toISOString())}</strong></span>
+      <span style="color:var(--text-muted);">A vásárlás óta ma eltelt idő: ${Math.floor(Math.max(0, daysNow))} nap — ${daysNow <= 14 ? 'a 14 napos időszak még tart' : 'a 14 napos időszak már lejárt'}.</span>`;
+  }
+
   const modal = document.createElement('div');
   modal.id = 'withdrawal-investigation-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);padding:20px;';
@@ -6531,6 +6555,14 @@ function openWithdrawalInvestigationModal(w) {
           </div>
         </div>
 
+        <!-- 14-day deadline -->
+        <div>
+          <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">14 napos elállási határidő</p>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px; font-size:13px; color: var(--text-secondary); display: flex; flex-direction: column; gap:5px;">
+            ${deadlineHtml}
+          </div>
+        </div>
+
         <!-- Current refund status -->
         <div>
           <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--primary); font-weight:700;">Visszatérítési státusz</p>
@@ -6550,6 +6582,9 @@ function openWithdrawalInvestigationModal(w) {
 
       <!-- Action Buttons -->
       <div style="padding: 18px 28px 24px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+        <button onclick="saveWithdrawalStatus(${w.id})" style="background:rgba(242,118,32,0.12);border:1px solid rgba(242,118,32,0.4);color:#f27620;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;">
+          Státusz mentése
+        </button>
         <button onclick="openWithdrawalMessageModal(${w.id}, '${w.customer_name.replace(/'/g,"\\'")}', '${w.customer_email}', '${w.contract_id}')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#818cf8;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:7px;" onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">
           Üzenet írása
         </button>
@@ -6564,6 +6599,33 @@ function openWithdrawalInvestigationModal(w) {
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
 }
+
+// Save status only (no refund) from the investigation modal
+async function saveWithdrawalStatus(withdrawalId) {
+  const selectEl = document.getElementById(`modal-refund-status-${withdrawalId}`);
+  if (!selectEl) return;
+  const newStatus = selectEl.value;
+
+  if (newStatus === 'REFUNDED') {
+    showToast('A „Visszatérítve” státusz a tényleges visszautalást indítja – ahhoz használd a „Visszatérítés indítása” gombot.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/admin/withdrawals/${withdrawalId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ refund_status: newStatus })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast('Státusz elmentve!', 'success');
+    document.getElementById('withdrawal-investigation-modal')?.remove();
+    await loadAdminWithdrawals();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+window.saveWithdrawalStatus = saveWithdrawalStatus;
 
 // Initiate refund: update status to REFUNDED
 async function initiateWithdrawalRefund(withdrawalId) {
