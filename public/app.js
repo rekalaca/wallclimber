@@ -6588,7 +6588,7 @@ function openWithdrawalInvestigationModal(w) {
         <button onclick="openWithdrawalMessageModal(${w.id}, '${w.customer_name.replace(/'/g,"\\'")}', '${w.customer_email}', '${w.contract_id}')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#818cf8;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:7px;" onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">
           Üzenet írása
         </button>
-        <button onclick="initiateWithdrawalRefund(${w.id})" style="background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(16,185,129,0.3);" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.3)'">
+        <button onclick="initiateWithdrawalRefund(${w.id}, ${w.refund_status === 'REFUNDED'})" style="background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;border-radius:10px;padding:11px 20px;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(16,185,129,0.3);" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.3)'">
           Visszatérítés indítása
         </button>
       </div>
@@ -6627,19 +6627,33 @@ async function saveWithdrawalStatus(withdrawalId) {
 }
 window.saveWithdrawalStatus = saveWithdrawalStatus;
 
-// Initiate refund: update status to REFUNDED
-async function initiateWithdrawalRefund(withdrawalId) {
-  const selectEl = document.getElementById(`modal-refund-status-${withdrawalId}`);
-  const newStatus = selectEl ? selectEl.value : 'REFUNDED';
+// Initiate refund: independent of the status dropdown. Asks for confirmation, then
+// triggers the real Barion refund; status becomes REFUNDED automatically on success.
+async function initiateWithdrawalRefund(withdrawalId, alreadyRefunded = false) {
+  if (alreadyRefunded) {
+    showAlertModal('Ennél az elállásnál a visszatérítés már megtörtént (a státusz „Visszatérítve”), új visszautalás nem indítható.', 'Már visszatérítve', 'warning');
+    return;
+  }
+
+  const confirmed = await showConfirmModal({
+    title: 'Visszautalás indítása',
+    message: 'Valóban elindítod a visszautalást? A rendszer a Barionon keresztül visszautalja az összeget az ügyfél kártyájára, kiállítja a sztornó/helyesbítő számlát és értesítő e-mailt küld. A művelet nem vonható vissza. Sikeres visszautalás után a státusz automatikusan „Visszatérítve” lesz.',
+    confirmText: 'Igen, visszautalás indítása',
+    cancelText: 'Mégse',
+    variant: 'warning',
+    badge: 'Pénzmozgás'
+  });
+  if (!confirmed) return;
 
   try {
     const res = await fetch(`/api/admin/withdrawals/${withdrawalId}`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ refund_status: newStatus === 'PENDING' ? 'REFUNDED' : newStatus })
+      body: JSON.stringify({ refund_status: 'REFUNDED' })
     });
-    if (!res.ok) throw new Error((await res.json()).error);
-    showToast('Visszatérítési státusz frissítve!', 'success');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Ismeretlen hiba a visszatérítés közben.');
+    showToast('Visszatérítés elindítva, a státusz: Visszatérítve.', 'success');
     document.getElementById('withdrawal-investigation-modal')?.remove();
     await loadAdminWithdrawals();
   } catch (err) {
@@ -6647,7 +6661,7 @@ async function initiateWithdrawalRefund(withdrawalId) {
     showAlertModal(err.message, 'Visszatérítés sikertelen', 'danger');
   }
 }
-
+window.initiateWithdrawalRefund = initiateWithdrawalRefund;
 // Open message modal
 function openWithdrawalMessageModal(withdrawalId, customerName, customerEmail, contractId) {
   const existing = document.getElementById('withdrawal-message-modal');
