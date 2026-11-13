@@ -66,9 +66,9 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="lookup-id">Szerződés, jegy, vagy rendelés (fizetés) azonosító</label>
-          <input type="text" id="lookup-id" class="form-control" placeholder="Pl. Jegy ID (szám) vagy Barion fizetési azonosító" required>
+          <input type="text" id="lookup-id" class="form-control" placeholder="Pl. HS-000123 vagy Barion fizetési azonosító" required>
           <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 5px;">
-            A vásárláskor kapott e-mailben szereplő jegy sorszámát vagy tranzakciós azonosítót add meg.
+            Add meg a jegy azonosítóját (HS-000123 formátum; megtalálod a profilodban a jegy adatainál, a vásárlásról kapott e-mailben és a letölthető PDF jegyen), vagy a Barion tranzakciós azonosítót.
           </small>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Keresés és ellenőrzés</button>
@@ -172,6 +172,11 @@
   </footer>
 
   <script>
+    // Prefill ticket ID from dashboard link (withdrawal.html?id=HS-000123)
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = new URLSearchParams(window.location.search).get('id');
+      if (pre) document.getElementById('lookup-id').value = pre;
+    });
     let lookupResult = null;
     let identifierValue = '';
 
@@ -249,7 +254,7 @@
           card.innerHTML = `
             <div>
               <h4 style="font-size: 15px; color: #ffffff; margin-bottom: 4px;">${typeLabel}</h4>
-              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Azonosító: #${ticket.id}</p>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Azonosító: HS-${String(ticket.id).padStart(6, '0')}</p>
               <p style="color: var(--text-muted); font-size: 11px;">
                 Vásárlás dátuma: ${formattedDate} | Hátralévő alkalmak: ${ticket.sessions_remaining}
               </p>
@@ -325,7 +330,7 @@
         data.tickets.forEach(ticket => {
           const li = document.createElement('li');
           let typeText = (ticket.type && ticket.type.startsWith('NAPI')) ? 'Napijegy' : ((ticket.type && ticket.type.startsWith('TIZ')) ? '10 Alkalmas Bérlet' : 'Korlátlan Havi Bérlet');
-          li.innerHTML = `<strong>${typeText}</strong> (ID: #${ticket.id}) - Érvénytelenítve`;
+          li.innerHTML = `<strong>${typeText}</strong> (ID: HS-${String(ticket.id).padStart(6, '0')}) - Érvénytelenítve`;
           ticketsUl.appendChild(li);
         });
 

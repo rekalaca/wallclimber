@@ -2287,7 +2287,7 @@ function renderDashboardTickets(filter) {
     if (t.status === 'ACTIVE') {
       if (diffDays <= 14) {
         withdrawalBtnHtml = `
-          <a href="withdrawal.html?id=${t.id}" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">
+          <a href="withdrawal.html?id=${'HS-' + String(t.id).padStart(6, '0')}" class="btn btn-secondary btn-sm" style="padding: 10px 15px; width: fit-content; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">
             Elállás a szerződéstől
           </a>
         `;
@@ -2308,6 +2308,7 @@ function renderDashboardTickets(filter) {
                   ${hungarianType} 
                   <span class="badge ${statusLabelClass}" style="font-size:9px; padding:3px 8px;">${statusText}</span>
                 </h4>
+                <p style="margin-top: 4px; font-size: 12px; color: var(--text-secondary);">Jegy azonosító: <strong style="color: var(--primary); letter-spacing: 0.04em; user-select: all;">${'HS-' + String(t.id).padStart(6, '0')}</strong></p>
                 <p style="margin-top: 4px;">${usageText}</p>
                 <p class="ticket-dates" style="margin-top:4px; font-size:11px; color:var(--text-muted);">Vásárlás: ${purchaseDisplay} | Lejárat: ${t.expires_date}</p>
               </div>

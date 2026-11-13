@@ -2783,6 +2783,15 @@ app.post('/api/tickets/purchase', authenticateToken, async (req, res) => {
   }
 });
 
+// Human-readable ticket code (HS-000123) used for customer references & withdrawal
+function formatTicketCode(id) {
+  return 'HS-' + String(id).padStart(6, '0');
+}
+function parseTicketCode(input) {
+  const m = /^\s*(?:HS[-\s]?)?#?0*(\d+)\s*$/i.exec(String(input || ''));
+  return m ? m[1] : null;
+}
+
 // Helper to generate PDF buffer with solid background QR code
 function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel.app') {
   return new Promise(async (resolve, reject) => {
@@ -2842,7 +2851,7 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
       // Draw card background
       doc.strokeColor('#e2e8f0')
          .lineWidth(1)
-         .rect(50, 95, doc.page.width - 100, 160)
+         .rect(50, 95, doc.page.width - 100, 185)
          .stroke();
 
       // User and ticket credentials
@@ -2877,6 +2886,12 @@ function generatePDFBuffer(ticket, climber, domain = 'https://wallclimber.vercel
          .font(fontName)
          .text(`Jegytípus: ${HungarianType}`, 65, 230)
          .text(`Lejárat dátuma: ${ticket.expires_date}`, 65, 242);
+
+      // Ticket reference ID (for customer service / withdrawal), under the QR code
+      doc.font(fontBoldName).fontSize(11).fillColor('#000000')
+         .text(`Jegy azonosító: ${formatTicketCode(ticket.id)}`, 340, 250, { width: 220, align: 'center' });
+      doc.font(fontName).fontSize(7.5).fillColor('#666666')
+         .text('Ezzel hivatkozhatsz a jegyre az ügyfélszolgálatnál és az elállási nyilatkozaton.', 340, 264, { width: 220, align: 'center' });
 
       // Embed QR code on the right side of the card
       doc.image(qrBuffer, 380, 105, { width: 140 });
@@ -3144,14 +3159,14 @@ async function sendBookingConfirmationEmail(climber, info, domain) {
       const price = c ? `${c.price.toLocaleString('hu-HU')} Ft` : '';
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-          <td style="padding: 8px 6px; color: #ff6b00; font-weight: 700;">🎫 #${t.id}</td>
+          <td style="padding: 8px 6px; color: #ff6b00; font-weight: 700;">🎫 ${formatTicketCode(t.id)}</td>
           <td style="padding: 8px 6px; color: #ffffff;">${name}</td>
           <td style="padding: 8px 6px; color: #ffffff; text-align: right; font-weight: 600;">${price}</td>
         </tr>
       `;
     }).join('');
 
-    const ticketIdsText = ticketsList.map(t => `#${t.id}`).join(', ');
+    const ticketIdsText = ticketsList.map(t => formatTicketCode(t.id)).join(', ');
 
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
@@ -3160,7 +3175,7 @@ async function sendBookingConfirmationEmail(climber, info, domain) {
         subject: `HawkStone Jegyvásárlás - ${HungarianType}${ticketsList.length > 1 ? ` (+${ticketsList.length - 1} db jegy)` : ''}`,
         text: `Kedves ${climber.name}!\n\nKöszönjük jegyvásárlásodat a HawkStone Városi Mászóklubban.\n\nA vásárolt jegyek:\n${ticketsList.map(t => {
           const c = getTicketConfig(t.ticket_type);
-          return `- #${t.id}: ${c ? c.fullName : t.ticket_type} (${c ? c.price.toLocaleString('hu-HU') : ''} Ft)`;
+          return `- ${formatTicketCode(t.id)}: ${c ? c.fullName : t.ticket_type} (${c ? c.price.toLocaleString('hu-HU') : ''} Ft)`;
         }).join('\n')}\n\nÖsszesen fizetve: ${totalAmountText}\nVásárlás dátuma: ${ticket.purchase_date.substring(0, 10)}\nLejárat dátuma: ${ticket.expires_date}\n\nELÁLLÁSI / FELMONDÁSI JOG: A vásárlástól számított 14 napon belül elállhatsz a szerződéstől. Tájékoztatjuk, hogy a 45/2014. (II. 26.) Korm. rendelet értelmében a vásárlással kifejezetten kérte a szolgáltatás teljesítésének megkezdését az elállási határidő lejárta előtt. Tudomásul veszi, hogy az azonnali megkezdés miatt elállás (szerződés felmondás) esetén köteles megtéríteni számunkra a szerződés megszűnésének időpontjáig arányosan teljesített szolgáltatásért járó összeget, illetve napijegy esetén a szolgáltatás teljes egészének teljesítését követően (a terembe való belépéssel) elállási/felmondási jogát elveszíti. Az elálláshoz szükséges a Jegy azonosítója (${ticketIdsText}), melyet megadhatsz az elállási oldalon: ${domain}/withdrawal.html\n\nA belépő QR kódot és a szabályzatot tartalmazó PDF igazolást csatoltuk ehhez a levélhez.\n\nÜdvözlettel,\nHawkStone Csapata`,
         html: `
           <div style="font-family: 'Inter', sans-serif; background-color: #0c0e17; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.08);">
@@ -3612,7 +3627,7 @@ ${tetelekXml}
                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Jegy ID:</td>
-                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">#${ticket.id}</td>
+                   <td style="padding: 6px 0; color: #ffffff; text-align: right; font-weight: 600;">${formatTicketCode(ticket.id)}</td>
                  </tr>
                  <tr>
                    <td style="padding: 6px 0; color: #94a3b8;">Jegytípus:</td>
@@ -4979,6 +4994,7 @@ app.post('/api/withdrawal/lookup', async (req, res) => {
       WHERE t.user_id = ? 
         AND (
           CAST(t.id AS TEXT) = ? 
+          OR CAST(t.id AS TEXT) = ?
           OR t.qr_code_uuid = ? 
           OR date(t.purchase_date) = (
             SELECT date(created_at) 
@@ -4986,7 +5002,7 @@ app.post('/api/withdrawal/lookup', async (req, res) => {
             WHERE payment_id = ? AND user_id = ?
           )
         )
-    `, [user.id, identifier.trim(), identifier.trim(), identifier.trim(), user.id]);
+    `, [user.id, identifier.trim(), parseTicketCode(identifier) || '-1', identifier.trim(), identifier.trim(), user.id]);
 
     if (tickets.length === 0) {
       return res.status(404).json({ error: 'Nem található a megadott azonosítóhoz kapcsolódó aktív vagy lejárt jegy/bérlet ehhez a felhasználóhoz!' });
@@ -5144,7 +5160,7 @@ app.post('/api/withdrawal/confirm', async (req, res) => {
 
       processedDetails.push(`
         <li style="margin: 0 0 10px 0; padding: 0 0 10px 0; border-bottom: 1px solid ${MAIL_THEME.border}; color: ${MAIL_THEME.strong}; font-size: 14px; font-weight: 600;">
-          ${typeLabel} <span style="font-weight: 400; color: ${MAIL_THEME.muted};">(Azonosító: #${ticket.id})</span><br>
+          ${typeLabel} <span style="font-weight: 400; color: ${MAIL_THEME.muted};">(Azonosító: ${formatTicketCode(ticket.id)})</span><br>
           <span style="color: ${MAIL_THEME.muted}; font-size: 12px; font-weight: 400;">Vásárolva: ${ticket.purchase_date.substring(0, 10)} | Fennmaradó alkalmak: ${ticket.sessions_remaining}</span>
         </li>
       `);
@@ -5188,7 +5204,7 @@ Vásárló e-mail címe: ${email.trim()}
 Nyilatkozat beérkezésének pontos ideje: ${hungarianTimeStr}
 
 Érintett szolgáltatások:
-${validTickets.map(t => `- Jegy ID: #${t.id}, Típus: ${(getTicketConfig(t.ticket_type) || {}).fullName || t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}
+${validTickets.map(t => `- Jegy azonosító: ${formatTicketCode(t.id)}, Típus: ${(getTicketConfig(t.ticket_type) || {}).fullName || t.ticket_type}, Fennmaradó alkalmak: ${t.sessions_remaining}`).join('\n')}
 
 ${cancelledBookings.length > 0 ? `Törölt időpontfoglalások:\n${cancelledBookings.map(b => `- ${b.booking_date} ${b.start_time}–${b.end_time}`).join('\n')}\nAz elállással a lefoglalt, még le nem zajlott időpontjaid törlődtek. Új jegy vásárlása esetén új időpontfoglalás szükséges.\n\n` : ''}Mi történik ezután?
 Munkatársaink megvizsgálják az elállás jogosságát (pl. fel nem használt alkalmak ellenőrzése). Amennyiben az elállás megfelel az ÁSZF-ben foglalt feltételeknek, a vételárat 14 napon belül visszatérítjük arra a bankkártyára, amellyel a vásárlás történt.
@@ -5697,7 +5713,7 @@ app.post('/api/admin/withdrawals/:id/message', authenticateToken, requireRole(['
         <div style="background: ${MAIL_THEME.panel}; border: 1px solid ${MAIL_THEME.border}; border-radius: 10px; padding: 14px 20px; margin: 0 0 18px 0;">
           <table style="width: 100%; border-collapse: collapse;">
             ${mailRow('Elállás azonosítója', '#' + withdrawal.contract_id)}
-            ${mailRow('Jegy ID', '#' + withdrawal.ticket_id)}
+            ${mailRow('Jegy azonosító', formatTicketCode(withdrawal.ticket_id))}
           </table>
         </div>
         <div style="border-left: 3px solid ${MAIL_THEME.accent}; background: ${MAIL_THEME.panel}; padding: 14px 18px; border-radius: 6px; font-size: 14px; line-height: 1.7; color: ${MAIL_THEME.text}; white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`,
